@@ -1,0 +1,18 @@
+# Audio files
+*.wav
+*.mp3
+
+# Large media (screenshots can be added selectively)
+*.png
+*.jpg
+*.jpeg
+
+# PDF documents
+*.pdf
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# Local environment
+.env
+.env.local

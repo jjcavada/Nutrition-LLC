@@ -1,0 +1,1928 @@
+{
+    "name": "GHL - Client Onboarding - Phase 2: Agreement Signed + QB Setup",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": 1853116,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 2,
+            "module": "util:SetVariables",
+            "version": 1,
+            "parameters": {},
+            "filter": {
+                "name": "Signed Only",
+                "conditions": [
+                    [
+                        {
+                            "a": "{{1.event.type}}",
+                            "b": "document_completed",
+                            "o": "text:equal"
+                        }
+                    ]
+                ]
+            },
+            "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                    {
+                        "name": "signerEmail",
+                        "value": "{{1.data.object.recipients[1].email}}"
+                    },
+                    {
+                        "name": "signerName",
+                        "value": "{{1.data.object.recipients[1].name}}"
+                    },
+                    {
+                        "name": "documentId",
+                        "value": "{{1.data.object.id}}"
+                    },
+                    {
+                        "name": "signedAt",
+                        "value": "{{1.data.object.updated_at}}"
+                    },
+                    {
+                        "name": "signedPdfUrl",
+                        "value": "{{1.data.object.embedded_preview_url}}"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "scope": {
+                            "label": "One cycle"
+                        },
+                        "variables": {
+                            "items": [
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                            ]
+                        }
+                    }
+                },
+                "expect": [
+                    {
+                        "name": "variables",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Variable name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "any",
+                                "label": "Variable value"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Variables"
+                    },
+                    {
+                        "name": "scope",
+                        "type": "select",
+                        "label": "Variable lifetime",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "roundtrip",
+                                "execution"
+                            ]
+                        }
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "signerEmail",
+                        "type": "any",
+                        "label": "signerEmail"
+                    },
+                    {
+                        "name": "signerName",
+                        "type": "any",
+                        "label": "signerName"
+                    },
+                    {
+                        "name": "documentId",
+                        "type": "any",
+                        "label": "documentId"
+                    },
+                    {
+                        "name": "signedAt",
+                        "type": "any",
+                        "label": "signedAt"
+                    },
+                    {
+                        "name": "signedPdfUrl",
+                        "type": "any",
+                        "label": "signedPdfUrl"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 3,
+            "module": "highlevel:searchContacts",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "limit": "1",
+                "search": "{{2.signerEmail}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 4,
+            "module": "highlevel:listOpportunities",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "limit": "1",
+                "pipeline": "t6tPDiRCfcKiVr7vUkxW",
+                "contactId": "{{3.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 900,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 15,
+            "module": "quickbooks:CreateCustomer",
+            "version": 2,
+            "parameters": {
+                "__IMTCONN__": 7314664
+            },
+            "mapper": {
+                "BillAddr": {},
+                "ShipAddr": {},
+                "DisplayName": "{{2.signerName}}",
+                "PrimaryPhone": "{{3.phone}}",
+                "PrimaryEmailAddr": "{{2.signerEmail}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1148,
+                    "y": 3
+                }
+            }
+        },
+        {
+            "id": 16,
+            "module": "quickbooks:CreateInvoice",
+            "version": 2,
+            "parameters": {
+                "__IMTCONN__": 7314664
+            },
+            "mapper": {
+                "Line": [
+                    {
+                        "Qty": "1",
+                        "type": "SalesItemLineDetail",
+                        "Amount": "1",
+                        "UnitPrice": "1",
+                        "Description": "Card on file setup - refundable"
+                    }
+                ],
+                "BillAddr": {},
+                "ShipAddr": {},
+                "discount": {},
+                "BillEmail": "{{2.signerEmail}}",
+                "CustomerRef": "{{15.Id}}",
+                "CustomerMemo": "Welcome to Nutrition Intuition! This $1.00 charge is fully refundable and used to securely save your payment method on file.",
+                "TxnTaxDetail": {},
+                "AllowOnlineACHPayment": true,
+                "AllowOnlineCreditCardPayment": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1410,
+                    "y": 7
+                },
+                "restore": {
+                    "expect": {
+                        "Line": {
+                            "mode": "chose",
+                            "items": [
+                                {
+                                    "type": {
+                                        "mode": "chose",
+                                        "label": "Inventory, Non-Inventory or Service"
+                                    },
+                                    "ItemRef": {
+                                        "mode": "chose",
+                                        "label": "Empty"
+                                    },
+                                    "ClassRef": {
+                                        "mode": "chose",
+                                        "label": "Empty"
+                                    },
+                                    "TaxCodeRef": {
+                                        "mode": "chose",
+                                        "label": "Empty"
+                                    }
+                                }
+                            ]
+                        },
+                        "ClassRef": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "discount": {
+                            "nested": {
+                                "type": {
+                                    "mode": "chose",
+                                    "label": "Empty"
+                                }
+                            }
+                        },
+                        "CustomerRef": {
+                            "mode": "edit"
+                        },
+                        "SalesTermRef": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "TxnTaxDetail": {
+                            "nested": {
+                                "TxnTaxCodeRef": {
+                                    "mode": "chose",
+                                    "label": "Empty"
+                                }
+                            }
+                        },
+                        "DepartmentRef": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "DepositToAccountRef": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "AllowOnlineACHPayment": {
+                            "mode": "chose"
+                        },
+                        "ApplyTaxAfterDiscount": {
+                            "mode": "chose"
+                        },
+                        "AllowOnlineCreditCardPayment": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "quickbooks2"
+                            },
+                            "label": "My QuickBooks connection (Nutrition LLC (US))"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:quickbooks2,quickbooks",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "CustomerRef",
+                        "type": "select",
+                        "label": "Customer",
+                        "required": true
+                    },
+                    {
+                        "name": "Line",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "select",
+                                "label": "Line Item Type",
+                                "options": [
+                                    {
+                                        "label": "Inventory, Non-Inventory or Service",
+                                        "value": "SalesItemLineDetail",
+                                        "nested": [
+                                            {
+                                                "name": "Amount",
+                                                "type": "number",
+                                                "label": "Amount",
+                                                "required": true
+                                            },
+                                            {
+                                                "name": "Description",
+                                                "type": "text",
+                                                "label": "Description",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "Qty",
+                                                "type": "number",
+                                                "label": "Quantity",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "UnitPrice",
+                                                "type": "number",
+                                                "label": "Unit price",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "ItemRef",
+                                                "type": "select",
+                                                "label": "Item",
+                                                "options": "rpc://quickbooks/2/Items",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "ServiceDate",
+                                                "type": "date",
+                                                "label": "Service date",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "TaxCodeRef",
+                                                "type": "select",
+                                                "label": "Tax code",
+                                                "options": "rpc://quickbooks/2/TaxCodes",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "ClassRef",
+                                                "type": "select",
+                                                "label": "Class",
+                                                "options": "rpc://quickbooks/2/Classes",
+                                                "required": false
+                                            }
+                                        ],
+                                        "default": true
+                                    },
+                                    {
+                                        "label": "Bundles",
+                                        "value": "GroupLineDetail",
+                                        "nested": [
+                                            {
+                                                "name": "Qty",
+                                                "type": "number",
+                                                "label": "Quantity",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "GroupItemRef",
+                                                "type": "select",
+                                                "label": "Bundle Item",
+                                                "options": "rpc://quickbooks/2/bundles",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "Line",
+                                                "spec": [
+                                                    {
+                                                        "name": "Amount",
+                                                        "type": "number",
+                                                        "label": "Amount",
+                                                        "required": true
+                                                    },
+                                                    {
+                                                        "name": "Description",
+                                                        "type": "text",
+                                                        "label": "Description",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "Qty",
+                                                        "type": "number",
+                                                        "label": "Quantity",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "UnitPrice",
+                                                        "type": "number",
+                                                        "label": "Unit price",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "ItemRef",
+                                                        "type": "select",
+                                                        "label": "Item",
+                                                        "options": "rpc://quickbooks/2/Items",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "ServiceDate",
+                                                        "type": "date",
+                                                        "label": "Service date",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "TaxCodeRef",
+                                                        "type": "select",
+                                                        "label": "Tax code",
+                                                        "options": "rpc://quickbooks/2/TaxCodes",
+                                                        "required": false
+                                                    },
+                                                    {
+                                                        "name": "ClassRef",
+                                                        "type": "select",
+                                                        "label": "Class",
+                                                        "options": "rpc://quickbooks/2/Classes",
+                                                        "required": false
+                                                    }
+                                                ],
+                                                "type": "array",
+                                                "label": "Lines",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "Description",
+                                                "type": "text",
+                                                "label": "Description",
+                                                "required": false
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "label": "Description Line",
+                                        "value": "DescriptionLineDetail",
+                                        "nested": [
+                                            {
+                                                "name": "TaxCodeRef",
+                                                "type": "select",
+                                                "label": "Tax Code",
+                                                "options": "rpc://quickbooks/2/TaxCodes",
+                                                "required": true
+                                            },
+                                            {
+                                                "name": "ServiceDate",
+                                                "type": "date",
+                                                "label": "Service Date",
+                                                "required": false
+                                            },
+                                            {
+                                                "name": "Description",
+                                                "type": "text",
+                                                "label": "Description",
+                                                "required": false
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "required": true
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Lines",
+                        "required": true,
+                        "validate": {
+                            "minItems": 1
+                        }
+                    },
+                    {
+                        "name": "TxnTaxDetail",
+                        "spec": [
+                            {
+                                "name": "TxnTaxCodeRef",
+                                "type": "select",
+                                "label": "Tax code"
+                            },
+                            {
+                                "name": "TotalTax",
+                                "type": "number",
+                                "label": "Total tax"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Transaction tax detail"
+                    },
+                    {
+                        "name": "DepartmentRef",
+                        "type": "select",
+                        "label": "Department"
+                    },
+                    {
+                        "name": "ClassRef",
+                        "type": "select",
+                        "label": "Class"
+                    },
+                    {
+                        "name": "SalesTermRef",
+                        "type": "select",
+                        "label": "Sales term"
+                    },
+                    {
+                        "name": "DepositToAccountRef",
+                        "type": "select",
+                        "label": "Deposit to Account"
+                    },
+                    {
+                        "name": "BillEmail",
+                        "type": "text",
+                        "label": "Bill email"
+                    },
+                    {
+                        "name": "ShipMethodRef",
+                        "type": "text",
+                        "label": "Shipping method"
+                    },
+                    {
+                        "name": "DocNumber",
+                        "type": "text",
+                        "label": "Doc number"
+                    },
+                    {
+                        "name": "TxnSource",
+                        "type": "text",
+                        "label": "Transaction source"
+                    },
+                    {
+                        "name": "PrivateNote",
+                        "type": "text",
+                        "label": "Private note"
+                    },
+                    {
+                        "name": "CustomerMemo",
+                        "type": "text",
+                        "label": "Customer memo"
+                    },
+                    {
+                        "name": "DueDate",
+                        "type": "date",
+                        "label": "Due date"
+                    },
+                    {
+                        "name": "TxnDate",
+                        "type": "date",
+                        "label": "Transaction date"
+                    },
+                    {
+                        "name": "ShipDate",
+                        "time": false,
+                        "type": "date",
+                        "label": "Ship date"
+                    },
+                    {
+                        "name": "TrackingNum",
+                        "type": "text",
+                        "label": "Tracking num"
+                    },
+                    {
+                        "name": "CustomField1",
+                        "type": "text",
+                        "label": "Custom field 1"
+                    },
+                    {
+                        "name": "CustomField2",
+                        "type": "text",
+                        "label": "Custom field 2"
+                    },
+                    {
+                        "name": "CustomField3",
+                        "type": "text",
+                        "label": "Custom field 3"
+                    },
+                    {
+                        "name": "ShipAddr",
+                        "spec": [
+                            {
+                                "name": "Line1",
+                                "type": "text",
+                                "label": "Line 1"
+                            },
+                            {
+                                "name": "Line2",
+                                "type": "text",
+                                "label": "Line 2"
+                            },
+                            {
+                                "name": "City",
+                                "type": "text"
+                            },
+                            {
+                                "name": "PostalCode",
+                                "type": "text",
+                                "label": "Postal code"
+                            },
+                            {
+                                "name": "CountrySubDivisionCode",
+                                "type": "text",
+                                "label": "Country sub division code"
+                            },
+                            {
+                                "name": "Country",
+                                "type": "text"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Shipping address"
+                    },
+                    {
+                        "name": "BillAddr",
+                        "spec": [
+                            {
+                                "name": "Line1",
+                                "type": "text",
+                                "label": "Line 1"
+                            },
+                            {
+                                "name": "Line2",
+                                "type": "text",
+                                "label": "Line 2"
+                            },
+                            {
+                                "name": "City",
+                                "type": "text"
+                            },
+                            {
+                                "name": "PostalCode",
+                                "type": "text",
+                                "label": "Postal code"
+                            },
+                            {
+                                "name": "CountrySubDivisionCode",
+                                "type": "text",
+                                "label": "Country sub division code"
+                            },
+                            {
+                                "name": "Country",
+                                "type": "text"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Billing address"
+                    },
+                    {
+                        "name": "discount",
+                        "spec": [
+                            {
+                                "name": "type",
+                                "type": "select",
+                                "label": "Type",
+                                "validate": {
+                                    "enum": [
+                                        "amount",
+                                        "percent"
+                                    ]
+                                }
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Discount"
+                    },
+                    {
+                        "name": "AllowOnlineACHPayment",
+                        "type": "boolean",
+                        "label": "Allow online ACH payment"
+                    },
+                    {
+                        "name": "AllowOnlineCreditCardPayment",
+                        "type": "boolean",
+                        "label": "Allow online credit card payment"
+                    },
+                    {
+                        "name": "CurrencyRef",
+                        "type": "text",
+                        "label": "Currency"
+                    },
+                    {
+                        "name": "ExchangeRate",
+                        "type": "number",
+                        "label": "Exchange rate"
+                    },
+                    {
+                        "name": "ApplyTaxAfterDiscount",
+                        "type": "boolean",
+                        "label": "Apply tax after discount"
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "Deposit",
+                        "type": "number",
+                        "label": "Deposit"
+                    },
+                    {
+                        "name": "AllowIPNPayment",
+                        "type": "boolean",
+                        "label": "Allow IPNP payment"
+                    },
+                    {
+                        "name": "AllowOnlinePayment",
+                        "type": "boolean",
+                        "label": "Allow online payment"
+                    },
+                    {
+                        "name": "AllowOnlineCreditCardPayment",
+                        "type": "boolean",
+                        "label": "Allow online credit card payment"
+                    },
+                    {
+                        "name": "AllowOnlineACHPayment",
+                        "type": "boolean",
+                        "label": "Allow online ACHP payment"
+                    },
+                    {
+                        "name": "Id",
+                        "type": "text",
+                        "label": "Invoice ID"
+                    },
+                    {
+                        "name": "SyncToken",
+                        "type": "text",
+                        "label": "Sync token"
+                    },
+                    {
+                        "name": "MetaData",
+                        "spec": [
+                            {
+                                "name": "CreateTime",
+                                "type": "date",
+                                "label": "Create time"
+                            },
+                            {
+                                "name": "LastUpdatedTime",
+                                "type": "date",
+                                "label": "Last updated time"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Meta data"
+                    },
+                    {
+                        "name": "CustomField",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "DefinitionId",
+                                    "type": "text",
+                                    "label": "Definition id"
+                                },
+                                {
+                                    "name": "Type",
+                                    "type": "text",
+                                    "label": "Type"
+                                },
+                                {
+                                    "name": "StringValue",
+                                    "type": "text",
+                                    "label": "String value"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array",
+                        "label": "Custom field"
+                    },
+                    {
+                        "name": "DocNumber",
+                        "type": "text",
+                        "label": "Doc number"
+                    },
+                    {
+                        "name": "TxnDate",
+                        "type": "date",
+                        "label": "Transaction date"
+                    },
+                    {
+                        "name": "CurrencyRef",
+                        "spec": [
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Currency"
+                    },
+                    {
+                        "name": "PrivateNote",
+                        "type": "text",
+                        "label": "Private note"
+                    },
+                    {
+                        "name": "LinkedTxn",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "TxnId",
+                                    "type": "text",
+                                    "label": "Txn id"
+                                },
+                                {
+                                    "name": "TxnType",
+                                    "type": "text",
+                                    "label": "Txn type"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array",
+                        "label": "Linked txn"
+                    },
+                    {
+                        "name": "Line",
+                        "spec": {
+                            "spec": [
+                                {
+                                    "name": "Id",
+                                    "type": "text",
+                                    "label": "Id"
+                                },
+                                {
+                                    "name": "LineNum",
+                                    "type": "number",
+                                    "label": "Line num"
+                                },
+                                {
+                                    "name": "Description",
+                                    "type": "text",
+                                    "label": "Description"
+                                },
+                                {
+                                    "name": "Amount",
+                                    "type": "number",
+                                    "label": "Amount"
+                                },
+                                {
+                                    "name": "DetailType",
+                                    "type": "text",
+                                    "label": "Detail type"
+                                },
+                                {
+                                    "name": "SalesItemLineDetail",
+                                    "spec": [
+                                        {
+                                            "name": "ItemRef",
+                                            "spec": [
+                                                {
+                                                    "name": "value",
+                                                    "type": "text",
+                                                    "label": "Value"
+                                                },
+                                                {
+                                                    "name": "name",
+                                                    "type": "text",
+                                                    "label": "Name"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Item"
+                                        },
+                                        {
+                                            "name": "UnitPrice",
+                                            "type": "number",
+                                            "label": "Unit price"
+                                        },
+                                        {
+                                            "name": "Qty",
+                                            "type": "number",
+                                            "label": "Quantity"
+                                        },
+                                        {
+                                            "name": "TaxCodeRef",
+                                            "spec": [
+                                                {
+                                                    "name": "value",
+                                                    "type": "text",
+                                                    "label": "Value"
+                                                }
+                                            ],
+                                            "type": "collection",
+                                            "label": "Tax code ref"
+                                        }
+                                    ],
+                                    "type": "collection",
+                                    "label": "Sales item line detail"
+                                }
+                            ],
+                            "type": "collection"
+                        },
+                        "type": "array",
+                        "label": "Line"
+                    },
+                    {
+                        "name": "CustomerRef",
+                        "spec": [
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Customer"
+                    },
+                    {
+                        "name": "CustomerMemo",
+                        "spec": [
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Customer memo"
+                    },
+                    {
+                        "name": "BillAddr",
+                        "spec": [
+                            {
+                                "name": "Id",
+                                "type": "text",
+                                "label": "Id"
+                            },
+                            {
+                                "name": "Line1",
+                                "type": "text",
+                                "label": "Line 1"
+                            },
+                            {
+                                "name": "Line2",
+                                "type": "text",
+                                "label": "Line 2"
+                            },
+                            {
+                                "name": "City",
+                                "type": "text",
+                                "label": "City"
+                            },
+                            {
+                                "name": "Country",
+                                "type": "text",
+                                "label": "Country"
+                            },
+                            {
+                                "name": "CountrySubDivisionCode",
+                                "type": "text",
+                                "label": "Country sub division code"
+                            },
+                            {
+                                "name": "PostalCode",
+                                "type": "text",
+                                "label": "Postal code"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Bill address"
+                    },
+                    {
+                        "name": "ShipAddr",
+                        "spec": [
+                            {
+                                "name": "Id",
+                                "type": "text",
+                                "label": "Id"
+                            },
+                            {
+                                "name": "Line1",
+                                "type": "text",
+                                "label": "Line 1"
+                            },
+                            {
+                                "name": "Line2",
+                                "type": "text",
+                                "label": "Line 2"
+                            },
+                            {
+                                "name": "City",
+                                "type": "text",
+                                "label": "City"
+                            },
+                            {
+                                "name": "Country",
+                                "type": "text",
+                                "label": "Country"
+                            },
+                            {
+                                "name": "CountrySubDivisionCode",
+                                "type": "text",
+                                "label": "Country sub division code"
+                            },
+                            {
+                                "name": "PostalCode",
+                                "type": "text",
+                                "label": "Postal code"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Ship address"
+                    },
+                    {
+                        "name": "SalesTermRef",
+                        "spec": [
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Sales term"
+                    },
+                    {
+                        "name": "DueDate",
+                        "type": "date",
+                        "label": "Due date"
+                    },
+                    {
+                        "name": "ShipMethodRef",
+                        "spec": [
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            },
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Ship method"
+                    },
+                    {
+                        "name": "ShipDate",
+                        "type": "date",
+                        "label": "Ship date"
+                    },
+                    {
+                        "name": "TrackingNum",
+                        "type": "text",
+                        "label": "Tracking num"
+                    },
+                    {
+                        "name": "TotalAmt",
+                        "type": "number",
+                        "label": "Total amount"
+                    },
+                    {
+                        "name": "PrintStatus",
+                        "type": "text",
+                        "label": "Print status"
+                    },
+                    {
+                        "name": "EmailStatus",
+                        "type": "text",
+                        "label": "Email status"
+                    },
+                    {
+                        "name": "BillEmail",
+                        "spec": [
+                            {
+                                "name": "Address",
+                                "type": "text",
+                                "label": "Address"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Bill email"
+                    },
+                    {
+                        "name": "Balance",
+                        "type": "number",
+                        "label": "Balance"
+                    },
+                    {
+                        "name": "ApplyTaxAfterDiscount",
+                        "type": "boolean",
+                        "label": "Apply tax after discount",
+                        "advanced": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 17,
+            "module": "quickbooks:SendInvoice",
+            "version": 2,
+            "parameters": {
+                "__IMTCONN__": 7314664
+            },
+            "mapper": {
+                "id": "{{16.Id}}",
+                "sendTo": "{{2.signerEmail}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1661,
+                    "y": 3
+                },
+                "restore": {
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "quickbooks2"
+                            },
+                            "label": "My QuickBooks connection (Nutrition LLC (US))"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:quickbooks2,quickbooks",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "id",
+                        "type": "number",
+                        "label": "Invoice ID",
+                        "required": true
+                    },
+                    {
+                        "name": "sendTo",
+                        "type": "email",
+                        "label": "Send to"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 10,
+            "module": "highlevel:updateAnOpportunity",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "select": "existing",
+                "status": "open",
+                "stageId": "04ec66ef-3c01-4de5-9d41-d4030888a1bf",
+                "pipeline": "{{4.pipelineId}}",
+                "opportunity": "{{4.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1918,
+                    "y": 1
+                },
+                "restore": {
+                    "expect": {
+                        "tags": {
+                            "mode": "chose"
+                        },
+                        "select": {
+                            "label": "Use an existing contact"
+                        },
+                        "status": {
+                            "mode": "chose",
+                            "label": "Open"
+                        },
+                        "contact": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "pipeline": {
+                            "mode": "edit"
+                        },
+                        "assignedTo": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "mode": "edit",
+                        "name": "pipeline",
+                        "type": "select",
+                        "label": "Pipeline ID",
+                        "required": true
+                    },
+                    {
+                        "name": "title",
+                        "type": "text",
+                        "label": "Name"
+                    },
+                    {
+                        "name": "status",
+                        "type": "select",
+                        "label": "Status",
+                        "validate": {
+                            "enum": [
+                                "open",
+                                "won",
+                                "lost",
+                                "abandoned"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "assignedTo",
+                        "type": "select",
+                        "label": "Assigned To"
+                    },
+                    {
+                        "name": "monetaryValue",
+                        "type": "number",
+                        "label": "Monetary Value"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Select a Method (Deprecated)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "existing",
+                                "create"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source (Deprecated)"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "select",
+                        "label": "Tags (Deprecated)",
+                        "multiple": true
+                    },
+                    {
+                        "name": "opportunity",
+                        "type": "any",
+                        "label": "Opportunity ID",
+                        "required": true
+                    },
+                    {
+                        "name": "stageId",
+                        "type": "text",
+                        "label": "Stage ID"
+                    },
+                    {
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID (Deprecated)"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 6,
+            "module": "highlevel:updateAContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "tags": "Agreement_Signed,QB_customer_created,Card_Link_Sent",
+                "address": {},
+                "contact": "{{10.contactId}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 2161,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "dnd": {
+                            "mode": "chose"
+                        },
+                        "tags": {
+                            "mode": "edit"
+                        },
+                        "address": {
+                            "nested": {
+                                "country": {
+                                    "mode": "chose"
+                                }
+                            }
+                        },
+                        "contact": {
+                            "mode": "edit"
+                        },
+                        "timezone": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "mode": "edit",
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "firstName",
+                        "type": "text",
+                        "label": "First Name"
+                    },
+                    {
+                        "name": "lastName",
+                        "type": "text",
+                        "label": "Last Name"
+                    },
+                    {
+                        "name": "email",
+                        "type": "email",
+                        "label": "Email"
+                    },
+                    {
+                        "name": "phone",
+                        "type": "text",
+                        "label": "Phone"
+                    },
+                    {
+                        "name": "dateOfBirth",
+                        "time": false,
+                        "type": "date",
+                        "label": "Date of Birth"
+                    },
+                    {
+                        "name": "companyName",
+                        "type": "text",
+                        "label": "Company Name"
+                    },
+                    {
+                        "name": "website",
+                        "type": "url",
+                        "label": "Website"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "select",
+                        "label": "Tags",
+                        "multiple": true
+                    },
+                    {
+                        "name": "address",
+                        "spec": [
+                            {
+                                "name": "address1",
+                                "type": "text",
+                                "label": "Street"
+                            },
+                            {
+                                "name": "city",
+                                "type": "text",
+                                "label": "City"
+                            },
+                            {
+                                "name": "state",
+                                "type": "text",
+                                "label": "State"
+                            },
+                            {
+                                "name": "postalCode",
+                                "type": "text",
+                                "label": "PostalCode"
+                            },
+                            {
+                                "name": "country",
+                                "type": "select",
+                                "label": "Country"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Address"
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source"
+                    },
+                    {
+                        "name": "timezone",
+                        "type": "select",
+                        "label": "Timezone"
+                    },
+                    {
+                        "name": "dnd",
+                        "type": "boolean",
+                        "label": "Dnd"
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "id",
+                        "type": "text",
+                        "label": "Contact ID"
+                    },
+                    {
+                        "name": "timezone",
+                        "type": "text",
+                        "label": "Timezone"
+                    },
+                    {
+                        "name": "type",
+                        "type": "text",
+                        "label": "Type"
+                    },
+                    {
+                        "name": "locationId",
+                        "type": "text",
+                        "label": "Location ID"
+                    },
+                    {
+                        "name": "dnd",
+                        "type": "boolean",
+                        "label": "Dnd"
+                    },
+                    {
+                        "name": "inboundDndSettings",
+                        "spec": [
+                            {
+                                "name": "all",
+                                "spec": [
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "All"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Inbound Dnd Settings"
+                    },
+                    {
+                        "name": "dndSettings",
+                        "spec": [
+                            {
+                                "name": "Call",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Call"
+                            },
+                            {
+                                "name": "Email",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Email"
+                            },
+                            {
+                                "name": "SMS",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "SMS"
+                            },
+                            {
+                                "name": "WhatsApp",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "WhatsApp"
+                            },
+                            {
+                                "name": "GMB",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "GMB"
+                            },
+                            {
+                                "name": "FB",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "FB"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Dnd Settings"
+                    },
+                    {
+                        "name": "createdBy",
+                        "spec": [
+                            {
+                                "name": "sourceId",
+                                "type": "text",
+                                "label": "Source ID"
+                            },
+                            {
+                                "name": "channel",
+                                "type": "text",
+                                "label": "Channel"
+                            },
+                            {
+                                "name": "source",
+                                "type": "text",
+                                "label": "Source"
+                            },
+                            {
+                                "name": "sourceName",
+                                "type": "text",
+                                "label": "Source Name"
+                            },
+                            {
+                                "name": "timestamp",
+                                "type": "date",
+                                "label": "Timestamp"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Created By"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "array",
+                        "label": "Tags"
+                    },
+                    {
+                        "name": "dateAdded",
+                        "type": "date",
+                        "label": "Date Added"
+                    },
+                    {
+                        "name": "additionalEmails",
+                        "type": "array",
+                        "label": "Additional Emails"
+                    },
+                    {
+                        "name": "additionalPhones",
+                        "type": "array",
+                        "label": "Additional Phones"
+                    },
+                    {
+                        "name": "country",
+                        "type": "text",
+                        "label": "Country"
+                    },
+                    {
+                        "name": "lastName",
+                        "type": "text",
+                        "label": "Last Name"
+                    },
+                    {
+                        "name": "lastNameLowerCase",
+                        "type": "text",
+                        "label": "Last Name Lower Case"
+                    },
+                    {
+                        "name": "emailLowerCase",
+                        "type": "text",
+                        "label": "Email Lower Case"
+                    },
+                    {
+                        "name": "email",
+                        "type": "text",
+                        "label": "Email"
+                    },
+                    {
+                        "name": "postalCode",
+                        "type": "text",
+                        "label": "Postal Code"
+                    },
+                    {
+                        "name": "dateUpdated",
+                        "type": "date",
+                        "label": "Date Updated"
+                    },
+                    {
+                        "name": "fullNameLowerCase",
+                        "type": "text",
+                        "label": "Full Name Lower Case"
+                    },
+                    {
+                        "name": "firstName",
+                        "type": "text",
+                        "label": "First Name"
+                    },
+                    {
+                        "name": "firstNameLowerCase",
+                        "type": "text",
+                        "label": "First Name Lower Case"
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source"
+                    },
+                    {
+                        "name": "companyName",
+                        "type": "text",
+                        "label": "Company Name"
+                    },
+                    {
+                        "name": "website",
+                        "type": "text",
+                        "label": "Website"
+                    },
+                    {
+                        "name": "phone",
+                        "type": "text",
+                        "label": "Phone"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 7,
+            "module": "highlevel:addNotetoContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "body": "AUTOMATION (Phase 2 Complete):\n\n✓ Agreement signed via SignWell\n  - Signed at: {{2.signedAt}}\n  - Document ID: {{2.documentId}}\n  - PDF: {{2.signedPdfUrl}}\n\n✓ QuickBooks customer created\n✓ $1 Invoice SENT for card storage (refundable)",
+                "contactId": "{{6.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 2400,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "userId": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "contactId": {
+                            "mode": "edit"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "contactId",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "body",
+                        "type": "text",
+                        "label": "Body",
+                        "required": true
+                    },
+                    {
+                        "name": "userId",
+                        "type": "select",
+                        "label": "User ID"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 13,
+            "module": "http:ActionSendData",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "ca": "",
+                "qs": [],
+                "url": "https://hook.us2.make.com/1g70olupjruo1arv416lpk1uwycim00w",
+                "data": "{\"contactId\": \"{{3.id}}\", \"fullName\": \"{{2.signerName}}\", \"email\": \"{{2.signerEmail}}\"}",
+                "gzip": true,
+                "method": "post",
+                "headers": [
+                    {
+                        "name": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": false,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 2700,
+                    "y": 0
+                }
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

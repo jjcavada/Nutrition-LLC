@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "\\",
+      "args": [],
+      "env": {}
+    },
+    "make-client": {
+      "type": "http",
+      "url": "https://us2.make.com/mcp/u/12147bd7-903b-4ace-8372-d54895aef1f3/stateless"
+    },
+    "make": {
+      "type": "http",
+      "url": "https://us2.make.com/mcp/u/9b1ec72b-6d03-4fba-a284-901663a9fc58/stateless"
+    }
+  }
+}

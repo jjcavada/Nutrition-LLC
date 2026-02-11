@@ -1,0 +1,591 @@
+{
+    "name": "GHL - Phase 3: AI Menu Generator (OpenAI)",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": 1853325,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 2,
+            "module": "util:SetVariables",
+            "version": 1,
+            "parameters": {},
+            "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                    {
+                        "name": "contactId",
+                        "value": "{{1.contactId}}"
+                    },
+                    {
+                        "name": "fullName",
+                        "value": "{{1.fullName}}"
+                    },
+                    {
+                        "name": "email",
+                        "value": "{{1.email}}"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 290,
+                    "y": 1
+                }
+            }
+        },
+        {
+            "id": 9,
+            "module": "highlevel:universal",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "url": "/contacts/{{2.contactId}}/notes",
+                "method": "GET",
+                "headers": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 607,
+                    "y": 8
+                }
+            }
+        },
+        {
+            "id": 3,
+            "module": "http:ActionSendData",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "ca": "",
+                "qs": [],
+                "url": "https://api.openai.com/v1/chat/completions",
+                "data": "{\r\n  \"model\": \"gpt-4o-mini\",\r\n  \"max_tokens\": 3000,\r\n  \"messages\": [\r\n    {\r\n      \"role\": \"system\",\r\n      \"content\": \"You are a personal chef assistant for Nutrition Intuition, LLC. Output ONLY valid HTML for emails. Use proper HTML tags like <h2>, <p>, <ol>, <li>, <strong>, <br>. No markdown.\"\r\n    },\r\n    {\r\n      \"role\": \"user\",\r\n      \"content\": \"Create an HTML email body with TWO sections based on this client intake form. Output ONLY HTML, no other text.\\n\\nSECTION 1 - CHEF'S BRIEFING:\\nCreate a section with <h2 style='color: #495057; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;'>Chef's Briefing</h2> followed by 3-4 <p> paragraphs summarizing:\\n- Dietary requirements and restrictions\\n- Food preferences (likes and dislikes)\\n- Cooking style recommendations\\n- Special considerations for the household\\n\\nSECTION 2 - PERSONALIZED MENU:\\nCreate a section with <h2 style='color: #495057; border-bottom: 2px solid #28a745; padding-bottom: 10px;'>Personalized 15-Item Menu</h2> followed by an <ol> ordered list with 15 <li> items. Each item should have the dish name in <strong> followed by a dash and brief description.\\n\\nClient Name: {{2.fullName}}\\n\\nINTAKE FORM DATA:\\n{{9.notes[1].body}}\"\r\n    }\r\n  ]\r\n}",
+                "gzip": true,
+                "method": "post",
+                "headers": [
+                    {
+                        "name": "Authorization",
+                        "value": "Bearer YOUR_OPENAI_API_KEY_HERE"
+                    },
+                    {
+                        "name": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": true,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 910,
+                    "y": 7
+                },
+                "restore": {
+                    "expect": {
+                        "qs": {
+                            "mode": "chose"
+                        },
+                        "method": {
+                            "mode": "chose",
+                            "label": "POST"
+                        },
+                        "headers": {
+                            "mode": "chose",
+                            "items": [
+                                null,
+                                null
+                            ]
+                        },
+                        "bodyType": {
+                            "label": "Raw"
+                        },
+                        "contentType": {
+                            "label": "JSON (application/json)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "handleErrors",
+                        "type": "boolean",
+                        "label": "Evaluate all states as errors (except for 2xx and 3xx )",
+                        "required": true
+                    },
+                    {
+                        "name": "useNewZLibDeCompress",
+                        "type": "hidden"
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "url",
+                        "type": "url",
+                        "label": "URL",
+                        "required": true
+                    },
+                    {
+                        "name": "serializeUrl",
+                        "type": "boolean",
+                        "label": "Serialize URL",
+                        "required": true
+                    },
+                    {
+                        "name": "method",
+                        "type": "select",
+                        "label": "Method",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "get",
+                                "head",
+                                "post",
+                                "put",
+                                "patch",
+                                "delete",
+                                "options"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "headers",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Headers"
+                    },
+                    {
+                        "name": "qs",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "text",
+                                "label": "Value"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Query String"
+                    },
+                    {
+                        "name": "bodyType",
+                        "type": "select",
+                        "label": "Body type",
+                        "validate": {
+                            "enum": [
+                                "raw",
+                                "x_www_form_urlencoded",
+                                "multipart_form_data"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "parseResponse",
+                        "type": "boolean",
+                        "label": "Parse response",
+                        "required": true
+                    },
+                    {
+                        "name": "authUser",
+                        "type": "text",
+                        "label": "User name"
+                    },
+                    {
+                        "name": "authPass",
+                        "type": "password",
+                        "label": "Password"
+                    },
+                    {
+                        "name": "timeout",
+                        "type": "uinteger",
+                        "label": "Timeout",
+                        "validate": {
+                            "max": 300,
+                            "min": 1
+                        }
+                    },
+                    {
+                        "name": "shareCookies",
+                        "type": "boolean",
+                        "label": "Share cookies with other HTTP modules",
+                        "required": true
+                    },
+                    {
+                        "name": "ca",
+                        "type": "cert",
+                        "label": "Self-signed certificate"
+                    },
+                    {
+                        "name": "rejectUnauthorized",
+                        "type": "boolean",
+                        "label": "Reject connections that are using unverified (self-signed) certificates",
+                        "required": true
+                    },
+                    {
+                        "name": "followRedirect",
+                        "type": "boolean",
+                        "label": "Follow redirect",
+                        "required": true
+                    },
+                    {
+                        "name": "useQuerystring",
+                        "type": "boolean",
+                        "label": "Disable serialization of multiple same query string keys as arrays",
+                        "required": true
+                    },
+                    {
+                        "name": "gzip",
+                        "type": "boolean",
+                        "label": "Request compressed content",
+                        "required": true
+                    },
+                    {
+                        "name": "useMtls",
+                        "type": "boolean",
+                        "label": "Use Mutual TLS",
+                        "required": true
+                    },
+                    {
+                        "name": "contentType",
+                        "type": "select",
+                        "label": "Content type",
+                        "validate": {
+                            "enum": [
+                                "text/plain",
+                                "application/json",
+                                "application/xml",
+                                "text/xml",
+                                "text/html",
+                                "custom"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "data",
+                        "type": "buffer",
+                        "label": "Request content"
+                    },
+                    {
+                        "name": "followAllRedirects",
+                        "type": "boolean",
+                        "label": "Follow all redirect",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 4,
+            "module": "highlevel:listOpportunities",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "limit": 1,
+                "contactId": "{{2.contactId}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1211,
+                    "y": -1
+                }
+            }
+        },
+        {
+            "id": 5,
+            "module": "highlevel:updateAnOpportunity",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "select": "existing",
+                "status": "open",
+                "stageId": "27da74c4-02d8-4bd2-97f7-31628f517a6c",
+                "pipeline": "{{4.pipelineId}}",
+                "opportunity": "{{4.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1490,
+                    "y": -1
+                },
+                "restore": {
+                    "expect": {
+                        "tags": {
+                            "mode": "chose"
+                        },
+                        "select": {
+                            "label": "Use an existing contact"
+                        },
+                        "status": {
+                            "mode": "chose",
+                            "label": "Open"
+                        },
+                        "contact": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "pipeline": {
+                            "mode": "edit"
+                        },
+                        "assignedTo": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "mode": "edit",
+                        "name": "pipeline",
+                        "type": "select",
+                        "label": "Pipeline ID",
+                        "required": true
+                    },
+                    {
+                        "name": "title",
+                        "type": "text",
+                        "label": "Name"
+                    },
+                    {
+                        "name": "status",
+                        "type": "select",
+                        "label": "Status",
+                        "validate": {
+                            "enum": [
+                                "open",
+                                "won",
+                                "lost",
+                                "abandoned"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "assignedTo",
+                        "type": "select",
+                        "label": "Assigned To"
+                    },
+                    {
+                        "name": "monetaryValue",
+                        "type": "number",
+                        "label": "Monetary Value"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Select a Method (Deprecated)",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "existing",
+                                "create"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source (Deprecated)"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "select",
+                        "label": "Tags (Deprecated)",
+                        "multiple": true
+                    },
+                    {
+                        "name": "opportunity",
+                        "type": "any",
+                        "label": "Opportunity ID",
+                        "required": true
+                    },
+                    {
+                        "name": "stageId",
+                        "type": "text",
+                        "label": "Stage ID"
+                    },
+                    {
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID (Deprecated)"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 6,
+            "module": "highlevel:addNotetoContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "body": "AI MENU & CHEF BRIEFING GENERATED\n==================================\n{{3.data.choices[1].message.content}}",
+                "contactId": "{{5.contactId}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1766,
+                    "y": -1
+                },
+                "restore": {
+                    "expect": {
+                        "userId": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "contactId": {
+                            "mode": "edit"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "contactId",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "body",
+                        "type": "text",
+                        "label": "Body",
+                        "required": true
+                    },
+                    {
+                        "name": "userId",
+                        "type": "select",
+                        "label": "User ID"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 7,
+            "module": "google-email:sendAnEmail",
+            "version": 4,
+            "parameters": {
+                "__IMTCONN__": 7317781
+            },
+            "mapper": {
+                "to": [
+                    "jjcavada1@gmail.com"
+                ],
+                "content": "<html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}h2{margin-top:25px}ol{padding-left:20px}li{margin-bottom:12px}p{margin-bottom:15px}</style></head><body><div style=\"max-width:700px;margin:0 auto;padding:20px;\"><div style=\"background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:30px;border-radius:10px 10px 0 0;text-align:center;\"><h1 style=\"margin:0;font-size:28px;\">New Client Menu & Briefing Ready!</h1><p style=\"margin:10px 0 0 0;font-size:16px;opacity:0.9;\">Nutrition Intuition, LLC</p></div><div style=\"background:#f8f9fa;padding:25px;border:1px solid #e9ecef;\"><h2 style=\"color:#495057;margin-top:0;border-bottom:2px solid #667eea;padding-bottom:10px;\">Client Information</h2><p><strong>Name:</strong> {{2.fullName}}<br><strong>Email:</strong> {{2.email}}</p></div><div style=\"background:white;padding:25px;border:1px solid #e9ecef;border-top:none;\">{{3.data.choices[1].message.content}}</div><div style=\"background:#f8f9fa;padding:20px;border:1px solid #e9ecef;border-top:none;border-radius:0 0 10px 10px;text-align:center;\"><p style=\"margin:0;color:#6c757d;font-size:14px;\">View full details in <a href=\"https://app.gohighlevel.com\" style=\"color:#667eea;\">GoHighLevel Contact Record</a></p><p style=\"margin:10px 0 0 0;color:#adb5bd;font-size:12px;\">Generated automatically by Nutrition Intuition AI</p></div></div></body></html>",
+                "subject": "New Menu & Chef Briefing - {{2.fullName}}",
+                "bodyType": "rawHtml"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 2000,
+                    "y": 0
+                }
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

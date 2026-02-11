@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "mcp__make__*",
+      "mcp__make-client__*",
+      "mcp__make__hooks_create"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "make"
+  ]
+}

@@ -1,0 +1,868 @@
+{
+    "name": "GHL - Onboarding - Phase 1 : Welcome Package + E-Sign",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": 1853039,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                },
+                "restore": {
+                    "parameters": {
+                        "hook": {
+                            "data": {
+                                "editable": "true"
+                            },
+                            "label": "Welcome Package + E-Sign"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": 2,
+            "module": "util:SetVariables",
+            "version": 1,
+            "parameters": {},
+            "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                    {
+                        "name": "fullName",
+                        "value": "{{1.`First & Last Name (Primary Contact)`}}"
+                    },
+                    {
+                        "name": "email",
+                        "value": "{{1.Email}}"
+                    },
+                    {
+                        "name": "phone",
+                        "value": "{{1.`Phone Number (Primary Contact)`}}"
+                    },
+                    {
+                        "name": "address",
+                        "value": "{{1.`Home Address`}}"
+                    },
+                    {
+                        "name": "householdMembers",
+                        "value": "{{1.`Household Members - please include: Name, Age, Relationship`}}"
+                    },
+                    {
+                        "name": "submittedAt",
+                        "value": "{{now}}"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 3,
+            "module": "highlevel:createAContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "dnd": false,
+                "tags": [
+                    "intake_received",
+                    "new_lead"
+                ],
+                "email": "{{2.email}}",
+                "phone": "{{2.phone}}",
+                "source": "Intake Form",
+                "address": {},
+                "firstName": "{{2.fullName}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 4,
+            "module": "highlevel:createAnOpportunity",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "title": "{{2.fullName}}",
+                "select": "existing",
+                "status": "open",
+                "contact": "{{3.id}}",
+                "stageId": "b4ea7c00-a302-4027-a80c-87996e8fef71",
+                "pipeline": "t6tPDiRCfcKiVr7vUkxW"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 870,
+                    "y": -8
+                },
+                "restore": {
+                    "expect": {
+                        "tags": {
+                            "mode": "chose"
+                        },
+                        "select": {
+                            "label": "Use an existing contact"
+                        },
+                        "status": {
+                            "mode": "chose",
+                            "label": "Open"
+                        },
+                        "contact": {
+                            "mode": "edit"
+                        },
+                        "stageId": {
+                            "mode": "chose",
+                            "label": "New Lead - Agreement + Welcome Package Sent"
+                        },
+                        "pipeline": {
+                            "mode": "chose",
+                            "label": "Client Onboarding"
+                        },
+                        "assignedTo": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "pipeline",
+                        "type": "select",
+                        "label": "Pipeline ID",
+                        "required": true
+                    },
+                    {
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "status",
+                        "type": "select",
+                        "label": "Status",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "open",
+                                "won",
+                                "lost",
+                                "abandoned"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "title",
+                        "type": "text",
+                        "label": "Name",
+                        "required": true
+                    },
+                    {
+                        "name": "contactTitle",
+                        "type": "text",
+                        "label": "Contact Name"
+                    },
+                    {
+                        "name": "assignedTo",
+                        "type": "select",
+                        "label": "Assigned To"
+                    },
+                    {
+                        "name": "monetaryValue",
+                        "type": "number",
+                        "label": "Monetary Value"
+                    },
+                    {
+                        "name": "select",
+                        "type": "select",
+                        "label": "Select a Method (Deprecated)",
+                        "validate": {
+                            "enum": [
+                                "existing",
+                                "create"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source (Deprecated)"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "select",
+                        "label": "Tags (Deprecated)",
+                        "multiple": true
+                    },
+                    {
+                        "name": "stageId",
+                        "type": "select",
+                        "label": "Stage ID",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "b4ea7c00-a302-4027-a80c-87996e8fef71",
+                                "1d85984d-42d2-4120-b0c9-c14e047fa5ce",
+                                "04ec66ef-3c01-4de5-9d41-d4030888a1bf",
+                                "27da74c4-02d8-4bd2-97f7-31628f517a6c",
+                                "0736387b-ed24-47d2-b6c5-43bcb25ea395",
+                                "f09981bb-9ec8-43e0-9f91-60894fa1d260",
+                                "a69a75a2-4259-49f6-8832-9a9fccaab797",
+                                "59f2f8f7-6685-417a-8668-31579eef3435",
+                                "8be7bf26-8da5-4425-a136-24e6719cfe69",
+                                "3330c569-b141-4aa2-a9bb-38f0753de253"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 5,
+            "module": "http:ActionSendData",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "ca": "",
+                "qs": [],
+                "url": "https://www.signwell.com/api/v1/document_templates/documents/",
+                "data": "{\r\n  \"template_id\": \"8fa135c9-df0c-4f74-a335-76c701354199\",\r\n  \"recipients\": [\r\n    {\r\n      \"id\": \"recipient_1\",\r\n      \"name\": \"{{2.fullName}}\",\r\n      \"email\": \"{{2.email}}\",\r\n      \"placeholder_name\": \"Client\"\r\n    }\r\n  ]\r\n}",
+                "gzip": true,
+                "method": "post",
+                "headers": [
+                    {
+                        "name": "X-Api-Key",
+                        "value": "YWNjZXNzOjI5YjczNDg3YWQ2Y2QyYjExNDY1OWUwY2E3NDFmNTQ2"
+                    },
+                    {
+                        "name": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": true,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1188,
+                    "y": -8
+                }
+            }
+        },
+        {
+            "id": 6,
+            "module": "highlevel:updateAContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "tags": [
+                    "intake_received"
+                ],
+                "address": {},
+                "contact": "{{4.contactId}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1499,
+                    "y": -8
+                },
+                "restore": {
+                    "expect": {
+                        "dnd": {
+                            "mode": "chose"
+                        },
+                        "tags": {
+                            "mode": "chose",
+                            "label": [
+                                "intake_received"
+                            ]
+                        },
+                        "address": {
+                            "nested": {
+                                "country": {
+                                    "mode": "chose",
+                                    "label": "Empty"
+                                }
+                            }
+                        },
+                        "contact": {
+                            "mode": "edit"
+                        },
+                        "timezone": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "mode": "edit",
+                        "name": "contact",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "firstName",
+                        "type": "text",
+                        "label": "First Name"
+                    },
+                    {
+                        "name": "lastName",
+                        "type": "text",
+                        "label": "Last Name"
+                    },
+                    {
+                        "name": "email",
+                        "type": "email",
+                        "label": "Email"
+                    },
+                    {
+                        "name": "phone",
+                        "type": "text",
+                        "label": "Phone"
+                    },
+                    {
+                        "name": "dateOfBirth",
+                        "time": false,
+                        "type": "date",
+                        "label": "Date of Birth"
+                    },
+                    {
+                        "name": "companyName",
+                        "type": "text",
+                        "label": "Company Name"
+                    },
+                    {
+                        "name": "website",
+                        "type": "url",
+                        "label": "Website"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "select",
+                        "label": "Tags",
+                        "multiple": true
+                    },
+                    {
+                        "name": "address",
+                        "spec": [
+                            {
+                                "name": "address1",
+                                "type": "text",
+                                "label": "Street"
+                            },
+                            {
+                                "name": "city",
+                                "type": "text",
+                                "label": "City"
+                            },
+                            {
+                                "name": "state",
+                                "type": "text",
+                                "label": "State"
+                            },
+                            {
+                                "name": "postalCode",
+                                "type": "text",
+                                "label": "PostalCode"
+                            },
+                            {
+                                "name": "country",
+                                "type": "select",
+                                "label": "Country"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Address"
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source"
+                    },
+                    {
+                        "name": "timezone",
+                        "type": "select",
+                        "label": "Timezone"
+                    },
+                    {
+                        "name": "dnd",
+                        "type": "boolean",
+                        "label": "Dnd"
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "id",
+                        "type": "text",
+                        "label": "Contact ID"
+                    },
+                    {
+                        "name": "timezone",
+                        "type": "text",
+                        "label": "Timezone"
+                    },
+                    {
+                        "name": "type",
+                        "type": "text",
+                        "label": "Type"
+                    },
+                    {
+                        "name": "locationId",
+                        "type": "text",
+                        "label": "Location ID"
+                    },
+                    {
+                        "name": "dnd",
+                        "type": "boolean",
+                        "label": "Dnd"
+                    },
+                    {
+                        "name": "inboundDndSettings",
+                        "spec": [
+                            {
+                                "name": "all",
+                                "spec": [
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "All"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Inbound Dnd Settings"
+                    },
+                    {
+                        "name": "dndSettings",
+                        "spec": [
+                            {
+                                "name": "Call",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Call"
+                            },
+                            {
+                                "name": "Email",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "Email"
+                            },
+                            {
+                                "name": "SMS",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "SMS"
+                            },
+                            {
+                                "name": "WhatsApp",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "WhatsApp"
+                            },
+                            {
+                                "name": "GMB",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "GMB"
+                            },
+                            {
+                                "name": "FB",
+                                "spec": [
+                                    {
+                                        "name": "code",
+                                        "type": "text",
+                                        "label": "Code"
+                                    },
+                                    {
+                                        "name": "message",
+                                        "type": "text",
+                                        "label": "Message"
+                                    },
+                                    {
+                                        "name": "status",
+                                        "type": "text",
+                                        "label": "Status"
+                                    }
+                                ],
+                                "type": "collection",
+                                "label": "FB"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Dnd Settings"
+                    },
+                    {
+                        "name": "createdBy",
+                        "spec": [
+                            {
+                                "name": "sourceId",
+                                "type": "text",
+                                "label": "Source ID"
+                            },
+                            {
+                                "name": "channel",
+                                "type": "text",
+                                "label": "Channel"
+                            },
+                            {
+                                "name": "source",
+                                "type": "text",
+                                "label": "Source"
+                            },
+                            {
+                                "name": "sourceName",
+                                "type": "text",
+                                "label": "Source Name"
+                            },
+                            {
+                                "name": "timestamp",
+                                "type": "date",
+                                "label": "Timestamp"
+                            }
+                        ],
+                        "type": "collection",
+                        "label": "Created By"
+                    },
+                    {
+                        "name": "tags",
+                        "type": "array",
+                        "label": "Tags"
+                    },
+                    {
+                        "name": "dateAdded",
+                        "type": "date",
+                        "label": "Date Added"
+                    },
+                    {
+                        "name": "additionalEmails",
+                        "type": "array",
+                        "label": "Additional Emails"
+                    },
+                    {
+                        "name": "additionalPhones",
+                        "type": "array",
+                        "label": "Additional Phones"
+                    },
+                    {
+                        "name": "country",
+                        "type": "text",
+                        "label": "Country"
+                    },
+                    {
+                        "name": "lastName",
+                        "type": "text",
+                        "label": "Last Name"
+                    },
+                    {
+                        "name": "lastNameLowerCase",
+                        "type": "text",
+                        "label": "Last Name Lower Case"
+                    },
+                    {
+                        "name": "emailLowerCase",
+                        "type": "text",
+                        "label": "Email Lower Case"
+                    },
+                    {
+                        "name": "email",
+                        "type": "text",
+                        "label": "Email"
+                    },
+                    {
+                        "name": "postalCode",
+                        "type": "text",
+                        "label": "Postal Code"
+                    },
+                    {
+                        "name": "dateUpdated",
+                        "type": "date",
+                        "label": "Date Updated"
+                    },
+                    {
+                        "name": "fullNameLowerCase",
+                        "type": "text",
+                        "label": "Full Name Lower Case"
+                    },
+                    {
+                        "name": "firstName",
+                        "type": "text",
+                        "label": "First Name"
+                    },
+                    {
+                        "name": "firstNameLowerCase",
+                        "type": "text",
+                        "label": "First Name Lower Case"
+                    },
+                    {
+                        "name": "source",
+                        "type": "text",
+                        "label": "Source"
+                    },
+                    {
+                        "name": "companyName",
+                        "type": "text",
+                        "label": "Company Name"
+                    },
+                    {
+                        "name": "website",
+                        "type": "text",
+                        "label": "Website"
+                    },
+                    {
+                        "name": "phone",
+                        "type": "text",
+                        "label": "Phone"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 7,
+            "module": "highlevel:addNotetoContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "body": "=== INTAKE FORM DATA ===\nSubmitted: {{formatDate(now; \"YYYY-MM-DD HH:mm\")}}\n\nBASIC INFO:\n- Name: {{2.fullName}}\n- Email: {{2.email}}\n- Phone: {{2.phone}}\n- Address: {{2.address}}\n- Household: {{2.householdMembers}}\n\nDIETARY REQUIREMENTS:\n- Family dietary protocol: {{1.`Does your family adhere to a specific diet or protocol?`}}\n- Protocol details: {{1.`If you answered YES, please detail.`}}\n- Allergies/Sensitivities: {{1.`Please share any allergies, sensitivities and/or aversions for EACH member of the household:`}}\n- Desired outcomes: {{join(1.`Desired outcome of our Service (check all that apply)`; \", \")}}\n\nMEAL PREFERENCES:\n- Meal types needed: {{join(1.`Types of Meals, each week (check all that apply)`; \", \")}}\n- Healthy eating means: {{1.`What does \"healthy eating\" mean to you?`}}\n- Meals per week: {{1.`Quantity of Meals/Week? (ie. Breakfast, Lunch & Dinner, 4 days/week)`}}\n- Daily food routine: {{1.`Daily Food Routine (please note anything you want to stay the same or would like to change regarding your/your family's current schedule).`}}\n\nPROTEINS:\n- Meat: {{join(1.`Proteins - MEAT`; \", \")}}\n- Poultry: {{join(1.`Proteins - Poultry`; \", \")}}\n- Seafood: {{join(1.`Proteins - Seafood`; \", \")}}\n- Vegetarian: {{join(1.`Vegetarian Proteins`; \", \")}}\n\nVEGETABLES:\n- Green: {{join(1.`Veggies - Green`; \", \")}}\n- Yellow/Orange: {{join(1.`Veggies - Yellow/Orange`; \", \")}}\n- Red/Purple: {{join(1.`Veggies - Red/Purple`; \", \")}}\n- White: {{join(1.`Veggies - White`; \", \")}}\n\nOTHER FOODS:\n- Salads: {{join(1.Salads; \", \")}}\n- Soups: {{join(1.Soups; \", \")}}\n- Fruits: {{join(1.Fruit; \", \")}}\n- Grains: {{join(1.`Grains & Starches`; \", \")}}\n- Beans: {{join(1.`Beans & Legumes`; \", \")}}\n- Nuts/Seeds: {{join(1.`Nuts & Seeds`; \", \")}}\n- Dairy: {{join(1.`Milk & Dairy`; \", \")}}\n\nFLAVORS:\n- Herbs: {{join(1.`Herbs & Seasonings`; \", \")}}\n- Sauces: {{join(1.`Sauces & Condiments`; \", \")}}\n- Spice Level: {{join(1.`Spice Level`; \", \")}}\n\nCUISINE INTERESTS:\n- International: {{1.`Are you interested in trying new international cuisines? (ie. Greek, Italian, Thai, Indian, Mexican, Asian, etc)`}}\n- Favorite meals: {{1.`Please list your current favorite meals:`}}\n- Favorite restaurants: {{1.`Please list your current favorite restaurants:`}}\n\nREFERRAL: {{1.`Referrals FEED us - please let us know who referred you, so we can thank them!`}}\n\n=== END INTAKE DATA ===\n\nSTATUS: Agreement sent - waiting for signature",
+                "contactId": "{{6.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1859,
+                    "y": 1
+                },
+                "restore": {
+                    "expect": {
+                        "userId": {
+                            "mode": "chose"
+                        },
+                        "contactId": {
+                            "mode": "edit"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "contactId",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "body",
+                        "type": "text",
+                        "label": "Body",
+                        "required": true
+                    },
+                    {
+                        "name": "userId",
+                        "type": "select",
+                        "label": "User ID"
+                    }
+                ]
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

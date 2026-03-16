@@ -6,6 +6,21 @@
 - **Connection Type**: OAuth 2.0 (via Make.com)
 - **Connection ID**: 7303129
 - **Scopes**: 12 enabled
+- **Branded Domain**: `book.aznutritionintuition.shop` (set 2026-02-23)
+
+## Domains
+| Domain | Purpose | DNS Host | Status |
+|--------|---------|----------|--------|
+| `book.aznutritionintuition.shop` | Branded domain for booking links, calendar invites, reschedule/cancel links | Namecheap (CNAME → brand.ludicrous.cloud) | Active |
+| `aznutritionintuition.shop` | Root domain (Namecheap) - reserved for future use | Namecheap | DNS configured |
+| `nutritionintuitionaz.com` | Amber's main website (no DNS access) | Unknown | Not managed by us |
+
+## Calendars
+| Calendar Name | Calendar ID | Booking URL |
+|---------------|-------------|-------------|
+| Book a 15 min consultation with Amber | `wtbOuayfIZ6DycweJDSE` | `book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE` |
+| Copy of Book a 15 min consultation (DELETE) | `McHqMKZz3n04nZW7F64U` | Can be deleted |
+| Test User's Personal Calendar | `sk7DOID8mCTeVRlYhjC` | N/A |
 
 ## Private Integration
 - **Integration ID**: pit-57add535-f759-465c-9ac0-f213a8a7fb19

@@ -1,0 +1,168 @@
+{
+    "name": "GHL - Contractor Onboarding - Phase 9: Send Packet",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": 1864237,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 349,
+                    "y": -5
+                }
+            }
+        },
+        {
+            "id": 8,
+            "module": "quickbooks:CreateVendor",
+            "version": 2,
+            "parameters": {
+                "__IMTCONN__": 7314664
+            },
+            "mapper": {
+                "Mobile": "{{1.phone}}",
+                "BillAddr": {},
+                "DisplayName": "{{1.full_name}}",
+                "PrimaryEmailAddr": "{{1.email}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 776,
+                    "y": -9
+                }
+            }
+        },
+        {
+            "id": 2,
+            "module": "http:ActionSendData",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "ca": "",
+                "qs": [],
+                "url": "https://www.signwell.com/api/v1/document_templates/documents/",
+                "data": "{\r\n  \"template_id\": \"5b1e970d-1e42-45dd-b16e-b22d68c555db\",\r\n  \"recipients\": [\r\n    {\r\n      \"id\": \"recipient_1\",\r\n      \"name\": \"{{1.full_name}}\",\r\n      \"email\": \"{{1.email}}\",\r\n      \"placeholder_name\": \"Contractor\"\r\n    }\r\n  ]\r\n}",
+                "gzip": true,
+                "method": "post",
+                "headers": [
+                    {
+                        "name": "X-Api-Key",
+                        "value": "YWNjZXNzOjI5YjczNDg3YWQ2Y2QyYjExNDY1OWUwY2E3NDFmNTQ2"
+                    },
+                    {
+                        "name": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": true,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1114,
+                    "y": -10
+                }
+            }
+        },
+        {
+            "id": 6,
+            "module": "google-email:sendAnEmail",
+            "version": 4,
+            "parameters": {
+                "__IMTCONN__": 7350936
+            },
+            "mapper": {
+                "to": [
+                    "{{1.email}}"
+                ],
+                "content": "<p>Hi {{1.first_name}},</p>\n\n<p>Thank you for your interest in joining Nutrition Intuition as a contractor chef!</p>\n\n<p>Please review and complete the following:</p>\n\n<p><strong>1. CONTRACTOR PACKET</strong><br/>\nPlease review our contractor handbook and guidelines:<br/>\n<a href=\"https://docs.google.com/document/d/1o3NFWNyDq5gStYkbo1uYNc88PU8O6VPxf43tN-uCBgI/edit\">View Contractor Packet</a></p>\n\n<p><strong>2. CONTRACTOR AGREEMENT</strong><br/>\nCheck your email for a SignWell e-signature request</p>\n\n<p><strong>3. BACKGROUND CHECK</strong><br/>\nCheck your email for a Checkr authorization link</p>\n\n<p><strong>4. W9 TAX FORM</strong><br/>\nPlease download and complete the W9 form:<br/>\n<a href=\"https://www.irs.gov/pub/irs-pdf/fw9.pdf\">Download W9 Form (IRS)</a></p>\n\n<p>Once all items are complete, we'll be in touch about next steps!</p>\n\n<p>Best,<br/>\nAmber Barcellos<br/>\nNutrition Intuition, LLC<br/>\n(623) 204-1998<br/>\namber@nutritionintuitionaz.com</p>",
+                "subject": "Welcome to Nutrition Intuition - Contractor Packet",
+                "bodyType": "rawHtml"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1476,
+                    "y": -8
+                }
+            }
+        },
+        {
+            "id": 3,
+            "module": "highlevel:updateAnOpportunity",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "select": "existing",
+                "status": "open",
+                "stageId": "474e0821-1422-42aa-8eed-933b8538c439",
+                "pipeline": "rQqTYf93eO5vYm4Uim76",
+                "opportunity": "{{1.id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1800,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 4,
+            "module": "highlevel:addNotetoContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "body": "✅ CONTRACTOR PACKET SENT\n====================\nEmail sent to: {{1.email}}\nName: {{1.full_name}}\nDate: {{now}}\n\nContractor Packet Link:\nhttps://docs.google.com/document/d/1o3NFWNyDq5gStYkbo1uYNc88PU8O6VPxf43tN-uCBgI/edit\n\nSignWell Agreement:\n- Template: Independent Contractor Agreement\n- Document ID: {{2.data.id}}\n- Status: Sent for signature\n\nW9 Form Link:\nhttps://www.irs.gov/pub/irs-pdf/fw9.pdf\n\nWaiting for:\n✓ SignWell agreement sent\n- Checkr background check (not yet automated)\n- W9 form submission",
+                "contactId": "{{1.contact_id}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 2100,
+                    "y": 0
+                }
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

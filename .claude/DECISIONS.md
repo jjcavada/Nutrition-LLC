@@ -187,6 +187,156 @@ Track all major decisions, changes, and rationale.
 
 ---
 
+## 2026-02-22 - Phase 3 OpenAI 400 Bad Request Fix
+
+### Decision: Fix JSON Escaping in Module 11 (escapedIntakeData)
+- **What**: Module 11 was passing raw intake data (`{{10.rawIntakeData}}`) with ZERO escaping directly into the OpenAI JSON body
+- **Root Cause**: Raw note text contains newlines, double quotes, and carriage returns that break JSON structure when injected into the HTTP body
+- **Fix**: Added 4-layer escape chain: `{{replace(replace(replace(replace(10.rawIntakeData; char(92); concat(char(92); char(92))); char(34); concat(char(92); char(34))); char(13); emptystring); newline; concat(char(92); "n"))}}`
+  - Layer 1: Escape backslashes `\` → `\\`
+  - Layer 2: Escape double quotes `"` → `\"`
+  - Layer 3: Strip carriage returns (CR)
+  - Layer 4: Escape newlines (LF) → literal `\n`
+- **Result**: Valid JSON sent to OpenAI API
+
+### Decision: Fix Note Index in Module 10 (rawIntakeData)
+- **What**: Changed `{{9.body.notes.2.body}}` to `{{last(9.body.notes).body}}`
+- **Root Cause**: After 4+ successful Phase 3 runs, AI-generated notes stacked on top of the intake form note. Hardcoded index `2` was grabbing wrong note.
+- **Why**: GHL notes API returns newest-first. Intake form (Phase 1) is always the oldest/last note.
+- **Result**: Always retrieves the correct intake form data regardless of how many notes exist
+
+### Decision: Clean JSON Body in Module 3
+- **What**: Removed `\r\n` line breaks from the HTTP module's raw JSON body, made it single-line
+- **Why**: `\r\n` in the JSON template could cause parsing issues in certain edge cases
+- **Result**: Clean, single-line JSON template with `{{11.escapedIntakeData}}` properly referenced
+
+---
+
+## 2026-02-21 - Payment Preference Feature
+
+### Decision: New SignWell Template with Payment Preference
+- **What**: Created new SignWell template that includes payment preference checkboxes
+- **Template ID**: `ef1d71fa-5834-43f3-9871-209e18d0e0b2`
+- **Old Template**: `8fa135c9-df0c-4f74-a335-76c701354199` (archived)
+- **Why**: Need to capture client payment preference during agreement signing
+- **Checkboxes**:
+  - Checkbox 1: Automatic Card Payments (Stored Card)
+  - Checkbox 2: Zelle
+  - Checkbox 3: Venmo
+- **Result**: Client selects payment method when signing service agreement
+
+### Decision: Payment Preference Tags in GHL
+- **What**: Add payment preference tags based on SignWell checkbox selection
+- **Tags**:
+  - `payment_card` - Client prefers automatic card payments
+  - `payment_zelle` - Client prefers Zelle
+  - `payment_venmo` - Client prefers Venmo
+- **Applied By**: Phase 2 (after agreement signed)
+- **Why**: Track payment preferences for billing workflow
+- **Note**: Tags applied conditionally using `{{if()}}` functions in Make.com
+
+### Decision: SignWell Checkbox Path May Need Adjustment
+- **What**: Using `{{1.data.object.fields[1].value}}` (1, 2, 3) for checkbox values
+- **Status**: May need adjustment after testing
+- **Why**: SignWell field structure varies; exact path depends on template configuration
+- **Action**: Test with a real signature and check webhook data structure
+
+---
+
+## 2026-02-22 - Phase 3 Prompt & Email Enhancements
+
+### Decision: Replaced HTTP Module with Native OpenAI ChatGPT Module
+- **What**: Removed HTTP (legacy) module for OpenAI API calls, replaced with Make.com native `openai-gpt-3:CreateCompletion` module
+- **Why**: Amber's Make.com account lacks `char()`, `concat()`, and `escapeJSON()` functions needed for JSON escaping. The native module handles JSON serialization internally, eliminating all escaping issues.
+- **Connection**: OpenAI connection ID 7520490 created on Amber's account
+- **Output Reference**: Changed from `{{3.data.choices[1].message.content}}` to `{{3.result}}`
+- **Result**: 400 Bad Request errors completely resolved
+
+### Decision: Upgraded to GPT-4o with 8000 Max Tokens
+- **What**: Changed model from gpt-4o-mini to gpt-4o, max_tokens from 4000 to 8000
+- **Why**: gpt-4o-mini produced thin, incomplete output missing sections. GPT-4o follows complex multi-section prompts much more reliably.
+- **Cost Impact**: ~$0.05-0.10 per generation (acceptable for quality)
+- **Result**: All 4 sections generated completely with detailed content
+
+### Decision: Comprehensive 4-Section Prompt with Bold Labels
+- **What**: Rewrote AI prompt to produce 4 mandatory sections with all field labels in `<strong>` tags
+- **Sections**: Chef's Briefing, Personalized 15-Item Menu, Ingredient Summary, Validation Checklist
+- **Why**: Original prompt produced generic, thin output. New prompt is highly specific with exact HTML templates.
+- **Result**: Professional, actionable briefing documents for Amber
+
+### Decision: Email Theme Changed to Olive Green + Logo
+- **What**: Updated email template colors from purple (#667eea/#764ba2) to olive/sage green (#A3B55D/#7B8F3C) and added Nutrition Intuition logo
+- **Why**: Match brand identity from Nutrition Intuition logo
+- **Logo**: Embedded as base64 data URI (9KB webp) - works in Gmail
+- **Colors**: Header gradient `#A3B55D → #7B8F3C`, accents and links match
+- **Result**: On-brand email presentation
+
+---
+
+## 2026-02-23 - Branded Domain for Calendar Booking Links
+
+### Decision: Custom Domain for Booking Links
+- **What**: Set up `book.aznutritionintuition.shop` as the branded domain for the Nutrition Intuition GHL subaccount
+- **Why**: Calendar invite emails were showing `link.guerillafi.com` in booking/reschedule/cancel links, which is the parent agency domain. Clients should see Nutrition Intuition branding, not GuerrillaFi.
+- **Implementation**:
+  1. Domain `aznutritionintuition.shop` owned on Namecheap
+  2. Added subdomain `book` with CNAME → `brand.ludicrous.cloud` (GHL branded domain target)
+  3. Connected in GHL: Settings > Domains & URL Redirects > External Domain
+  4. Set as Branded Domain in GHL: Settings > Business Profile > Branded Domain
+- **DNS Records** (Namecheap for aznutritionintuition.shop):
+  - A Record: `@` → `75.2.60.5` (existing)
+  - CNAME: `www` → `sites.ludicrous.cloud` (GHL sites)
+  - CNAME: `book` → `brand.ludicrous.cloud` (GHL branded domain)
+- **Result**: All booking links, reschedule links, and cancel links now show `book.aznutritionintuition.shop` instead of `link.guerillafi.com`
+- **Note**: `nutritionintuitionaz.com` is Amber's main website but we don't have DNS access. Used the `.shop` domain instead.
+
+### Decision: Phase 4 - Consultation Invite + Waitlist Automation
+- **What**: Updated existing Phase 4 scenario (ID: 4076912) to send client a branded booking email and move opportunity to "Waitlist (Consult In-progress)" stage
+- **Why**: After Phase 3 generates the AI menu, the client needs to book a consultation with Amber before meal prep begins. Automates the invitation and pipeline tracking.
+- **Implementation**:
+  1. Phase 3 now triggers Phase 4 via HTTP webhook (module 8 added)
+  2. Phase 4 webhook URL: `hook.us2.make.com/6wo54sccagamme9feea6fkpv7o8rfdt5`
+  3. Phase 4 moves opportunity to stage `0736387b-ed24-47d2-b6c5-43bcb25ea395`
+  4. Sends branded Gmail to CLIENT (not Amber) with "Book Your Consultation" button
+  5. Booking link: `book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE`
+  6. Tags client with `consultation_invited`, logs note to GHL
+- **Email**: Olive green branded, personalized greeting, consultation details, CTA button
+- **Gmail Connection**: 7508077 (jjcavada1@gmail.com - change to Amber's in production)
+- **Result**: Full chain: Phase 1 → 2 → 3 → 4, client receives booking link automatically
+
+### Decision: Keep Original Calendar (Not the Copy)
+- **What**: Kept "Book a 15 min consultation with Amber" (ID: `wtbOuayfIZ6DycweJDSE`) as the primary calendar
+- **Why**: The original calendar ID is already referenced in booking links and automations. The "Copy" was created for testing and should be deleted.
+- **Calendar Custom URL**: `/widget/bookings/amber-15-min-consultation-call`
+
+---
+
+## 2026-02-24 - Phase 2.1: SignWell Signed PDF to Google Drive
+
+### Decision: Standalone Phase 2.1 for Document Archival
+- **What**: Created Phase 2.1 scenario (ID: 4212876) to download signed PDFs from SignWell and upload to Google Drive
+- **Why**: Amber needs signed agreements archived in Google Drive for record-keeping. Standalone scenario keeps Phase 2 focused on QB setup.
+- **Implementation**:
+  1. Phase 2 triggers Phase 2.1 webhook (module 14 added to Phase 2)
+  2. Phase 2.1 receives `{ documentId, signerName, signerEmail, contactId }`
+  3. HTTP GET to SignWell API `/api/v1/documents/{id}/completed_pdf/` downloads signed PDF
+  4. Google Drive "Upload a File" saves as `Service Agreement - {Name} - {Date}.pdf`
+  5. GHL Add Note logs the Drive link on the contact
+- **Webhook**: Hook ID 1920485, URL: `hook.us2.make.com/j8qo8gcjksrnrg2e5hqwxad63a72bjpx`
+- **Requires Manual Setup**:
+  - SignWell API key in HTTP module header (`X-Api-Key`)
+  - Google Drive connection (authorize in Make.com UI - existing Google connection lacks Drive scopes)
+  - Google Drive folder ID for signed documents
+- **Result**: Signed agreements automatically archived in Google Drive with link logged in GHL
+
+### Decision: Phase 2 Updated to Trigger Phase 2.1
+- **What**: Added HTTP module (id 14) to Phase 2 that calls Phase 2.1 webhook after Phase 3 trigger
+- **Payload**: `{ documentId, signerName, signerEmail, contactId }`
+- **Why**: Chain Phase 2.1 from Phase 2 without modifying SignWell webhook configuration
+- **Result**: Phase 2 now triggers both Phase 3 (AI menu) and Phase 2.1 (Drive backup) sequentially
+
+---
+
 ## Pending Decisions
 
 ### OpenAI API Key

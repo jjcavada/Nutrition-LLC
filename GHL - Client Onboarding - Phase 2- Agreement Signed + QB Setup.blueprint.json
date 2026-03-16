@@ -56,6 +56,18 @@
                     {
                         "name": "signedPdfUrl",
                         "value": "{{1.data.object.embedded_preview_url}}"
+                    },
+                    {
+                        "name": "paymentCard",
+                        "value": "{{1.data.object.fields[1].value}}"
+                    },
+                    {
+                        "name": "paymentZelle",
+                        "value": "{{1.data.object.fields[2].value}}"
+                    },
+                    {
+                        "name": "paymentVenmo",
+                        "value": "{{1.data.object.fields[3].value}}"
                     }
                 ]
             },
@@ -137,6 +149,21 @@
                         "name": "signedPdfUrl",
                         "type": "any",
                         "label": "signedPdfUrl"
+                    },
+                    {
+                        "name": "paymentCard",
+                        "type": "any",
+                        "label": "paymentCard"
+                    },
+                    {
+                        "name": "paymentZelle",
+                        "type": "any",
+                        "label": "paymentZelle"
+                    },
+                    {
+                        "name": "paymentVenmo",
+                        "type": "any",
+                        "label": "paymentVenmo"
                     }
                 ]
             }
@@ -1335,7 +1362,7 @@
                 "__IMTCONN__": 7310522
             },
             "mapper": {
-                "tags": "Agreement_Signed,QB_customer_created,Card_Link_Sent",
+                "tags": "Agreement_Signed,QB_customer_created,Card_Link_Sent{{if(2.paymentCard; \",payment_card\"; \"\")}}{{if(2.paymentZelle; \",payment_zelle\"; \"\")}}{{if(2.paymentVenmo; \",payment_venmo\"; \"\")}}",
                 "address": {},
                 "contact": "{{10.contactId}}"
             },
@@ -1805,7 +1832,7 @@
                 "__IMTCONN__": 7310522
             },
             "mapper": {
-                "body": "AUTOMATION (Phase 2 Complete):\n\n✓ Agreement signed via SignWell\n  - Signed at: {{2.signedAt}}\n  - Document ID: {{2.documentId}}\n  - PDF: {{2.signedPdfUrl}}\n\n✓ QuickBooks customer created\n✓ $1 Invoice SENT for card storage (refundable)",
+                "body": "AUTOMATION (Phase 2 Complete):\n\n✓ Agreement signed via SignWell\n  - Signed at: {{2.signedAt}}\n  - Document ID: {{2.documentId}}\n  - PDF: {{2.signedPdfUrl}}\n\n✓ Payment Preference:\n  {{if(2.paymentCard; \"→ Automatic Card Payments (Stored Card)\"; \"\")}}{{if(2.paymentZelle; \"→ Zelle\"; \"\")}}{{if(2.paymentVenmo; \"→ Venmo\"; \"\")}}\n\n✓ QuickBooks customer created\n✓ $1 Invoice SENT for card storage (refundable)",
                 "contactId": "{{6.id}}"
             },
             "metadata": {
@@ -1900,6 +1927,48 @@
             "metadata": {
                 "designer": {
                     "x": 2700,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 14,
+            "module": "http:ActionSendData",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "ca": "",
+                "qs": [],
+                "url": "https://hook.us2.make.com/j8qo8gcjksrnrg2e5hqwxad63a72bjpx",
+                "data": "{\"documentId\": \"{{2.documentId}}\", \"signerName\": \"{{2.signerName}}\", \"signerEmail\": \"{{2.signerEmail}}\", \"contactId\": \"{{3.id}}\"}",
+                "gzip": true,
+                "method": "post",
+                "headers": [
+                    {
+                        "name": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": false,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 3000,
                     "y": 0
                 }
             }

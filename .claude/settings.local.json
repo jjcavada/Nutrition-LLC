@@ -9,7 +9,12 @@
       "Grep(*)",
       "mcp__make__*",
       "mcp__make-client__*",
-      "mcp__make__hooks_create"
+      "mcp__make__hooks_create",
+      "mcp__plugin_playwright_playwright__*",
+      "mcp__plugin_context7_context7__*",
+      "mcp__claude_ai_Nutriotion__*",
+      "mcp__claude_ai_claude_API__*",
+      "mcp__claude_ai_Slack__*"
     ]
   },
   "enabledMcpjsonServers": [

@@ -1,0 +1,297 @@
+{
+    "name": "GHL - Phase 2.1: SignWell Signed PDF to Google Drive",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": 1920485,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 2,
+            "module": "util:SetVariables",
+            "version": 1,
+            "parameters": {},
+            "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                    {
+                        "name": "documentId",
+                        "value": "{{1.documentId}}"
+                    },
+                    {
+                        "name": "signerName",
+                        "value": "{{1.signerName}}"
+                    },
+                    {
+                        "name": "signerEmail",
+                        "value": "{{1.signerEmail}}"
+                    },
+                    {
+                        "name": "contactId",
+                        "value": "{{1.contactId}}"
+                    },
+                    {
+                        "name": "fileName",
+                        "value": "Service Agreement - {{1.signerName}} - {{formatDate(now; \"YYYY-MM-DD\")}}.pdf"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "scope": {
+                            "label": "One cycle"
+                        },
+                        "variables": {
+                            "items": [
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                            ]
+                        }
+                    }
+                },
+                "expect": [
+                    {
+                        "name": "variables",
+                        "spec": [
+                            {
+                                "name": "name",
+                                "type": "text",
+                                "label": "Variable name",
+                                "required": true
+                            },
+                            {
+                                "name": "value",
+                                "type": "any",
+                                "label": "Variable value"
+                            }
+                        ],
+                        "type": "array",
+                        "label": "Variables"
+                    },
+                    {
+                        "name": "scope",
+                        "type": "select",
+                        "label": "Variable lifetime",
+                        "required": true,
+                        "validate": {
+                            "enum": [
+                                "roundtrip",
+                                "execution"
+                            ]
+                        }
+                    }
+                ],
+                "interface": [
+                    {
+                        "name": "documentId",
+                        "type": "any",
+                        "label": "documentId"
+                    },
+                    {
+                        "name": "signerName",
+                        "type": "any",
+                        "label": "signerName"
+                    },
+                    {
+                        "name": "signerEmail",
+                        "type": "any",
+                        "label": "signerEmail"
+                    },
+                    {
+                        "name": "contactId",
+                        "type": "any",
+                        "label": "contactId"
+                    },
+                    {
+                        "name": "fileName",
+                        "type": "any",
+                        "label": "fileName"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 3,
+            "module": "http:ActionGetFile",
+            "version": 3,
+            "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+            },
+            "mapper": {
+                "url": "https://www.signwell.com/api/v1/documents/{{2.documentId}}/completed_pdf/",
+                "method": "get",
+                "headers": [
+                    {
+                        "name": "X-Api-Key",
+                        "value": "YWNjZXNzOjI5YjczNDg3YWQ2Y2QyYjExNDY1OWUwY2E3NDFmNTQ2"
+                    }
+                ],
+                "timeout": "30",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "followRedirect": true,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+            },
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 4,
+            "module": "google-drive:uploadAFile",
+            "version": 4,
+            "parameters": {
+                "__IMTCONN__": 7303139
+            },
+            "mapper": {
+                "select": "map",
+                "folderId": "REPLACE_WITH_GOOGLE_DRIVE_FOLDER_ID",
+                "filename": "{{2.fileName}}",
+                "data": "{{3.data}}",
+                "convert": false
+            },
+            "metadata": {
+                "designer": {
+                    "x": 900,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "select": {
+                            "label": "Enter manually"
+                        },
+                        "convert": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "google-restricted"
+                            },
+                            "label": "My Google connection"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:google-restricted",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 5,
+            "module": "highlevel:addNotetoContact",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7310522
+            },
+            "mapper": {
+                "body": "AUTOMATION (Phase 2.1 Complete):\n\n✓ Signed agreement PDF saved to Google Drive\n  - File: {{2.fileName}}\n  - Drive Link: {{4.webViewLink}}\n  - Document ID: {{2.documentId}}\n  - Uploaded: {{formatDate(now; \"YYYY-MM-DD HH:mm\")}}",
+                "contactId": "{{2.contactId}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": 1200,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "userId": {
+                            "mode": "chose",
+                            "label": "Empty"
+                        },
+                        "contactId": {
+                            "mode": "edit"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "highlevel3"
+                            },
+                            "label": "My GoHighlevel Location OAuth 2.0 connection (Location: Nutrition Intuition)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:highlevel,highlevel3",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "contactId",
+                        "type": "select",
+                        "label": "Contact ID",
+                        "required": true
+                    },
+                    {
+                        "name": "body",
+                        "type": "text",
+                        "label": "Body",
+                        "required": true
+                    },
+                    {
+                        "name": "userId",
+                        "type": "select",
+                        "label": "User ID"
+                    }
+                ]
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}

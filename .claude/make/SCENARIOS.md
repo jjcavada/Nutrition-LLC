@@ -38,6 +38,8 @@ Google Form Submit → Apps Script POST to webhook
 
 **Tags Applied:** `intake_received`, `new_lead`, `agreement_sent`, `make_processed`
 
+**SignWell Template:** `ef1d71fa-5834-43f3-9871-209e18d0e0b2` (includes payment preference checkboxes)
+
 ---
 
 ### Phase 2: Agreement Signed + QB Setup
@@ -69,6 +71,7 @@ SignWell Agreement Signed (document_completed event)
 11. GHL Add Note - Log automation summary
     ↓
 12. HTTP - Trigger Phase 3 webhook
+13. HTTP - Trigger Phase 2.1 webhook (SignWell PDF → Google Drive)
 ```
 
 **Key Configuration:**
@@ -77,13 +80,50 @@ SignWell Agreement Signed (document_completed event)
 - Requires: QuickBooks Payments enabled for Pay Now button
 - Customer Memo: Explains $1 is refundable
 
-**Tags Applied:** `agreement_signed`, `make_processed`, `qb_customer_created`, `card_link_sent`
+**Tags Applied:** `agreement_signed`, `make_processed`, `qb_customer_created`, `card_link_sent`, plus one of: `payment_card`, `payment_zelle`, or `payment_venmo`
 
 **SignWell Data Paths:**
 - signerEmail: `{{1.data.object.recipients[1].email}}`
 - signerName: `{{1.data.object.recipients[1].name}}`
 - documentId: `{{1.data.object.id}}`
 - signedAt: `{{1.data.object.updated_at}}`
+- paymentCard (Checkbox 1): `{{1.data.object.fields[1].value}}`
+- paymentZelle (Checkbox 2): `{{1.data.object.fields[2].value}}`
+- paymentVenmo (Checkbox 3): `{{1.data.object.fields[3].value}}`
+
+**Note:** Payment checkbox paths may need adjustment after testing - verify with actual SignWell webhook data
+
+---
+
+### Phase 2.1: SignWell Signed PDF to Google Drive
+| Field | Value |
+|-------|-------|
+| **ID** | 4212876 |
+| **Name** | GHL - Phase 2.1: SignWell Signed PDF to Google Drive |
+| **Status** | CREATED - NEEDS MANUAL SETUP |
+| **Trigger** | Webhook (from Phase 2 HTTP module) |
+| **Webhook URL** | `https://hook.us2.make.com/j8qo8gcjksrnrg2e5hqwxad63a72bjpx` |
+| **Last Edit** | 2026-02-24 |
+
+**Flow (4 modules):**
+```
+Phase 2 HTTP call → Webhook
+    ↓
+1. Webhook - Receive documentId, signerName, signerEmail, contactId
+2. Tools - Set variables (fileName = "Service Agreement - {name} - {date}.pdf")
+3. HTTP - GET SignWell completed PDF (api/v1/documents/{id}/completed_pdf/)
+   → [INSERT] Google Drive - Upload a File (needs connection + folder ID)
+4. GHL Add Note - Log Drive link on contact
+```
+
+**Manual Setup Required:**
+- [ ] Add SignWell API key to HTTP module (`X-Api-Key` header)
+- [ ] Create Google Drive connection in Make.com (authorize with Drive scope)
+- [ ] Add Google Drive "Upload a File" module between HTTP and GHL Note
+- [ ] Set Google Drive folder ID for signed documents
+- [ ] Test end-to-end flow
+
+**Tags Applied:** None (archival only)
 
 ---
 
@@ -92,13 +132,13 @@ SignWell Agreement Signed (document_completed event)
 |-------|-------|
 | **ID** | 4076893 |
 | **Name** | GHL - Phase 3: AI Menu Generator (OpenAI) |
-| **Status** | CONFIGURED - Needs valid OpenAI API key |
+| **Status** | ACTIVE - TESTED & WORKING |
 | **Trigger** | Webhook (from Phase 2 HTTP module) |
 | **Webhook URL** | `https://hook.us2.make.com/1g70olupjruo1arv416lpk1uwycim00w` |
 | **AI Provider** | OpenAI (gpt-4o-mini) |
-| **Last Edit** | 2026-02-07 |
+| **Last Edit** | 2026-02-21 |
 
-**Flow (8 modules):**
+**Flow (9 modules):**
 ```
 Phase 2 HTTP call → Webhook
     ↓
@@ -108,14 +148,19 @@ Phase 2 HTTP call → Webhook
 9. GHL Make API Call - GET /contacts/{contactId}/notes
    → Retrieves intake form data from Phase 1
     ↓
+10. Tools - Escape intake data for JSON
+    → Escapes backslashes, newlines, quotes
+    ↓
 3. HTTP OpenAI - Generate Chef Briefing + Menu (gpt-4o-mini)
-   → Audit-style prompt with validation
+   → Uses escaped intake data, audit-style prompt
     ↓
 4. GHL List Opportunities - Find by contactId
 5. GHL Update Opportunity - Stage: AI Menu Generated
 6. GHL Add Note - Save briefing + menu
     ↓
-7. Gmail - Send formatted HTML email notification
+7. Gmail - Send formatted HTML email notification to Amber
+    ↓
+8. HTTP - Trigger Phase 4 webhook with { contactId, fullName, email }
 ```
 
 **AI Output Includes:**
@@ -137,6 +182,46 @@ Phase 2 HTTP call → Webhook
    - Meal Type Coverage (Breakfast/Lunch/Dinner/Snacks)
 
 **Tags Applied:** `ai_menu_generated`
+
+---
+
+---
+
+### Phase 4: Consultation Invite + Waitlist
+| Field | Value |
+|-------|-------|
+| **ID** | 4076912 |
+| **Name** | GHL - Client Onboarding - Phase 4: Consultation Invite + Waitlist |
+| **Status** | ACTIVE - CONFIGURED |
+| **Trigger** | Webhook (from Phase 3 HTTP module) |
+| **Webhook URL** | `https://hook.us2.make.com/6wo54sccagamme9feea6fkpv7o8rfdt5` |
+| **Last Edit** | 2026-02-23 |
+
+**Flow (6 modules):**
+```
+Phase 3 HTTP call → Webhook
+    ↓
+1. Webhook - Receive contactId, fullName, email from Phase 3
+2. GHL List Opportunities - Find by contactId
+3. GHL Update Opportunity - Stage: Waitlist (Consult In-progress)
+    ↓
+4. Gmail - Send branded email to CLIENT with booking link
+   → book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE
+    ↓
+5. GHL Update Contact - Add tag: consultation_invited
+6. GHL Add Note - Log consultation invite sent
+```
+
+**Email to Client Includes:**
+- Branded Nutrition Intuition header (olive green theme)
+- Personalized greeting with client name
+- "Book Your Consultation" button linking to calendar
+- Consultation details (15 min, review menu, plan first week)
+- Signed by Amber Barcellos
+
+**Tags Applied:** `consultation_invited`
+
+**Stage ID:** `0736387b-ed24-47d2-b6c5-43bcb25ea395` (Waitlist - Consult In-progress)
 
 ---
 
@@ -171,8 +256,16 @@ SignWell webhook → Make.com                           │
 • Stage → QB Card Link Sent                           │
 • Phase 3 webhook triggered with:                     │
   { contactId, fullName, email } ─────────────────────┼──┐
+• Phase 2.1 webhook triggered with:                   │  │
+  { documentId, signerName, signerEmail, contactId }   │  │
                                                       │  │
-                    ↓                                 │  │
+                    ↓ (parallel)                      │  │
+                                                      │  │
+PHASE 2.1: SIGNED PDF → GOOGLE DRIVE                  │  │
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                  │  │
+• Download signed PDF from SignWell API                │  │
+• Upload to Google Drive folder                        │  │
+• Log Drive link in GHL contact note                   │  │
                                                       │  │
 PHASE 3: AI MENU GENERATOR                            │  │
 ━━━━━━━━━━━━━━━━━━━━━━━━━━                            │  │
@@ -188,9 +281,23 @@ OpenAI generates:
 • Saved to GHL contact
 • Stage → AI Menu Generated
 • Email notification to Amber
+• Phase 4 webhook triggered with:
+  { contactId, fullName, email }
+                    ↓
+
+PHASE 4: CONSULTATION INVITE + WAITLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 3 calls webhook
+    ↓
+• Stage → Waitlist (Consult In-progress)
+• Branded email sent to CLIENT with booking link
+  (book.aznutritionintuition.shop)
+• Tag: consultation_invited
+• Note logged
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ✓ AUTOMATION COMPLETE                        │
+│              CLIENT BOOKS CONSULTATION VIA LINK                  │
+│              (15 min call with Amber)                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -227,7 +334,7 @@ OpenAI generates:
 | GoHighLevel | 7310522 | Nutrition Intuition | All phases |
 | QuickBooks (Test) | 7314664 | JJ Test Account | Phase 2 |
 | Google | 7303139 | Connected | Phase 1 |
-| Gmail | 7317781 | jjcavada1@gmail.com | Phase 3 |
+| Gmail | 7508077 | jjcavada1@gmail.com | Phase 3, Phase 4 |
 | OpenAI | HTTP module | API key in headers | Phase 3 |
 
 ---
@@ -239,6 +346,8 @@ OpenAI generates:
 | 1853039 | Phase 1 (4076295) | Google Form Apps Script | vds4lcsjbar49cl8ac99lhfkxufidonp |
 | 1853116 | Phase 2 (4076492) | SignWell document_completed | nd7xs6bjruqu3v22u694mfm695zu4yh4 |
 | 1853325 | Phase 3 (4076893) | HTTP from Phase 2 | 1g70olupjruo1arv416lpk1uwycim00w |
+| 1853326 | Phase 4 (4076912) | HTTP from Phase 3 | 6wo54sccagamme9feea6fkpv7o8rfdt5 |
+| 1920485 | Phase 2.1 (4212876) | HTTP from Phase 2 | j8qo8gcjksrnrg2e5hqwxad63a72bjpx |
 
 ---
 
@@ -263,6 +372,10 @@ Pipeline: Client Onboarding (t6tPDiRCfcKiVr7vUkxW)
 │ Stage 3: AI Menu Generated                                   │
 │ ID: 27da74c4-02d8-4bd2-97f7-31628f517a6c                     │
 │ Set by: Phase 3 (after menu generated)                       │
+├──────────────────────────────────────────────────────────────┤
+│ Stage 4: Waitlist (Consult In-progress)                      │
+│ ID: 0736387b-ed24-47d2-b6c5-43bcb25ea395                     │
+│ Set by: Phase 4 (consultation invite sent)                   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -279,6 +392,10 @@ Pipeline: Client Onboarding (t6tPDiRCfcKiVr7vUkxW)
 | `agreement_signed` | Phase 2 | E-signature completed |
 | `qb_customer_created` | Phase 2 | QuickBooks customer exists |
 | `card_link_sent` | Phase 2 | $1 invoice sent for card |
+| `consultation_invited` | Phase 4 | Booking link email sent to client |
+| `payment_card` | Phase 2 | Prefers Automatic Card Payments |
+| `payment_zelle` | Phase 2 | Prefers Zelle |
+| `payment_venmo` | Phase 2 | Prefers Venmo |
 | `ai_menu_generated` | Phase 3 | Menu created by AI |
 
 ---

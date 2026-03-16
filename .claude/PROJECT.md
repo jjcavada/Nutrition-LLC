@@ -14,7 +14,7 @@
 |-------|------|--------|
 | Phase 1 | Intake Form + Welcome Package | ✅ WORKING |
 | Phase 2 | Agreement Signed + QB Setup | ✅ WORKING |
-| Phase 3 | AI Menu Generator | ⚠️ Needs API Key |
+| Phase 3 | AI Menu Generator | ✅ WORKING |
 
 ---
 
@@ -40,8 +40,10 @@
 - **Gmail**: 7317781 (jjcavada1@gmail.com)
 
 ### SignWell
-- **Template ID**: 8fa135c9-df0c-4f74-a335-76c701354199
+- **Template ID**: ef1d71fa-5834-43f3-9871-209e18d0e0b2 (with payment preference checkboxes)
+- **Old Template ID**: 8fa135c9-df0c-4f74-a335-76c701354199 (no payment preference)
 - **Signer Placeholder**: "Client"
+- **Payment Checkboxes**: Checkbox 1 (Card), Checkbox 2 (Zelle), Checkbox 3 (Venmo)
 
 ### OpenAI
 - **Model**: gpt-4o-mini
@@ -211,6 +213,9 @@ Client Onboarding Pipeline (t6tPDiRCfcKiVr7vUkxW)
 | `agreement_signed` | Phase 2 | E-sign complete |
 | `qb_customer_created` | Phase 2 | QB customer exists |
 | `card_link_sent` | Phase 2 | $1 invoice sent |
+| `payment_card` | Phase 2 | Prefers Automatic Card Payments |
+| `payment_zelle` | Phase 2 | Prefers Zelle |
+| `payment_venmo` | Phase 2 | Prefers Venmo |
 | `ai_menu_generated` | Phase 3 | Menu created |
 
 ---

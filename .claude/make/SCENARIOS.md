@@ -38,7 +38,7 @@ Google Form Submit → Apps Script POST to webhook
 
 **Tags Applied:** `intake_received`, `new_lead`, `agreement_sent`, `make_processed`
 
-**SignWell Template:** `ef1d71fa-5834-43f3-9871-209e18d0e0b2` (includes payment preference checkboxes)
+**SignWell Template:** `dacb0461-f973-488b-93d5-a2cf7135992a` (Client Service Agreement)
 
 ---
 
@@ -348,6 +348,7 @@ Phase 3 calls webhook
 | 1853325 | Phase 3 (4076893) | HTTP from Phase 2 | 1g70olupjruo1arv416lpk1uwycim00w |
 | 1853326 | Phase 4 (4076912) | HTTP from Phase 3 | 6wo54sccagamme9feea6fkpv7o8rfdt5 |
 | 1920485 | Phase 2.1 (4212876) | HTTP from Phase 2 | j8qo8gcjksrnrg2e5hqwxad63a72bjpx |
+| 2091674 | Email Search Helper (4587501) | AI Agent HTTP tool call | vlur19b23ukeqjtupnhcsq6w2es4q2ck |
 
 ---
 
@@ -432,7 +433,7 @@ GHL Workflow triggers webhook (opp moved to "Send Packet")
 
 **SignWell Configuration:**
 - Template: Independent Contractor Agreement
-- Template ID: `5b1e970d-1e42-45dd-b16e-b22d68c555db`
+- Template ID: `4c022280-ddec-442f-a957-a185224d4784`
 - Signer Placeholder: "Contractor"
 
 **Configuration Status:**
@@ -454,6 +455,289 @@ GHL Workflow triggers webhook (opp moved to "Send Packet")
 
 ---
 
+### Phase 9 Form Trigger: Contractor Onboarding (No GHL Required)
+| Field | Value |
+|-------|-------|
+| **ID** | 4446319 |
+| **Name** | GHL - Contractor Onboarding - Phase 9: Form Trigger |
+| **Status** | ACTIVE |
+| **Trigger** | Custom Webhook (HTML form at GitHub Pages) |
+| **Webhook URL** | `https://hook.us2.make.com/6ypm3oeyw4t9gbpoztabfs4k3k49dsc7` |
+| **Hook ID** | 2029569 |
+| **Form URL** | `https://contractor.aznutritionintuition.shop` |
+| **Created** | 2026-03-18 |
+
+**Flow (10 modules):**
+```
+Amber opens form link → enters contractor name, email, phone → submits
+    ↓
+1. Webhook - Receive form data (first_name, last_name, email, phone)
+2. GHL Create Contact - Auto-creates contact in GHL (source: "Contractor Onboarding Form")
+3. GHL Create Opportunity - Creates opp in Contractor Onboarding pipeline (stage: New Applicant)
+4. QuickBooks Create Vendor - Creates vendor record (name, email, phone)
+5. HTTP SignWell - Sends Independent Contractor Agreement for e-signature
+6. Gmail - Sends contractor packet email (handbook + W9 link)
+7. Checkr Create Candidate - Creates candidate in Checkr
+8. Checkr Create Background Invitation - Sends background check invitation (Basic Plus Criminal)
+9. GHL Update Opportunity - Moves to "Packet Sent" stage
+10. GHL Add Note - Logs all automation actions (SignWell doc ID, Checkr IDs, links)
+```
+
+**Purpose:** Allows Amber to trigger contractor onboarding WITHOUT logging into GoHighLevel.
+She just bookmarks the form link and fills in name/email/phone. Everything else is automated.
+
+**Connections Used:**
+- GHL: 7303129 (Nutrition Intuition)
+- QuickBooks: 7302963 (Nutrition Intuition LLC)
+- Gmail: 7478377 (amberbarcellos@gmail.com)
+- Checkr: 7871197 (Nutrition Intuition LLC)
+- SignWell: HTTP module with API key
+
+---
+
+---
+
+### WhatsApp AI Agent: Email + Calendar Booking
+| Field | Value |
+|-------|-------|
+| **ID** | 4539381 |
+| **Name** | GHL - AI Agent - WhatsApp → Email + Calendar Booking |
+| **Status** | CREATED - NEEDS MANUAL SETUP |
+| **Trigger** | Custom Webhook (WhatsApp Business Cloud sends events here) |
+| **Webhook URL** | TBD - open scenario in Make.com to generate |
+| **Created** | 2026-03-27 |
+
+**Flow (9 modules):**
+```
+WhatsApp Business Cloud → Meta webhook → Make.com webhook
+    ↓
+1. Webhook - Receive WhatsApp event (from/phone_number_id/message text)
+2. Set Variables - Extract: messageText, fromPhone, contactName, phoneNumberId
+    ↓
+3. HTTP OpenAI (gpt-4o-mini) - Analyze intent, generate reply + action data
+   → System prompt instructs: return JSON with intent/reply/email fields
+   → JSON response_format enabled
+    ↓
+4. Set Variables - Parse AI response: aiIntent, aiReply, emailTo, emailSubject, emailBody
+    ↓
+5. Router (3 routes):
+   Route A (intent = send_email):
+     6. Gmail - Send email to client/Amber
+     7. HTTP - Send WhatsApp reply confirming email sent
+   Route B (intent = book_calendar):
+     8. HTTP - Send WhatsApp reply with booking link
+        (https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE)
+   Route C (intent = general_reply):
+     9. HTTP - Send WhatsApp reply with AI response
+```
+
+**AI Intent Types:**
+- `send_email` - Client asks to be emailed something
+- `book_calendar` - Client wants to book/schedule a consultation
+- `general_reply` - All other messages (info, questions, etc.)
+
+**Manual Setup Required:**
+- [ ] Open scenario in Make.com to activate webhook and get URL
+- [ ] Set up Meta WhatsApp Business API account (Meta Business Manager)
+- [ ] Replace `YOUR_OPENAI_API_KEY` with valid OpenAI API key
+- [ ] Replace `YOUR_WHATSAPP_TOKEN` with Meta Graph API access token
+- [ ] Configure Meta webhook to point to this scenario's webhook URL
+- [ ] Verify events: subscribe to `messages` field in WhatsApp webhook
+- [ ] Test with a WhatsApp message
+
+**Connections Used:**
+- Gmail: 7508077 (jjcavada1@gmail.com - change to Amber's in production)
+- OpenAI: HTTP module (key in Authorization header)
+- WhatsApp Business Cloud: HTTP module (Meta Graph API token)
+
+---
+
+### Telegram AI Assistant: Amber's AI Bot (Make AI Agent)
+| Field | Value |
+|-------|-------|
+| **ID** | 4539954 |
+| **Name** | Amber's - AI Assistant v2 |
+| **Account** | Amber's Make.com (Team 1853710) |
+| **Status** | ACTIVE - TESTED & WORKING |
+| **Trigger** | Telegram Bot - Watch Updates |
+| **Bot** | @Nutrition_Intuition_ai_bot |
+| **Hook ID** | 2077737 |
+| **AI Provider** | OpenAI gpt-4o-mini (connection 7520490) |
+| **Architecture** | Make AI Agents module (Beta) with tool calling + Router for voice |
+| **Roundtrips** | 5 |
+| **Created** | 2026-03-27 |
+| **Last Updated** | 2026-04-06 |
+
+**Flow (Router architecture — voice + text branches):**
+```
+Amber messages Telegram bot (text or voice)
+    ↓
+1. Telegram Watch Updates - Receive message (hook 2077737)
+    ↓
+2. Router (builtin:BasicRouter)
+    ├── Route 1 [Voice Message detected]:
+    │   3. Telegram Download File - Download voice audio (OGG/OPUS)
+    │   4. OpenAI Whisper - Transcribe audio to text
+    │   5. Make AI Agent (gpt-4o) - Process transcribed text with 10 tools
+    │   6. Telegram Reply - Send response
+    │
+    └── Route 2 [Text Message / Default]:
+        7. Make AI Agent (gpt-4o) - Process text message with 10 tools
+        8. Telegram Reply - Send response
+```
+
+**AI Agent Tools (11 tools, same in both branches):**
+| # | Name | Module | Connection |
+|---|------|--------|------------|
+| 1 | Search Client | highlevel:searchContacts | 7303129 |
+| 2 | Get Client Notes | highlevel:universal (GET /contacts/{id}/notes) | 7303129 |
+| 3 | Send Email | google-email:sendAnEmail | 7478377 |
+| 4 | Save Email Draft | google-email:createADraft | 7478377 |
+| 5 | Add Note to Contact | highlevel:addNotetoContact | 7303129 |
+| 6 | Search Opportunities | highlevel:listOpportunities (limit 50) | 7303129 |
+| 7 | Search Emails | http:ActionSendData → Email Search Helper webhook | (connectionless) |
+| 8 | Get an Email | google-email:getAnEmail | 7478377 |
+| 9 | Move Client Stage | highlevel:universal (PUT /opportunities/{id}) | 7303129 |
+| 10 | Check Calendar | google-calendar:searchEvents | 7303139 |
+| 11 | Create an Event | google-calendar:createAnEvent (quick mode) | 7303139 |
+
+**System Prompt Rules:**
+- RULE 1: Telegram HTML only (no markdown)
+- RULE 2: Fuzzy search with retry (first name, last name fallback)
+- RULE 3: Pipeline stage UUID-to-name mapping
+- RULE 4: "Who hasn't signed" = New Lead stage only
+- RULE 5: Client lookup (3 tools: Search + Notes + Opportunities)
+- RULE 6: Move client stage (PUT /opportunities/{id} with pipelineStageId)
+- RULE 7: Email formatting + signature + draft vs send (Search Emails returns summaries only)
+- RULE 8: Batch moves (move multiple clients at once)
+- RULE 9: Calendar lookup (date range, event formatting)
+- RULE 10: Memory (save/recall persistent info with descriptive keys)
+- RULE 11: Create calendar events (natural language text, date/time, location, attendees)
+
+**Key Features:**
+- **Voice messages** — Amber can talk while driving; Whisper transcribes, AI processes
+- **Batch moves** — "move all Waitlist clients to Chef Assigned" processes each one
+- **Google Calendar** — "what's on my calendar today?" searches; "schedule a meal prep for Sarah on April 10th" creates events
+- **Fuzzy search** — Misspelled names trigger retry with first/last name
+- **Pipeline management** — Move clients between stages via chat
+- **Email** — Send, draft, search (via helper scenario for compact summaries), and read Gmail
+- **Persistent memory** — Save/recall info across conversations (Data Store 87850)
+- **Client briefings** — Full profile with dietary info, pipeline status, notes
+- **Per-message threadId** — `chatId_messageId` prevents conversation lock timeouts
+
+**Connections Used (Amber's account):**
+- Telegram Bot: 8060707 (@Nutrition_Intuition_ai_bot)
+- GHL: 7303129 (Nutrition Intuition)
+- Gmail: 7478377 (amberbarcellos@gmail.com)
+- Google (Calendar): 7303139 (amberbarcellos@gmail.com)
+- OpenAI: 7520490
+
+**NOTE:** Gmail connection 7478377 expired on April 4, 2026. Amber needs to reauthorize it in Make.com for email tools (Send Email, Save Draft, Get Email, Search Emails) to work.
+
+---
+
+### AI Assistant - Email Search Helper
+| Field | Value |
+|-------|-------|
+| **ID** | 4587501 |
+| **Name** | AI Assistant - Email Search Helper |
+| **Account** | Amber's Make.com (Team 1853710) |
+| **Status** | ACTIVE |
+| **Trigger** | Custom Webhook (called by AI Agent's Search Emails tool) |
+| **Webhook URL** | `https://hook.us2.make.com/vlur19b23ukeqjtupnhcsq6w2es4q2ck` |
+| **Hook ID** | 2091674 |
+| **Created** | 2026-03-31 |
+
+**Flow (6 modules):**
+```
+AI Agent calls webhook with { "query": "search terms" }
+    ↓
+1. CustomWebHook - Receive search query
+2. Gmail Search - executeEmailSearchQuery (maxResults: 3, connection: 7478377)
+3. Iterator (BasicFeeder) - Split email results into individual bundles
+4. Compose String - Extract: Subject, From, Date, Preview (200 char truncated)
+5. Text Aggregator - Concatenate all summaries into one text block
+6. Webhook Respond - Return compact summaries (200 OK, text/plain)
+```
+
+**Purpose:** Solves the 5MB field limit and 83K+ token errors when the AI Agent searches emails directly. Gmail returns full HTML content (headers, attachments, formatting) which can be massive. This helper scenario processes emails server-side and returns only compact metadata summaries (~1KB instead of 80KB+).
+
+**Connections Used:**
+- Gmail: 7478377 (amberbarcellos@gmail.com)
+
+---
+
+### AI Agent Memory (Data Store)
+| Field | Value |
+|-------|-------|
+| **Data Store ID** | 87850 |
+| **Data Structure ID** | 323682 |
+| **Name** | AI Agent Memory |
+| **Size** | 1 MB |
+| **Fields** | key (text), type (text), content (text), timestamp (text) |
+| **Used By** | Scenario 4539954 (Telegram AI Agent - Save/Recall Memory tools) |
+| **Created** | 2026-03-31 |
+
+**Purpose:** Persistent key-value memory for the AI Agent. Saves client info, search results, notes, and preferences across conversations. Keys follow pattern: `client_{name}_{topic}`, `search_{query}`, `note_{topic}`.
+
+---
+
+### AI Assistant - Agreement Signed Notification
+| Field | Value |
+|-------|-------|
+| **ID** | 4598521 |
+| **Name** | AI Assistant - Agreement Signed Notification |
+| **Account** | Amber's Make.com (Team 1853710) |
+| **Status** | ACTIVE - NEEDS CHAT ID CONFIG |
+| **Trigger** | Custom Webhook (called by Phase 2 after SignWell signing) |
+| **Webhook URL** | `https://hook.us2.make.com/kl44j5yby6koj8s23f655c1siy7jazac` |
+| **Hook ID** | 2096859 |
+| **Created** | 2026-04-01 |
+
+**Flow (3 modules):**
+```
+Phase 2 calls webhook with { clientName, signerEmail, signedAt, documentUrl }
+    ↓
+1. CustomWebHook - Receive signing data
+2. Set Variables - chatId (NEEDS AMBER'S TELEGRAM CHAT ID), clientName, signerEmail, signedAt, documentUrl
+3. Telegram SendReplyMessage - Sends notification to Amber's Telegram chat
+```
+
+**Message Format:**
+```
+✅ Agreement Signed!
+
+👤 {clientName}
+📧 {signerEmail}
+📅 {signedAt}
+
+📄 View Signed Document (link)
+
+All automation steps running (QB customer, invoice, menu, consultation invite).
+```
+
+**ACTION REQUIRED:** Replace `REPLACE_WITH_AMBER_CHAT_ID` in module 2 with Amber's actual Telegram chat ID. Get it by checking any execution history of scenario 4539954 — the `chatId` field in the Telegram module.
+
+**Connections Used:**
+- Telegram Bot: 8060707 (@Nutrition_Intuition_ai_bot)
+
+---
+
+### Client Feedback Webhook (Backup): WhatsApp → Follow-up Email
+| Field | Value |
+|-------|-------|
+| **ID** | 4539744 |
+| **Name** | GHL - Client Feedback - WhatsApp → AI Follow-up Email |
+| **Account** | Amber's Make.com (Team 1853710) |
+| **Status** | STANDBY - Webhook-based alternative to Telegram bot |
+| **Webhook URL** | `https://hook.us2.make.com/p18a7880esny7cohfgvaeuc6y3yqgjtd` |
+| **Hook ID** | 2070502 |
+| **Note** | Same functionality as Telegram bot but triggered via webhook instead |
+
+**Tags Applied:** `followup_sent`, `make_processed`
+
+---
+
 ## Outstanding Items
 
 ### Phase 3:
@@ -471,4 +755,4 @@ GHL Workflow triggers webhook (opp moved to "Send Packet")
 
 ---
 
-*Last Updated: 2026-02-07*
+*Last Updated: 2026-04-06*

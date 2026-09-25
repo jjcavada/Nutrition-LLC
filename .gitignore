@@ -16,3 +16,9 @@
 # Local environment
 .env
 .env.local
+
+# Local Netlify folder
+.netlify
+
+# website has its own repo: github.com/jjcavada/nutrition-intuition-website
+website/

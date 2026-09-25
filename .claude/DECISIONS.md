@@ -122,33 +122,19 @@ Track all major decisions, changes, and rationale.
 
 ## 2026-02-07 - Phase 2 QuickBooks Setup
 
-### Decision: $1 Refundable Invoice for Card Storage
-- **What**: Send $1 invoice instead of $0 for card-on-file setup
-- **Why**: QuickBooks requires payment to store card; $0 invoices don't trigger card entry
-- **Process**:
-  1. Customer receives $1 invoice
-  2. Clicks "Pay Now"
-  3. Enters card to pay $1
-  4. Card stored for future billing
-  5. $1 refunded or credited to first real invoice
-- **Prerequisite**: QuickBooks Payments must be enabled
-- **Result**: Secure card storage workflow
+### ~~Decision: $1 Refundable Invoice for Card Storage~~ [REMOVED 2026-04-28]
+- **REMOVED**: The $1 invoice / card storage process has been removed from the business. Phase 2 now creates a QuickBooks customer and updates the pipeline, but does NOT send any invoice or store any card.
 
 ### Decision: Single GHL Update Module
 - **What**: Consolidated multiple GHL update modules into one
 - **Why**: Reduce complexity, single API call for all tags
-- **Tags Applied**: `agreement_signed`, `make_processed`, `qb_customer_created`, `card_link_sent`
+- **Tags Applied**: `agreement_signed`, `make_processed`, `qb_customer_created`
 
-### Decision: SignWell Message Update
-- **What**: Recommend adding $1 invoice notice to SignWell agreement message
-- **Why**: Set client expectations about card storage process
-- **Alternative**: QB default invoice message (but affects all invoices)
+### ~~Decision: SignWell Message Update~~ [REMOVED 2026-04-28]
+- **REMOVED**: The $1 invoice notice is no longer needed since the card storage process was removed.
 
-### Decision: QB Item Must Be Set Manually
-- **What**: Create Invoice → Item field cannot be set via MCP
-- **Why**: MCP doesn't handle nested dropdown selections properly
-- **Workaround**: Document manual steps for UI configuration
-- **Item**: "Card Setup - No Charge" (ID: 200000202)
+### ~~Decision: QB Item Must Be Set Manually~~ [REMOVED 2026-04-28]
+- **REMOVED**: No invoice is created in Phase 2 anymore. Only a QuickBooks customer is created.
 
 ---
 
@@ -612,6 +598,126 @@ Track all major decisions, changes, and rationale.
 
 ---
 
+### Decision: Welcome video is HOSTED and sent ahead of the SignWell agreement
+- **Date**: 2026-09-01
+- **What**: Amber's 77 s intro video now reaches a new client BEFORE the service agreement.
+  Phase 1 (scenario 4082106) runs: webhook -> SetVariables -> GHL upsert -> create opportunity ->
+  **module 8 welcome video email** -> **module 9 `util:FunctionSleep` 300 s** -> SignWell -> update
+  contact -> add note. Video lives at <https://nutrition-intuition-welcome.netlify.app>
+  (Netlify site `b1c52106-0dd1-44ed-9f28-7e779e747277`, source `netlify-welcome/`).
+- **Why**: The video ends on a CTA telling the viewer to fill out the paperwork, so it is nonsense
+  for it to arrive after the paperwork. Flow order alone is not enough: SignWell sends through its own
+  queue, so an enforced delay is what actually guarantees inbox order.
+- **Why hosted, not attached**: the source file is 27 MB (over Gmail's 25 MB cap). Even re-encoded to
+  10.1 MB it stays hosted, because multi-MB video attachments get spam filtered, most clients cannot
+  play them inline, and the landing page carries the "what happens next" steps.
+- **Result**: Proven live twice. First run: welcome email 11:23:21Z, agreement 11:28:23Z, note 11:28:41Z.
+  Contract `VALIDATION_CONTRACT_welcome-video.md`, gate CLOSED after a fresh inspector failed it once on
+  missing error handlers and the handlers were added rather than waived.
+- **Traps for next time**: Make's Sleep module is `util:FunctionSleep` with mapper `{"duration": N}`,
+  max 300 s — `builtin:Sleep` does not exist. `builtin:Resume` takes an empty mapper. A `Resume` branch
+  resumes with an EMPTY bundle, so never let a downstream mapper read from a module whose handler
+  Resumes (nothing reads `{{8.*}}` or `{{9.*}}` here, which is why it is safe).
+- **Error-handler rule now in force for this scenario**: `Commit` where a failure means the lead is not
+  onboarded (modules 2, 3, 4, 5, 6, 7); `Resume` where a failure must never block the client's contract
+  (modules 8, 9). Module 1 is a webhook trigger and cannot carry a handler.
+
+### Decision: Assigned Chef dropdown populated with the real roster
+- **Date**: 2026-09-01
+- **What**: Opportunity custom field `a92gzVh8Ukz7gkvRKf03` (`opportunity.assigned_chef`) went from
+  5 placeholders to `tbd` plus 17 real chefs, from Amber's emailed roster.
+- **Why**: The placeholders (`chef_sample`, `Sample Chef # 1-3`) made the field unusable. `tbd` was kept
+  because it is a legitimate "not assigned yet" value.
+- **Result**: Verified by assigning a chef via API and reading it back.
+- **API notes**: update options with `PUT /locations/{loc}/customFields/{id}` and an `options` array; set
+  a value with `{"customFields":[{"id":"...","field_value":"Ashley Brown"}]}`, which reads back as
+  `fieldValue`. **`GET /opportunities/search` always returns `customFields: []`** — you must GET each
+  opportunity individually, which makes any poll-based chef design N operations per cycle.
+- **Open**: two roster ambiguities to confirm with Amber. `chefebonylomeli@gmail.com` had no name on the
+  list and was entered as **Ebony Lomeli**; `kiyara.brown43001@gmail.com` appeared twice ("Kiki
+  Contractor Brown" and "Kiyara Brown") and was entered once as **Kiyara Brown**.
+
+### Open: SignWell API key is cleartext in the Phase 1 blueprint
+- **Date**: 2026-09-01
+- **What**: Module 5's `X-Api-Key` header carries the raw SignWell key. Pre-existing, not introduced by
+  the welcome-video work, but anyone with read access to scenario 4082106 can lift it.
+- **Action**: rotate the key and move it into a Make connection rather than a mapper literal.
+
+### Decision: Assigning a chef emails that chef the client's 15-item menu
+- **Date**: 2026-09-01
+- **What**: New Make scenario **6116697** "GHL - Chef Assigned -> Send 15-Item Menu to that Chef",
+  webhook `https://hook.us2.make.com/u61w8d7yp6wl7eu4bs68ggezde6p8uwa` (hook 2759192). Flow:
+  `1 webhook -> 2 read payload -> 3 find opportunity (fallback) -> 4 read opportunity custom fields ->
+  5 map chef name to email -> 6 read contact notes -> 7 iterate notes -> 10 aggregate + flag menu notes ->
+  11 pick the NEWEST menu note -> 8 email the chef -> 9 write CRM note`.
+- **Why only the assigned chef**: Amber explicitly rejected sending the recap to all chefs. Her words:
+  chefs should not see other clients' names and addresses, and should not be able to gauge how fast
+  onboarding is going. Sending to the assigned chef alone removes that objection, and the assigned chef
+  legitimately needs the name and address because they cook in the client's home. **No redaction needed.**
+- **Why the menu can be forwarded as is**: Phase 3's system prompt already forbids naming Amber because
+  "this document will be sent to a chef", so the generated briefing is already chef-facing.
+- **Chef name to email mapping** lives in module 5 as a `switch()` over the 17 roster names. To add or
+  change a chef you must update it in TWO places: the GHL dropdown options AND this switch.
+- **PROVEN LIVE**: fired the webhook against a test contact carrying TWO menu notes. Exactly one email
+  sent, containing the NEWER menu, header marker stripped, plus a `MENU SENT TO ASSIGNED CHEF` CRM note
+  reading "Menu notes on this contact: 2 (the newest one was sent)".
+- **STILL REQUIRED TO GO LIVE**: nothing calls this webhook yet. A **Webhook action must be added in the
+  GHL UI** to a workflow that fires when Assigned Chef is set (candidate: the existing published workflow
+  "Create Chef Assignment Task", `f756badb-4cd1-474b-86e1-5c203b7c737e`), POSTing at minimum
+  `{"contactId": "...", "opportunityId": "..."}`. GR-026: GHL workflows must be UI-built, not API-built.
+
+### Traps found while building the chef scenario (2026-09-01)
+- **Contacts carry MULTIPLE `AI MENU & CHEF BRIEFING GENERATED` notes** (observed 2 to 4 per contact).
+  Phase 3 writes a duplicate pair on every run AND re-onboarded clients accumulate more. Any consumer
+  MUST select the newest, or it will email the chef a stale menu, or email several times.
+- **GHL returns `/contacts/{id}/notes` NEWEST FIRST.** So `first()` is the newest and `last()` is the
+  oldest. Phase 3 deliberately uses `last(...)` to grab the original intake note; this scenario uses the
+  first match to grab the newest menu. Do not "fix" either one.
+- **A Make filter comparing against a string containing `&` silently matches nothing.** A `text:contains`
+  filter on "AI MENU & CHEF BRIEFING GENERATED" passed zero bundles even though the text was present.
+  Fix: never put `&` in a filter operand. This scenario tests for "CHEF BRIEFING GENERATED" instead, and
+  does the test inside the aggregator mapper as a YES/NO flag, then selects with an exact `map()` match.
+- **`map(array; target; key; value)` filters on EXACT equality only** — it cannot do "contains". That is
+  why the YES/NO flag exists.
+- **`builtin:BasicAggregator` blueprint shape that works**: `parameters: {"feeder": <iteratorModuleId>}`,
+  `mapper: {"<field>": "{{<iteratorId>.<field>}}"}`, output read as `{{<aggId>.array}}`.
+- **After a blueprint push the first webhook fire SOMETIMES does not execute** (seen twice, then not reproduced on later pushes). Intermittent, not a rule. Confirm against the execution log; fire twice before calling a scenario broken.
+  the real test, or you will misread a working scenario as broken.
+- **`GET /opportunities/search` supports neither `sort`/`sortBy` nor a usable `startAfter` date filter**
+  (epoch ms returns SEARCH_INVALID_START_DATE, ISO returns "must be a valid timestamp", `endBefore` does
+  not exist). Combined with `customFields` always returning `[]` on search, polling for chef assignment
+  is not viable. Use a GHL workflow webhook.
+
+### OPEN BUG (diagnosed 2026-09-01, NOT fixed): Phase 2 double-fires, so Phase 3 generates every menu twice
+- **Evidence, not inference.** Make execution logs show it on EVERY run, not occasionally:
+  - Phase 3 (`4082143`): 18 of 18 executions are **pairs ~3 s apart**, each a full 10-operation run
+    including a `gpt-4o` call at `max_tokens: 8000`. Example pair: `2026-08-24T17:23:34.794Z` and
+    `2026-08-24T17:23:39.195Z`.
+  - Phase 2 (`4071952`): the real 9-operation runs also come in **pairs ~4.7 s apart**. Example:
+    `17:23:32.390Z` and `17:23:37.079Z`. Those timestamps line up exactly with the Phase 3 pair, so
+    **Phase 2 is the source and Phase 3 is collateral.**
+  - Corroborated in the CRM: contacts carry paired duplicate `AUTOMATION (Phase 2 Complete)` notes and
+    paired duplicate `AI MENU & CHEF BRIEFING GENERATED` notes, seconds apart.
+- **Cost per client:** roughly 19 wasted Make operations plus **one entire extra menu generation**
+  (the most expensive call in the stack), a duplicate menu email to Amber, and duplicate CRM notes.
+- **Root cause is upstream of Make:** Phase 2 is triggered by the SignWell webhook. SignWell is
+  delivering two events that both pass Phase 2's filter (or retrying). The 1-operation executions in the
+  log are other SignWell event types being correctly filtered out; the 9-operation ones are the signed
+  path, and they always arrive twice.
+- **This also explains the Resume-on-duplicate handler.** The `builtin:Resume` branch on Phase 2's QB
+  customer creation that swallows "Duplicate / already exists" exists **because of this double-fire** —
+  the second run tries to create a QuickBooks customer that the first already made. Fixing the double
+  fire removes the need to swallow duplicates, and makes real duplicate errors visible again instead of
+  being masked.
+- **Recommended fix (NOT applied, needs Jay's go-ahead — this scenario touches QuickBooks):** add an
+  idempotency guard at the top of Phase 2 keyed on the SignWell document id, so the second delivery is
+  dropped before any side effect. Same pattern Jay already used on `gfi-demo` when Retell fired
+  `call_analyzed` multiple times and produced 3 summaries/emails.
+- **Do not "fix" this by making Phase 3 idempotent instead.** The duplicate originates at Phase 2; a
+  guard there fixes every downstream phase at once.
+
+---
+
 ## Template for New Decisions
 
 ### Decision: [Title]
@@ -619,3 +725,281 @@ Track all major decisions, changes, and rationale.
 - **What**: Description
 - **Why**: Rationale
 - **Result**: Outcome
+
+
+### Post-inspection hardening of the chef scenario (2026-09-01)
+A fresh inspector failed the build on one HIGH assertion and surfaced three defects outside the contract.
+All fixed and re-proven live rather than waived:
+- **Module 11 had no `onerror`.** My contract had excused it as "flow-control", which was wrong: 7 and 10
+  are genuinely flow-control (Feeder/Aggregator) but 11 is a `util:SetVariables`, the same module type
+  wrapped at 2 and 5. A throw there would have killed the run between the notes fetch and the send with
+  nobody told. Handler added (alert + Commit). **Lesson: never let the builder write the exemption list.**
+- **Silent failure when a chef is assigned but no menu exists.** The old build just stopped, ~9 ops,
+  status 1, no email, no note, no alert. Exactly the May-1 shape. Replaced the single filtered send with
+  a `builtin:BasicRouter`: route A sends the menu, **route B emails Jay + Amber and writes a CRM note
+  saying the chef was assigned but no menu exists yet**. Both routes proven live.
+- **Timezone was wrong.** `formatDate(now; ...)` rendered UTC-4 (Eastern). Amber is Scottsdale,
+  America/Phoenix. Now `formatDate(now; "YYYY-MM-DD HH:mm"; "America/Phoenix")`, proven: a note written
+  at 14:33 UTC reads 07:33. **Global rule #2 applies to display timestamps too, not just bookings.**
+- **Newest-note selection was accidental.** It relied on GHL's default response order with no explicit
+  sort. Now `sort(10.array; "desc"; "dateAdded")` before the match, so it does not silently regress to a
+  stale menu if GHL ever changes ordering or paginates.
+- **`ZZ Test Chef` -> jjcavada1 was hardcoded in the live switch.** Removed, and **proven removed by
+  falsification**: forced that value onto an opportunity and fired twice; both runs stopped at 5
+  operations and sent nothing.
+- Em-dash/en-dash scrub added to the AI-generated menu body before it reaches a chef.
+
+
+### Decision: Contractor handbook swapped to Amber's new doc (2026-09-07)
+- **Which scenario actually sends the contractor email:** `GHL - Contractor Onboarding - Phase 9: Form
+  Trigger` (**4446319**), module 6. Subject "Welcome to Nutrition Intuition - Contractor Packet".
+- **CORRECTION to the 2026-09-01 note:** I previously wrote that the contractor packet email module was
+  unconfigured and the handbook was reaching nobody. That was wrong. It was true of **Send Packet**
+  (4173311), whose module 6 mapper is only `{"bodyType": "collection"}` with no recipient/subject/body,
+  but Form Trigger is the live one and it is complete. Do not repeat the earlier claim.
+- **Swapped** old doc `1o3NFWNyDq5gStYkbo1uYNc88PU8O6VPxf43tN-uCBgI` to new doc
+  `1mFstEk_taBfrqpK_YmoM_lQ1zrTcCvB58NiiOgd5ebk` in **both** places in 4446319: module 6 (email body) and
+  module 10 (CRM note). Reload-verified in the live blueprint; everything else byte-identical.
+- **VERIFY THE DOC ID, DO NOT TRANSCRIBE IT FROM A SCREENSHOT.** The id read off Amber's WhatsApp message
+  was `...NiiOqd5ebk` (a **q**); the real one Jay pasted is `...NiiOgd5ebk` (a **g**). The q-version
+  returns **404**. Both were checked with curl before wiring: new id 200, q-version 404, old id 200.
+- **How to preview a contractor email without side effects:** do NOT fire 4446319. A single run creates a
+  QuickBooks **vendor**, sends a real **SignWell** contractor agreement, and creates a **paid Checkr
+  background check** (`checkrdirect_basic_plus_criminal`). Instead create a throwaway scenario containing
+  only a `gateway:CustomWebHook` plus the Gmail module (connection 7478377, so it sends from Amber's
+  address exactly like production), fire it, then delete the scenario AND its hook. Costs ~2 operations.
+- **Still open on `Send Packet` (4173311):** it is an apparent dead duplicate with an empty email module,
+  yet logged **559 executions / 559 operations** in the current billing period (~10% of the 10,000
+  monthly allowance) while doing nothing useful. It also carries the same paid Checkr and QuickBooks
+  modules, so if it ever fired properly it would double-charge. **DISABLED 2026-09-07 with Jay's approval** - see below.
+- **Make plan context (checked 2026-09-07):** org 6506743 is on **Core, 10,000 ops/month**, 5,498 used,
+  4,502 remaining, resets **2026-09-11**. This is why polling designs are not viable for this client.
+
+
+### Decision: `Phase 9: Send Packet` (4173311) DEACTIVATED (2026-09-07, Jay-approved)
+- **Evidence it was dead, not merely idle:**
+  - Its Gmail module (id 6) mapper is only `{"bodyType": "collection"}` - **no recipient, no subject, no
+    body**. It cannot send the contractor packet.
+  - Blueprint metadata `"instant": false` with scheduling `indefinitely / interval 900`, so Make woke it
+    every 15 minutes and billed **1 operation per poll**. That is the source of the **559 executions /
+    559 operations** in the current billing period, roughly **10% of the 10,000 monthly allowance**,
+    producing nothing.
+  - Its single logged error is `InvalidConfigurationError: Invalid type of a module when processing data,
+    where the type is: 'undefined'` and `causeModule` is the **`gateway:CustomWebHook` trigger itself**.
+    The trigger was broken.
+  - Its hook `1900687` (`zqu7jj8ctgu3xbyagvld3x9edq7v4me8`) is NOT the one Phase 3 chains to
+    (`otpv48c8ef23fk4kog4h35wo92s8m1m0`), and its queue was empty. Nothing depends on it.
+  - The real contractor path is **Form Trigger 4446319**, which is `"instant": true` on its own hook
+    `2029569` and has a fully built email module.
+- **Action taken:** `scenarios_deactivate` only. **NOT deleted**, so this is reversible. The hook was left
+  **enabled with an empty queue** on purpose: if something unknown ever POSTs to that URL, the payload
+  queues rather than being silently lost, and re-activating is one click.
+- **Verified:** `hooks_get 1900687` returns `scenarioIsActive: false`.
+- **Watch for:** if contractor onboarding ever appears to stall, check whether the GHL form is posting to
+  `zqu7jj8ctgu3xbyagvld3x9edq7v4me8` (Send Packet, now off) instead of Form Trigger's hook. If so, repoint
+  the form at Form Trigger rather than re-enabling this scenario.
+
+### Decision: Chef assignment moves from GHL to a Google Sheet (2026-09-07)
+- **Why:** Amber is not comfortable in GHL, and the GHL Workflow webhook action (the only way to trigger
+  off the GHL dropdown) needs UI access that neither Jay nor Claude currently has. A sheet removes the
+  blocker AND the training problem in one move. Jay's second reason: the chef should see **what the AI
+  based the menu on**, not just the menu.
+- **Sheet:** `Nutrition Intuition - Chef Assignment`, id `1168iYxhn_YziStSfsu6r_UBUQQ2Kh46fTmQ6fWzzdz0`,
+  in Jay's Drive. Columns: Client Name | Client Email | Contact ID | Menu Built | **Assigned Chef** | Status.
+- **Trigger is Apps Script, NOT a Make Google Sheets module.** Source of truth for the script:
+  `chef-assignment-sheet/AppsScript.gs`. An installable `onEdit` trigger POSTs
+  `{contactId, chefName, clientName, source}` to the existing Make hook 2759192.
+  - **Why not a Make Sheets module:** Amber's Google connection in Make (`7303139`) has **Calendar scope
+    only**, no Drive/Sheets. Apps Script needs no new Make connection at all.
+  - **Why not a simple `onEdit`:** simple triggers cannot call external URLs. `setup()` installs an
+    installable trigger, which is why it must be run by hand once and authorised.
+- **Scenario 6116697 reworked** and renamed to "Send Intake + 15-Item Menu". Changes:
+  - chef now comes from the webhook payload, falling back to the GHL field: `ifempty(2.chefNameIn; <GHL lookup>)`
+  - the email now carries **both** the newest menu note AND the intake note, in a `<pre>` block
+  - **intake selection is `sort(...; "asc"; "dateAdded")` = the OLDEST intake on purpose**, because
+    Phase 3 feeds the AI via `last(notes)` which is also the oldest. This is what makes "the chef sees
+    what the menu was built from" literally true. Do NOT switch it to newest without also changing Phase 3.
+  - new module 15 writes the chef back into the GHL opportunity, so the CRM stays correct without Amber
+    touching it. Its handler is `Resume` so a write-back failure can never stop the chef email.
+- **PROVEN LIVE** 2026-09-07 15:59Z with a simulated sheet payload: email delivered containing the menu
+  AND the full intake form, CRM note written (`Assigned from: chef-assignment-sheet`), GHL field updated
+  to "Ashley Brown", timezone correct (15:59Z rendered 08:59 Phoenix). Test artifacts removed after.
+- **STILL TO DO before it is usable by Amber:**
+  1. Paste `AppsScript.gs` into the sheet (Extensions > Apps Script), run `setup()` once, authorise.
+  2. Share the sheet with Amber.
+  3. OPTIONAL but recommended: deploy `doPost` as a Web App and add an HTTP module to **Phase 3** that
+     POSTs `{clientName, clientEmail, contactId}` to it, so client rows appear automatically when a menu
+     is generated. Until then rows are pasted in by hand.
+- **Chef roster now lives in TWO places** (three counting GHL): the `CHEFS` array in the Apps Script, the
+  `switch()` in module 5, and the GHL dropdown. Adding a chef means updating all of them.
+
+### Decision: Client Service Agreement v2 - new payment terms (2026-09-07)
+- **Ask (Amber via Jay):** replace the "how we accept payments" text in the CLIENT agreement with her new
+  Melio/ACH/auto-pay/late-interest wording. (Her "2. DEPOSIT & PAYMENT" screenshot was the EVENTS
+  agreement; she confirmed the change is for the client agreement. She also said "we can add it there
+  too", so the events agreement is a pending follow-up, not done.)
+- **The local DOCX is NOT the live template.** `Copy of client service agreement- template.docx` (Feb 21)
+  is a stale draft: $149 vs live $249, 4 weeks vs 2, no $500 approval clause, 11 sections vs 16, different
+  wording throughout. Do not build from it. The live template text was captured page by page from
+  SignWell's embedded editor (page PNGs saved in `signwell-templates/live_template_dacb0461_page*.png`).
+- **Built v2 from the live text** with docx-js (`signwell-templates/client_agreement_v2_build.js`,
+  output `Client_Service_Agreement_Nutrition_Intuition_v2.docx`). Only change: in section 5 the two
+  italic payment paragraphs (Venmo/Zelle/card-on-file/Monday auto-charge/billing-questions/late interest)
+  are replaced by Amber's four paragraphs. Rates ($90/hr, $25 fee, holiday $100/$125) and every other
+  section are byte-for-byte the live wording. One `mailto:` copy artifact in her text was dropped.
+- **Fields via SignWell text tags, not coordinates.** Live fields are coordinate-placed (page 1 date +
+  name, page 2 acknowledgement signature beside the payment terms, page 5 signature/name/date). Adding
+  text shifts everything, so v2 uses `{{date:1:y:Effective Date:::160:22}}`, `{{text:1:y:Client Full
+  Name:::260:22}}`, `{{signature:1:y::::200:40}}` (page 2), and the page-5 trio, rendered in WHITE so the
+  field covers invisible text. Option order is type:signer:required:label:prefill:api_id:width:height.
+  Uploaded as DOCX with `text_tags: true`; SignWell converted it and auto-placed all 6 fields on pages
+  1, 2 and 5, matching the original layout.
+- **LIVE template id: `bbd60a96-f84c-4b84-896c-0c3f777af783`** (`Client_Service_Agreement_Nutrition_Intuition_v3`).
+  Phase 1 (4082106) module 5 `template_id` points at it (`lastEdit 2026-09-07T18:53:23Z`). Old
+  `dacb0461-f973-488b-93d5-a2cf7135992a` left untouched as rollback. An intermediate v2 (`b9139b1f...`)
+  was deleted after a proofreader found layout defects (below).
+- **Verified visually** by creating test-mode drafts from the template and viewing all 5 rendered pages
+  in the embedded editor (drafts deleted afterwards). Behaviour test fired through Phase 1 at 18:37Z.
+- **Cannot get a template's PDF from the API.** `document_templates/{id}` has no file URL, and
+  `completed_pdf` only exists for completed documents. Workaround: create a `test_mode: true, draft: true`
+  document from the template, open its `embedded_edit_url` in Playwright (no login needed), and pull the
+  page PNGs from the network log (`docsketch-production.s3...pages/*.png`, signed URLs expire in 20 min).
+- **No DOCX->PDF converter on this machine** (no LibreOffice/Word/pandoc); uploading DOCX and letting
+  SignWell convert avoids needing one, and text tags avoid needing coordinates against that render.
+- **Observed, not changed:** the live agreement's "Limitation of Liability" heading is unnumbered
+  (sections go 8 -> Limitation of Liability -> 10). Reproduced as-is so nothing changed without Amber.
+
+- **Proofreader pass (fresh subagent, 2026-09-07):** body text of v2 was word-for-word identical to the live
+  original except the intended section-5 change (every dollar figure, day count, emphasis run checked).
+  It found 4 LAYOUT defects, fixed in v3: (1) the 2-pt white tags replaced the visible underscore rules,
+  so unsigned/printed copies looked blank; (2) the 33-char date tag wrapped mid-line and pushed the
+  Effective Date blank to line 2; (3) a standalone right-aligned tag paragraph left a 0.4" gap on page 2;
+  (4) tag strings remain in the PDF text layer (SignWell overlays fields, it does not strip tag text).
+  **v3 fix pattern:** render tags at 2 pt (`size: 4`) in white, and put the tag IMMEDIATELY BEFORE the
+  original underscore run so the field overlays the visible blank; anchor the page-2 acknowledgement tag
+  inline at the end of the last payment paragraph with `{{signature:1:y::::200:28}}` and 20 pt spacing
+  after. (4) is inherent to text tags and accepted.
+- **Proofreader advisory on Amber's own wording (not changed, inserted verbatim as instructed), flag to
+  Amber:** vs the old clause it (a) moves "reasonable" from attorneys' fees onto costs of collection,
+  which narrows recovery; (b) drops the express right to auto-charge the card on file and the
+  card-on-file requirement, relying on a separate authorization form instead; (c) drops Venmo/Zelle;
+  (d) drops Amber's name and phone from billing questions, leaving only the email.
+- **Events agreement:** Amber's "we can add it there too" is still pending; that template is not yet
+  identified (4c022280... is the CONTRACTOR agreement, not events).
+
+### Decision: Phase 2 regression fixed + double-fire fixed + wrong-opportunity fixed (2026-09-08)
+- **Regression I introduced on 09-07:** Phase 2 (4071952) filtered on the OLD client template
+  `dacb0461...` (and `ef1d71fa...`). After Phase 1 was repointed to v3 `bbd60a96...`, a client signing
+  the new agreement would never have triggered QuickBooks / Phase 3 / Phase 4. **Added `bbd60a96...` to
+  the filter.** Lesson (now in LEARNINGS): when you swap a SignWell template id, grep EVERY scenario for
+  the old id, not just the sender.
+- **Double-fire root cause confirmed and fixed in the same edit:** the filter accepted BOTH
+  `document_signed` AND `document_completed`. One signer produces both events, both passed, Phase 2 ran
+  twice (and chained Phase 3 twice = two gpt-4o menus per client). Filter is now `document_completed`
+  only. Expect single executions from the next real signature; the QB "Duplicate → Resume" swallow can be
+  retired once that is observed.
+- **Latent bug fixed:** module 4 `listOpportunities` had `limit: 1, pipeline: ...` with NO contactId, so
+  it grabbed an arbitrary opportunity in the pipeline and modules 10/6/7 then updated/tagged/noted THAT
+  contact. Added `contactId: {{3.id}}` (same pattern Phase 4 already used).
+- Pushed `lastEdit 2026-09-08T01:16:55Z`, `isinvalid: false`. Not behaviour-tested (needs a real
+  signature); reviewed field-by-field.
+
+### Decision: Events flow - agreement signed -> consultation booking invite (2026-09-08)
+- **New Make scenario 6191114** `GHL - Events - Agreement Signed -> Book Consultation`, hook 2785198
+  (`https://hook.us2.make.com/cwqyfkwcbqg2rwtqf4aged1oe4zmlngp`). A **second SignWell webhook**
+  `9c53d60d-15ec-4426-9339-49395f81439c` posts every SignWell event to it (the first webhook
+  `3a0be7c4...` still feeds Phase 2). Isolation on purpose: the client flow and the events flow never
+  share a filter.
+- Flow: webhook -> filter (`document_completed` AND template in {events v2 `7608b468...`, events v1
+  `c97cedf7...`}) -> GHL `/contacts/upsert` (source "Private Event Agreement", tags `event_client`,
+  `event_agreement_signed`) -> Gmail consultation invite (QA'd copy, first-name greeting, booking link
+  `book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE`) -> CRM note. Handlers on every
+  action module, alerts to jjcavada1@gmail.com.
+- **Proven** with simulated SignWell payloads (shape copied from Phase 2's mappings): two
+  `document_completed` fires -> two emails + two CRM notes + tags; a `document_signed` fire -> nothing.
+  So this scenario is immune to the Phase 2 double-fire by construction.
+- **Email copy:** Amber's Phase 4 HTML adapted for events and run through email-qa: em-dash removed,
+  `<style>` block removed (Gmail strips it), solid `background-color` fallbacks added for Outlook (the
+  gradient-only header/button rendered white-on-white there), first person, one bold element.
+
+### Decision: Private Event Agreement v2 with Amber's payment terms ADDED (2026-09-08)
+- Live template was `c97cedf7-ca7e-4948-a8d0-93cef269a6a2` "Nutrition_Intuition_Private_Event_Agreement
+  (1)", 3 pages, uploaded by Amber 09-07 with UI-placed fields. Defects in it: the single placeholder was
+  named **"Amber Barcellos"** (so the CLIENT signs under Amber's name), all 6 page-1 fields were `text`
+  including Event Date, and BOTH page-3 signature fields (client AND Nutrition Intuition) were assigned to
+  that one signer.
+- Captured its 3 live pages (`signwell-templates/live_events_template_c97cedf7_page*.png`) and rebuilt
+  with docx-js (`signwell-templates/events_agreement_v2_build.js`). Section 2 keeps the original deposit
+  paragraph and **adds** Amber's four payment paragraphs after it ("add it there too" = add, not replace).
+  Every other section verbatim (sections 7's em-dashes are the contract's own text and were kept).
+- Fields via 2-pt white text tags in front of the original underscores: page 1 Client Name, Event Name,
+  **Event Date as a date field**, Location, Guest Count, Phone/Email; page 3 CLIENT Signature, Printed
+  name, Date, Email. NI block is plain lines (parity with the client agreement). Placeholder renamed
+  **"Client"**.
+- **New template `7608b468-3686-4c0d-ac08-2ca50ef9368d`** "Nutrition_Intuition_Private_Event_Agreement_v2",
+  **3 pages** (same as the original), 10 fields auto-placed. Two earlier uploads were deleted: 11 pt came
+  out at 5 pages; 10 pt came out at 4 with an orphaned NI Date/Title on page 4. Fix was `keepNext` +
+  `keepLines` on every signature-block paragraph plus slightly tighter heading spacing. A `not_authorized_error`
+  on the first re-upload right after a template delete was transient; the immediate retry returned 201. Nothing sends this template automatically; **Amber must click Use on the v2
+  one in SignWell** and pick the recipient for "Client". Old v1 left in place; the events scenario
+  accepts either id.
+- **Proofreader pass on the events agreement (fresh subagent, 2026-09-08):** TEXT identical to Amber's live
+  version except the intended section-2 addition (every number, cross-reference, hyphen, em-dash and
+  curly quote checked). Layout findings: orphaned page 4 and stranded headings 4/12 -> both gone in the
+  final 3-page upload `7608b468` (verified visually); the 2-pt tag in front of each underline leaves a
+  ~0.5" gap before the rule so the typed value starts slightly left of the line -> cosmetic, same as the
+  client agreement, accepted; Arial vs the original's Lato-like face -> cosmetic, accepted. Two things it
+  could not see from images, both confirmed via API: 10 fields parsed on `7608b468`, and all fields are
+  the client's. **Open question for Amber:** her original assigned BOTH signature slots (client and
+  Nutrition Intuition) to the client. v2 leaves the NI block as plain lines. If she wants to countersign
+  in SignWell, the template needs a second placeholder and she is added as the second recipient on send.
+
+## 2026-09-12 — Website rebuild (nutrition-intuition-new) + forms
+
+### Decision: Rebuild from scratch as a static site instead of patching the Rocket.new draft
+- **Why**: the draft was a compiled Next.js export with no source, and its content fabricated credentials, prices and contact details (GR-062). Static HTML + one Netlify Function is faster, cheaper, and fully under our control.
+- **Where**: `ventures/Nutrition-Intuition/website/` (build.js, src/, functions/submit.js, README with the go-live runbook).
+
+### Decision: Intake form re-keyed server-side to the Google-Form field names; Phase 1 untouched
+- **Why**: Phase 1 (4082106) maps ~40 exact labels; keeping them identical means zero risk to the live onboarding chain and the Google Form keeps working in parallel.
+
+### Decision: Event form pre-creates a SignWell DRAFT, Amber sends after the call (switchable)
+- **Why**: the event agreement incorporates "the accepted proposal, menu, invoice", so signing before pricing is odd, and Amber's original wish was call first. Pre-filling the draft removes her typing; module 2 `autoSendEventAgreement=yes` flips to auto-send if she changes her mind.
+
+### Decision: Chef roster = Amber's 17-chef list, not the draft's 13
+- Six chefs shown with visible "photo & bio coming soon" placeholders so Amber sees exactly who is missing. Aubrie Herelle (old site, not on roster) omitted; flag to Amber.
+
+### Decision: Domain strategy = move nutritionintuitionaz.com to Netlify with 301s from every old URL
+- **Why**: the Google sitelinks Jay wants come from that domain's authority; a .shop domain starts from zero. Old .shop draft to be redirected after launch.
+
+### Decision: Pricing for Jay's work = $800 one-time ($400 signing / $400 launch), no monthly fee
+- Contract: `website/contract/Website_Design_Agreement_Nutrition_Intuition.docx`.
+
+### Decision (2026-09-12): Chef profile invites go out FROM Amber's Gmail, cc her business inbox, bcc JJ
+- **Why**: the chefs know Amber, not JJ; replies must land with her. Sent through Make 6248559 (same Gmail connection 7478377 that sends every client email), so Amber has all 17 in her Sent folder and gets a cc copy of each; JJ gets bcc copies as the audit trail. Profiles come back through a Google Form on JJ's Drive (Amber = editor) so the website can be updated without touching her account.
+- Test chef "JJ Cavada (test)" is STILL in the chef-assignment sheet + Make 6116697 module 5: remove both before Amber goes live.
+
+### Decision (2026-09-12): Events = book the call FIRST, then the details form; Amber never "reaches out"
+- **Why**: Jay/Amber want the 15-minute call to be the first touch with the details already in hand, then the proposal and the pre-filled agreement go out after the call. Make 6248370 route A looks up the booked consult and writes the date/time into Amber's email, the client confirmation and the CRM note; a client who skips the booking gets the booking button in the confirmation instead.
+- Calendar lookup uses the GHL PIT in an HTTP module because the Make HighLevel app token has no calendar scope.
+
+### Decision (2026-09-12): Website agreement sent to Amber through the Nutrition Intuition SignWell account
+- Jay has no SignWell account on record, so the document went out from Amber's account with `custom_requester_name/email` = Jay Cavada / jjcavada1@gmail.com; both Amber and Jay sign (doc 518e8b1d…). Fields placed by API on page 4 (signature + date per party), verified in the SignWell editor before sending.
+
+### Decision (2026-09-13): Amber's website feedback applied as written
+- Privacy: no street address or hours anywhere on the site (footer, contact, privacy page, JSON-LD). The contact map is now centered on Scottsdale with no pin at her home.
+- Pricing: no hourly or per-person figures. Weekly = "weekly investment starting at $450 / hourly rate + groceries, no markup, no fees"; dinner parties = "starting at $1,000" (her wording). The contract's $25 fee and holiday rates are no longer shown on the site.
+- Video: the site shows the Lifestyle video (home + intake); the story-based welcome video stays exclusive to the welcome email so clients never see the same video twice.
+- Design: palette shifted toward the logo green; only one "Start Your Intake" at the top (nav); the hero button became "Book a 15-minute call". Logo redesign = separate quote from Jay.
+- New headshot from Amber replaced team/amber.jpg (home founder section + Meet the Team).
+
+### Decision (2026-09-15): Signing link is delivered twice, SignWell's email AND Amber's own Gmail (Phase 1 module 10)
+- **Decision:** keep SignWell's signer email (audit trail + automatic reminders on day 3/6/10) and ADD a second delivery path: right after module 5 creates the document, module 10 emails the client from Amber's Gmail (connection 7478377, amberbarcellos@gmail.com, the same sender as the welcome email) with the direct `signing_url`. The CRM note (module 7) now records the SignWell document id and the signing link so Amber can copy it from GHL at any time.
+- **Why:** on 2026-09-12..14 three clients showed "Sent" in SignWell with no view; nothing bounced. SignWell sends from signwelldocs@signwell.com and that sender cannot be changed ("connecting Amber's domain" is not a SignWell feature), so junk-filtering left clients with no copy of the link and Amber with no way to see it. "Sent" only means emailed.
+- **Not done (on purpose):** `send_email:false` on the SignWell recipient (would stop SignWell's reminders); a business-domain sender (no Make connection exists for amber@nutritionintuitionaz.com; Amber would have to authorize one herself, then swap the connection id on modules 8 and 10).
+- **Evidence:** `../VALIDATION_CONTRACT_phase1-signing-link.md` + the test report of the same date.
+
+### State (2026-09-26): website live, handoff started
+- DONE: www.nutritionintuitionaz.com live on Netlify project nutrition-intuition-new (057eead4-b102-4278-a54f-5d8d8d9d0909), HTTPS auto-renewing, old aznutritionintuition.shop 301s to it. All 17 chefs have cards (13 from the profile form). Contract terms removed from the site (payments, deposits, cancellation, notice, fees, holiday rates). Mobile chef modal fixed (34/34 live checks). Live intake test passed end to end (Make 4082106 status 1, welcome +1 s, SignWell agreement + signing-link email +5 min, CRM note); test SignWell doc and GHL opportunity deleted. JJ is a manager on the Google Business Profile (accepted 2026-09-25). Code in private GitHub repo jjcavada/nutrition-intuition-website (HEAD 9cc146d) with HANDOFF.md.
+- NOT DONE: repo still under JJ's GitHub; Netlify project still on JJ's free team; chef form / sheet / Apps Script / headshot folder still owned by jjcavada1; live Apps Script still cc's Amber on chef submissions; three stale Squarespace A records on the apex (GoDaddy delete needs Amber's code); Search Console not set up; GBP needs services, description, service areas, photos, reviews.
+- NEXT STEP: get Amber's GitHub username and a free Netlify account from her, then transfer the repo and request the Netlify project transfer (free plan is single-member, so via Netlify support or one paid seat). Details and checklist: website/HANDOFF.md.

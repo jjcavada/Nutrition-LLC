@@ -8,7 +8,7 @@
 - **Owner**: Amber Barcellos
 - **Email**: amber@nutritionintuitionaz.com
 - **Service**: Personal chef / meal planning service (Phoenix, AZ)
-- **Booking**: https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE
+- **Booking** (split 2026-10-02): weekly call https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE ; event call https://book.aznutritionintuition.shop/widget/booking/vj3iEVtjT9BNAnlUhKcW ; general pages link the picker https://www.nutritionintuitionaz.com/contact/#book
 
 ## Tech Stack
 - **Make.com** - Automation platform (scenarios, webhooks, AI agents)
@@ -162,7 +162,7 @@ Use `mcp__make-client__*` or `mcp__make__*` prefixed tools:
 - **Location ID**: `9tNaiymK5seJFHE6DPWL`
 - **API Base**: https://services.leadconnectorhq.com
 - **Branded Domain**: book.aznutritionintuition.shop
-- **Calendar ID**: `wtbOuayfIZ6DycweJDSE`
+- **Calendar IDs** (2026-10-02): WEEKLY call `wtbOuayfIZ6DycweJDSE` (title "Weekly service call: <name>"), EVENT call `vj3iEVtjT9BNAnlUhKcW` (title "Event call: <name>"). Both on Amber's user, shared busy time.
 
 ---
 

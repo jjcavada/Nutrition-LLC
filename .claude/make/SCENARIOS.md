@@ -243,7 +243,7 @@ Phase 3 HTTP call → Webhook
 3. GHL Update Opportunity - Stage: Waitlist (Consult In-progress)
     ↓
 4. Gmail - Send branded email to CLIENT with booking link
-   → book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE
+   → book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE  (WEEKLY call calendar; correct for intake clients)
     ↓
 5. GHL Update Contact - Add tag: consultation_invited
 6. GHL Add Note - Log consultation invite sent
@@ -561,7 +561,7 @@ WhatsApp Business Cloud → Meta webhook → Make.com webhook
      7. HTTP - Send WhatsApp reply confirming email sent
    Route B (intent = book_calendar):
      8. HTTP - Send WhatsApp reply with booking link
-        (https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE)
+        (https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE)  [2026-10-02: weekly calendar only; if this route is revived, send https://www.nutritionintuitionaz.com/contact/#book so the client picks weekly vs event]
    Route C (intent = general_reply):
      9. HTTP - Send WhatsApp reply with AI response
 ```
@@ -804,11 +804,12 @@ All automation steps running (QB customer, menu, consultation invite).
 ## Website - Forms (Event Inquiry + General Inquiry) — scenario **6248370**, hook 2805024 (`nu52ipdwuyg96k2xb1jqnfw44qjmtrw1`) — LIVE 2026-09-12
 - Fed by the new website's Netlify Function (`ventures/Nutrition-Intuition/website/functions/submit.js`). Payload: `{formType: event|general, name, email, phone(E.164), ...}`.
 - Module 2 SetVariables holds the switch `autoSendEventAgreement` (`no` = SignWell DRAFT Amber sends after the call; `yes` = agreement emailed to the client immediately).
-- Route A (event), **v2 since 2026-09-12 (call first)**: 10 GHL upsert tags event_inquiry/website_lead → **16 HTTP GET `https://services.leadconnectorhq.com/calendars/events`** (PIT header, calendarId `wtbOuayfIZ6DycweJDSE`, locationId, startTime/endTime = `{{timestamp*1000}}` .. +90 days) → **17 SetVariables** `callStart` = `first(map(ifempty(16.data.events; emptyarray); "startTime"; "contactId"; 10.body.contact.id))`, `callTime` = that parsed with `YYYY-MM-DDTHH:mm:ssZ` and formatted `dddd, MMMM D [at] h:mm A` in America/Phoenix (empty when no upcoming consult) → 11 SignWell DRAFT from template 7608b468 (unchanged) → 12 email Amber (subject ends "| call booked" or "| no call yet"; row "Planning call"; `to` = `{{if(1.test = "1"; "jjcavada1@gmail.com"; "amber@nutritionintuitionaz.com")}}`) → 13 client confirmation (call date/time when booked, otherwise the booking button) → 14 CRM note with "Planning call: …" → 15 WebhookRespond `event-ok`.
+- Route A (event), **v2 since 2026-09-12 (call first)**: 10 GHL upsert tags event_inquiry/website_lead → **16 HTTP GET `https://services.leadconnectorhq.com/calendars/events`** (PIT header, calendarId `wtbOuayfIZ6DycweJDSE` [replaced by userId on 2026-10-02, see below], locationId, startTime/endTime = `{{timestamp*1000}}` .. +90 days) → **17 SetVariables** `callStart` = `first(map(ifempty(16.data.events; emptyarray); "startTime"; "contactId"; 10.body.contact.id))`, `callTime` = that parsed with `YYYY-MM-DDTHH:mm:ssZ` and formatted `dddd, MMMM D [at] h:mm A` in America/Phoenix (empty when no upcoming consult) → 11 SignWell DRAFT from template 7608b468 (unchanged) → 12 email Amber (subject ends "| call booked" or "| no call yet"; row "Planning call"; `to` = `{{if(1.test = "1"; "jjcavada1@gmail.com"; "amber@nutritionintuitionaz.com")}}`) → 13 client confirmation (call date/time when booked, otherwise the booking button) → 14 CRM note with "Planning call: …" → 15 WebhookRespond `event-ok`.
   - Why module 16 is a raw HTTP call: the Make HighLevel app connection 7303129 returns `[401] The token is not authorized for this scope` on `/calendars/events` (calendar scope missing), so the GHL Private Integration Token is used in the header (same cleartext pattern as the SignWell key).
   - Website `/events/` now shows Step 01 = the GHL booking widget, Step 02 = the details form; clients book first, then send details, so Amber gets both in one email. Proven 2026-09-12: exec `54b821fe…` (10 ops) with test appointment → "Planning call: Wednesday, September 16 at 10:00 AM" in Amber's email, client email and CRM note; exec `e042484b…` proved the no-call branch + the module-16 alert email.
   - Test without emailing Amber: add `"test":"1"` to the payload (Amber's copy goes to jjcavada1). Every test creates a SignWell draft: delete it with `DELETE /api/v1/documents/{id}/` (204).
 - **2026-10-02 call-purpose split:** Amber now has two booking calendars (weekly `wtbOuayfIZ6DycweJDSE`, event `vj3iEVtjT9BNAnlUhKcW`). Module 16 queries by `userId=FXhRBT40lYMaDBbHEEmJ` (all Amber's calendars) instead of `calendarId`; module 13 "Book your planning call" links the EVENT calendar; module 22 "book a 15-minute call" links the website picker `https://www.nutritionintuitionaz.com/contact/#book`. Proven 2026-10-02: test appointment on the event calendar + test=1 event inquiry wrote note "Planning call: Friday, October 16 at 2:30 PM" (contact ZZTEST, test artifacts deleted). Read-back after update: active, isinvalid false.
+- **2026-10-02:** scenario **6191114** "GHL - Events - Agreement Signed -> Book Consultation" modules 4 (email button), 304 (error fallback link) and 5 (CRM note) now link the EVENT calendar `vj3iEVtjT9BNAnlUhKcW` (was wtbOu, which would have titled event clients "Weekly service call"). Read-back: active, isinvalid false. Known edge (pre-existing): module 17 takes the contact's FIRST event in the next 90 days across all statuses/calendars, so a cancelled or weekly call could be reported as the planning call; low probability for new event leads.
 - Route B (general): 20 upsert tags general_inquiry/website_lead → 21 email Amber → 22 auto-reply → 23 note → 24 WebhookRespond `general-ok`.
 - Website intake goes to Phase 1 (4082106) hook directly with Google-Form-shaped field names; Phase 1 unchanged.
 - All modules onerror → jjcavada1@gmail.com. SignWell API key in module 11 (same cleartext pattern as Phase 1 module 5).

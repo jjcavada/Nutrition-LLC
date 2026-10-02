@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>NI Today</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="NI Today">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBF8F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171B14" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a quiet one-page "kitchen notebook" that opens up when touched. Three number boxes morph to full
+   screens; lists expand in place; prep cards slide up from the bottom. Nutrition Intuition brand tokens. */
+:root{
+  --paper:#FBF8F1; --raise:#FFFFFF; --tile:#F3EDE0; --ink:#2E352A; --head:#3E4736; --soft:#6E7666; --faint:#979E8C; --hair:#E4DBC6;
+  --weekly:#5F8F3A; --weekly-bg:#E6F0DA; --event:#B4562F; --event-bg:#F7E4D9; --wait:#B4562F;
+  --allergy:#B42318; --allergy-bg:#FCE9E7; --good:#4F7F33;
+  --btn:#3E4736; --btn-fg:#FBF8F1; --scrim:rgba(24,28,20,.42); --focus:rgba(110,154,69,.5);
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --text:"Figtree", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --ease:cubic-bezier(.22,.8,.2,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --paper:#171B14; --raise:#1F251B; --tile:#222920; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#7E8673; --hair:#30382A;
+  --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
+  --allergy:#F4978E; --allergy-bg:#3B1F1C; --good:#A6CC7C;
+  --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:rgba(166,204,124,.5); color-scheme:dark } }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--text);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body.locked{overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+.num{font-variant-numeric:lining-nums tabular-nums}
+.page{max-width:1080px;margin:0 auto;padding-block:calc(22px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));padding-inline:clamp(18px,5vw,48px)}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mark{font-family:var(--display);font-weight:300;font-size:15px;letter-spacing:.02em;color:var(--soft);line-height:1.15}
+.top-r{display:flex;align-items:center;gap:14px}
+.date{font-size:14px;color:var(--soft)}
+.bell{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair);color:var(--head);position:relative}
+.bell svg{width:18px;height:18px}
+.bell.on::after{content:"";position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--weekly)}
+h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:18px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--weekly)}
+.hint{margin-top:14px;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--soft);border:1px dashed var(--hair);border-radius:12px;padding:10px 12px}
+.hint b{color:var(--head);font-weight:600}
+.hint .go{margin-left:auto;font-weight:600;color:var(--weekly);white-space:nowrap}
+.hint .dismiss{color:var(--faint);padding:2px 4px;font-size:18px;line-height:1}
+
+/* new strip */
+.new{margin-top:18px;display:grid;gap:8px}
+.new-item{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;background:var(--raise);border:1px solid var(--hair);border-radius:14px;padding:12px 14px;width:100%}
+.new-item .tag{grid-row:span 2;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--paper);background:var(--weekly);border-radius:999px;padding:3px 8px}
+.new-item .t{font-weight:600;color:var(--head);min-width:0}
+.new-item .s{grid-column:2;font-size:14px;color:var(--soft)}
+.new-item .w{grid-row:span 2;font-size:13px;color:var(--faint);white-space:nowrap}
+
+/* number boxes */
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 4px}
+.tile{background:var(--tile);border-radius:16px;padding:16px 16px 14px;display:grid;gap:4px;text-align:left;position:relative;transition:transform .2s var(--ease)}
+.tile:active{transform:scale(.98)}
+.tile b{font-family:var(--display);font-weight:300;font-size:clamp(40px,7vw,58px);line-height:1;color:var(--head)}
+.tile span{font-size:14px;color:var(--soft);line-height:1.3}
+.tile.wait b{color:var(--wait)}
+.tile .arr{position:absolute;top:14px;right:14px;width:16px;height:16px;color:var(--faint)}
+
+/* columns */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px clamp(28px,5vw,64px)}
+section{padding-top:26px;min-width:0}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 4px}
+h2{font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft);margin:0}
+.sh .aux{font-size:13.5px;color:var(--weekly);font-weight:600}
+ul{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:2px 14px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--hair);width:100%}
+li:last-child>.row{border-bottom:0}
+.when{font-variant-numeric:tabular-nums;color:var(--soft);font-size:14px;white-space:nowrap}
+.who{font-weight:600;color:var(--head)}
+.what{grid-column:2;color:var(--soft);font-size:14.5px}
+.kind{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;margin-left:8px;white-space:nowrap}
+.kind::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.kind.weekly{color:var(--weekly)} .kind.event{color:var(--event)}
+.alg{display:inline-block;font-size:12px;font-weight:600;color:var(--allergy);background:var(--allergy-bg);border-radius:999px;padding:2px 8px;margin:2px 4px 0 0;white-space:nowrap}
+.later{color:var(--soft);font-size:14.5px;padding:10px 0 0;line-height:1.9}
+.later button{font-weight:600;color:var(--ink);text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:4px}
+.later b{font-weight:600;color:var(--soft)}
+
+/* accordions (events, clients) */
+.acc>.row{cursor:pointer}
+.chev{width:14px;height:14px;color:var(--faint);transition:transform .35s var(--ease);flex:none}
+.open>.row .chev,.open>.chef-head .chev{transform:rotate(180deg)}
+.acc-body{display:none;overflow:hidden}
+.open>.acc-body{display:block}
+.facts{display:grid;grid-template-columns:minmax(96px,auto) minmax(0,1fr);gap:8px 14px;padding:4px 0 16px 92px;font-size:14.5px;margin:0}
+.facts dt{color:var(--soft)} .facts dd{margin:0;color:var(--ink);min-width:0}
+.pad{padding:0 0 10px 92px}
+.quote{font-family:var(--display);font-style:italic;font-weight:300;font-size:17px;line-height:1.45;color:var(--head)}
+.status{display:inline-block;font-size:12.5px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--weekly-bg);color:var(--weekly);margin:0 4px 4px 0}
+.status.warn{background:var(--event-bg);color:var(--event)}
+
+/* chefs */
+.chef{border-bottom:1px solid var(--hair)}
+.chef:last-child{border-bottom:0}
+.chef-head{display:flex;align-items:center;gap:10px;width:100%;padding:12px 0 2px}
+.chef-head .who{flex:1}
+.chef-head .n{font-family:var(--display);font-size:22px;font-weight:300;color:var(--head)}
+.chef-body{padding:0 0 12px;overflow:hidden}
+.cl{display:inline;color:var(--soft);font-size:14.5px}
+.cn{display:inline-block}
+.chef:not(.open) .cl:not(:last-child) .cn::after{content:","}
+.chef:not(.open) .cl{margin-right:.32em}
+.cmeta,.csub{display:none}
+.chef.open .chef-body{display:grid;gap:0;padding-top:6px}
+.chef.open .cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:baseline;padding:10px 0 10px 14px;border-left:2px solid var(--weekly-bg);margin:0;text-align:left;width:100%}
+.chef.open .cn{color:var(--head);font-weight:600}
+.chef.open .cmeta{display:block;text-align:right;font-size:13.5px;color:var(--soft);white-space:nowrap}
+.chef.open .csub{display:block;grid-column:1 / -1;font-size:13.5px;color:var(--soft)}
+.chef-more{color:var(--faint);font-size:13.5px;padding-top:10px;margin:0}
+
+/* waiting */
+.wrow{padding:12px 0;border-bottom:1px solid var(--hair);display:grid;gap:8px}
+.wrow:last-child{border-bottom:0}
+.wtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.days{color:var(--wait);font-size:13.5px;font-weight:600;white-space:nowrap}
+.wsub{color:var(--soft);font-size:14.5px}
+select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(--hair);background:var(--raise) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23979E8C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/16px;border-radius:12px;padding:10px 38px 10px 12px;font-size:16px}
+.sending{font-size:14px;color:var(--weekly);font-weight:600}
+.none{color:var(--soft);font-size:14.5px;padding:12px 0;margin:0}
+
+/* notes */
+.addnote{display:flex;gap:8px;margin:8px 0 6px}
+.addnote input{flex:1;min-width:0;border:1px solid var(--hair);background:var(--raise);border-radius:12px;padding:10px 12px;font-size:16px}
+.addnote button{border-radius:12px;padding:0 16px;background:var(--btn);color:var(--btn-fg);font-weight:600;font-size:15px}
+.notes li{position:relative;overflow:hidden;border-bottom:1px solid var(--hair)}
+.notes li:last-child{border-bottom:0}
+.nact{position:absolute;top:0;bottom:0;right:0;display:flex}
+.nact button{width:76px;display:grid;place-items:center;font-size:13.5px;font-weight:700;color:#fff}
+.nact .d{background:#5F8F3A} .nact .a{background:#8A8F80}
+.nmain{position:relative;background:var(--paper);display:grid;grid-template-columns:22px 26px minmax(0,1fr);gap:10px;align-items:start;padding:12px 0;touch-action:pan-y;will-change:transform;user-select:none;-webkit-user-select:none}
+.grip{color:var(--faint);cursor:grab;touch-action:none;padding-top:2px;display:grid;place-items:center}
+.grip svg{width:16px;height:16px}
+.chk{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--faint);margin-top:1px;display:grid;place-items:center;transition:all .2s}
+.chk svg{width:12px;height:12px;opacity:0;color:var(--btn-fg)}
+.nmain.doing .chk{background:var(--weekly);border-color:var(--weekly)}
+.nmain.doing .chk svg{opacity:1}
+.ntext{outline:none;min-width:0;word-wrap:break-word;color:var(--ink)}
+.ntext[contenteditable="true"]{background:var(--raise);box-shadow:0 0 0 2px var(--focus);border-radius:6px;padding:0 4px;user-select:text;-webkit-user-select:text}
+.nmain.doing .ntext{text-decoration:line-through;color:var(--faint)}
+.nfrom{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
+.ghost{opacity:.35}
+.archbar{display:flex;justify-content:space-between;gap:10px;padding-top:12px;font-size:13.5px;color:var(--soft)}
+.archbar button{font-weight:600;color:var(--weekly);white-space:nowrap}
+.arch li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--hair);font-size:14.5px;color:var(--soft)}
+.arch li:last-child{border-bottom:0}
+.arch .ops{display:flex;gap:12px}
+.arch .ops button{font-weight:600;font-size:13.5px;color:var(--weekly)}
+.arch .ops .del{color:var(--allergy)}
+.arch .st{font-size:12px;color:var(--faint)}
+
+/* full screens (morph out of a number box) */
+.full{position:fixed;inset:0;z-index:40;background:var(--paper);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.full-in{max-width:760px;margin:0 auto;padding-block:calc(14px + env(safe-area-inset-top, 0px)) calc(40px + env(safe-area-inset-bottom, 0px));padding-inline:clamp(18px,5vw,40px)}
+.full-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;position:sticky;top:0;background:var(--paper);padding:10px 0 12px;z-index:2}
+.full-h h3{font-family:var(--display);font-weight:300;font-size:clamp(30px,6vw,42px);line-height:1.05;color:var(--head);margin:0}
+.full-h p{margin:4px 0 0;color:var(--soft);font-size:14.5px}
+.x{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--tile);color:var(--head)}
+.x svg{width:16px;height:16px}
+.search{width:100%;border:1px solid var(--hair);background:var(--raise);border-radius:12px;padding:11px 14px;font-size:16px;margin:4px 0 6px}
+.full .facts,.full .pad{padding-left:0}
+.crow{border-bottom:1px solid var(--hair)}
+.crow:last-child{border-bottom:0}
+.crow>.row{grid-template-columns:minmax(0,1fr) auto;cursor:pointer}
+.crow>.row .what{grid-column:1 / -1}
+.crow .right{display:flex;align-items:center;gap:10px;color:var(--soft);font-size:13.5px;white-space:nowrap}
+.day-h{font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:18px 0 4px}
+
+/* sheets (prep card, client, confirm, notifications) */
+.scrim{position:fixed;inset:0;z-index:60;background:var(--scrim)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--raise);border-radius:22px 22px 0 0;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px clamp(18px,5vw,28px) calc(24px + env(safe-area-inset-bottom, 0px))}
+.grab{width:40px;height:5px;border-radius:99px;background:var(--hair);margin:0 auto 10px}
+.sheet .x{position:absolute;top:14px;right:16px}
+.sheet h3{font-family:var(--display);font-weight:300;font-size:30px;line-height:1.1;color:var(--head);margin:6px 48px 4px 0}
+.sheet .sub{color:var(--soft);font-size:14.5px;margin:0 0 14px}
+.expect{background:var(--tile);border-radius:14px;padding:14px 16px;margin:4px 0 16px}
+.expect h4{margin:0 0 8px;font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft)}
+.expect ul{display:grid;gap:6px}
+.expect li{padding-left:16px;position:relative;font-size:15px}
+.expect li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--weekly)}
+.sheet .facts{padding:0 0 6px}
+.acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 20px;font-weight:700;font-size:15px;background:var(--btn);color:var(--btn-fg);text-decoration:none;flex:1;min-width:120px}
+.btn.ghost-b{background:transparent;color:var(--head);border:1px solid var(--hair)}
+.fine{font-size:13px;color:var(--faint);margin:12px 0 0}
+.steps{display:grid;gap:10px;margin:8px 0 0;padding:0;counter-reset:s}
+.steps li{list-style:none;counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;font-size:15px}
+.steps li::before{content:counter(s);width:26px;height:26px;border-radius:50%;background:var(--tile);display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--head)}
+
+/* toast */
+.toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:80;background:var(--btn);color:var(--btn-fg);border-radius:999px;padding:11px 8px 11px 18px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;box-shadow:0 12px 30px -12px rgba(0,0,0,.45);max-width:calc(100% - 32px)}
+.toast[hidden]{display:none}
+.toast button{color:var(--btn-fg);background:rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;font-weight:700}
+.toast .msg{min-width:0;padding-right:10px}
+
+.foot{margin-top:38px;padding-top:18px;border-top:1px solid var(--hair);display:flex;justify-content:space-between;gap:10px 24px;flex-wrap:wrap;color:var(--soft);font-size:13.5px}
+.foot button{color:var(--faint);text-decoration:underline;text-underline-offset:3px}
+
+@media (min-width:761px){
+  .sheet{left:50%;right:auto;bottom:auto;top:50%;width:min(560px,calc(100% - 48px));transform:translate(-50%,-50%);border-radius:22px;max-height:86vh}
+  .grab{display:none}
+}
+@media (max-width:760px){
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .nums{gap:8px}
+  .tile{padding:14px 12px 12px}
+  .tile span{font-size:13px}
+  .row{grid-template-columns:70px minmax(0,1fr)}
+  .when{font-size:13px}
+  .facts,.pad{padding-left:0}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<main class="page" id="page">
+  <header class="top">
+    <span class="mark">nutrition<br>intuition</span>
+    <div class="top-r">
+      <span class="date" id="date">Friday, October 2</span>
+      <button class="bell" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    </div>
+  </header>
+
+  <h1 id="hello">Good morning, <em>Amber.</em></h1>
+  <div class="hint" id="hint" hidden><span>Get the app: add <b>NI Today</b> to your Home Screen</span><button class="go" id="hint-go">Show me</button><button class="dismiss" id="hint-x" aria-label="Hide this tip">&times;</button></div>
+
+  <div class="new" id="new" aria-label="New"></div>
+
+  <div class="nums">
+    <button class="tile" data-full="clients"><b class="num" id="t-clients">18</b><span>weekly clients</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="tile wait" data-full="waiting"><b class="num" id="t-waiting">3</b><span>waiting for a chef</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="tile" data-full="calls"><b class="num" id="t-calls">6</b><span>calls this week</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+  </div>
+
+  <div class="cols">
+    <div>
+      <section aria-labelledby="h-today">
+        <div class="sh"><h2 id="h-today">Today's calls</h2><span class="aux">Tap to prepare</span></div>
+        <ul id="today"></ul>
+        <p class="later" id="later"></p>
+      </section>
+      <section aria-labelledby="h-notes">
+        <div class="sh"><h2 id="h-notes">My notes</h2></div>
+        <form class="addnote" id="addnote" autocomplete="off"><input id="noteinput" placeholder="Add a note or to-do" aria-label="New note"><button type="submit">Add</button></form>
+        <ul class="notes" id="notes"></ul>
+        <div class="archbar"><span id="notehelp">Drag to reorder. Swipe left to finish or archive.</span><button id="archtoggle">Archive</button></div>
+        <ul class="arch" id="arch" hidden></ul>
+      </section>
+    </div>
+    <div>
+      <section aria-labelledby="h-wait">
+        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2></div>
+        <div id="waiting"></div>
+      </section>
+      <section aria-labelledby="h-events">
+        <div class="sh"><h2 id="h-events">Events coming up</h2></div>
+        <ul id="events"></ul>
+      </section>
+      <section aria-labelledby="h-chefs">
+        <div class="sh"><h2 id="h-chefs">Chefs and their clients</h2></div>
+        <ul id="chefs"></ul>
+        <p class="chef-more" id="chefmore"></p>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span>Sample names. Nothing here is sent for real. The real one fills in from your calendar, contacts and notes.</span>
+    <button id="reset">Reset sample</button>
+  </footer>
+</main>
+<div class="toast" id="toast" role="status" hidden><span class="msg" id="toastmsg"></span><button id="toastundo" hidden>Undo</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function(){
+'use strict';
+var VAPID_PUBLIC = 'BPSc8oUZeU5d-CNPhhi0pQoEDFOE-5tpC0lvKzE2cVujrxYFoztm_Ujf9IBhikqFPGcJKaQYQEJ0CtHxWqWDSz8';
+var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var EASE = 'cubic-bezier(.22,.8,.2,1)';
+function $(s, r){ return (r || document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+var store = {
+  get: function(k, d){ try { var v = localStorage.getItem('nitoday:' + k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set: function(k, v){ try { localStorage.setItem('nitoday:' + k, JSON.stringify(v)); } catch(e){} }
+};
+var ICON = {
+  chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+
+/* ---------------- sample data (made-up names) ---------------- */
+var CHEFS = [['hannah','Hannah Arneson'],['matt','Matt Dewey'],['josh','Josh Hebert'],['nina','Nina Anthony'],['emily','Emily Shaw'],['cat','Cat Erickson'],['christian','Christian Salem'],['vi','Vi Nguyen'],['ebony','Ebony Lomeli'],['elizabeth','Elizabeth Meinz'],['carey','Carey Shindler'],['ashley','Ashley Brown'],['kiki','Kiki Brown'],['james','James Armstrong'],['ziggy','Ziggy Bristol'],['hannahz','Hannah Zieser'],['kameryn','Kameryn Buttrey']];
+var CHEF = {}; CHEFS.forEach(function(c){ CHEF[c[0]] = c[1]; });
+function C(id, family, names, chef, area, address, phone, household, allergies, diet, days, next, since, note){
+  return {id:id, family:family, names:names, chef:chef, area:area, address:address, phone:phone, household:household, allergies:allergies, diet:diet, days:days, next:next, since:since, note:note};
+}
+var CLIENTS = [
+  C('baker','Baker','Jen and Mark Baker','hannah','Scottsdale','7421 E Quail Run Rd, Scottsdale','(480) 555-0114','2 adults, 2 kids (6 and 9)',['Tree nuts'],'Gluten-free','Mon and Thu','Mon, Oct 5','March 2025','Loved the salmon. Rice instead of quinoa.'),
+  C('lee','Lee','Grace and Daniel Lee','hannah','Paradise Valley','5310 E Mockingbird Ln, Paradise Valley','(480) 555-0127','2 adults',[],'Mediterranean, low sugar','Tue','Tue, Oct 6','June 2025','Daniel is training for a triathlon. Extra protein.'),
+  C('ortiz','Ortiz','Ana Ortiz','hannah','Scottsdale','8120 E Sage Hollow Dr, Scottsdale','(480) 555-0131','1 adult, 3 kids (4, 7 and 11)',['Dairy'],'Dairy-free','Wed','Wed, Oct 7','August 2025','Kid-sized portions, nothing spicy.'),
+  C('collins','Collins','Beth and Ryan Collins','matt','Phoenix','2219 E Palo Verde Dr, Phoenix','(602) 555-0142','2 adults, 1 kid (3)',[],'Paleo','Mon and Thu','Mon, Oct 5','January 2025',''),
+  C('reed','Reed','Sam Reed','matt','Phoenix','3402 N Desert Willow Way, Phoenix','(602) 555-0156','1 adult',['Shellfish'],'High-protein','Tue','Tue, Oct 6','May 2025',''),
+  C('park','Park','Min and Joel Park','matt','Scottsdale','6915 E Ironwood Dr, Scottsdale','(480) 555-0163','2 adults, 2 kids (8 and 12)',['Peanuts'],'No seed oils','Fri','Fri, Oct 9','April 2025',''),
+  C('rivera','Rivera','Carmen Rivera','josh','Paradise Valley','4800 E Lincoln Cove, Paradise Valley','(480) 555-0170','2 adults',[],'Whole30','Mon and Wed','Mon, Oct 5','July 2025',''),
+  C('stone','Stone','Allie and Brett Stone','josh','Scottsdale','9150 E Cholla View Rd, Scottsdale','(480) 555-0178','2 adults, 1 baby',[],'Postpartum, iron-rich','Thu','Thu, Oct 8','September 2025','New baby. Freezer-friendly meals.'),
+  C('adams','Adams','Kate Adams','nina','Scottsdale','7703 E Pinnacle Bloom Ln, Scottsdale','(480) 555-0181','1 adult, 1 kid (10)',['Gluten'],'Celiac, strictly gluten-free','Tue','Tue, Oct 6','February 2025','Separate cutting board for gluten-free.'),
+  C('foster','Foster','Lynn and Greg Foster','nina','Scottsdale','5622 E Ocotillo Ridge, Scottsdale','(480) 555-0189','2 adults',[],'Heart-healthy, low sodium','Thu','Thu, Oct 8','October 2024',''),
+  C('hughes','Hughes','Claire and Tom Hughes','emily','Phoenix','1840 E Saguaro Bloom Dr, Phoenix','(602) 555-0192','2 adults, 2 kids (5 and 8)',['Eggs'],'Kid-approved','Mon','Mon, Oct 5','June 2025',''),
+  C('price','Price','Nora Price','emily','Phoenix','2675 N Copper Sky Ct, Phoenix','(602) 555-0104','1 adult',[],'Plant-based','Wed','Wed, Oct 7','August 2025',''),
+  C('bell','Bell','Tasha and Andre Bell','cat','Scottsdale','8441 E Desert Marigold Dr, Scottsdale','(480) 555-0111','2 adults, 3 kids (2, 5 and 9)',['Tree nuts','Peanuts'],'Allergy-aware','Tue and Fri','Tue, Oct 6','March 2025','Nut-free kitchen. Check every label.'),
+  C('murphy','Murphy','Erin Murphy','cat','Paradise Valley','6020 E Juniper Mesa Rd, Paradise Valley','(480) 555-0119','2 adults',[],'Low FODMAP','Thu','Thu, Oct 8','May 2025',''),
+  C('ward','Ward','Holly and Jim Ward','christian','Scottsdale','7330 E Cactus Wren Rd, Scottsdale','(480) 555-0122','2 adults',[],'Diabetic-friendly','Mon and Thu','Mon, Oct 5','December 2024',''),
+  C('young','Young','Mia Young','christian','Phoenix','3950 E Mesquite Bend, Phoenix','(602) 555-0136','1 adult, 1 kid (2)',['Dairy'],'Dairy-free','Fri','Fri, Oct 9','July 2025',''),
+  C('cole','Cole','Jordan Cole','vi','Phoenix','2108 E Rio Vista Ln, Phoenix','(602) 555-0145','1 adult',[],'Keto','Wed','Wed, Oct 7','September 2025',''),
+  C('diaz','Diaz','Elena and Luis Diaz','ebony','Phoenix','4412 N Agave Point, Phoenix','(602) 555-0151','2 adults, 2 kids (1 and 4)',['Shellfish'],'Mexican-inspired, mild','Tue','Tue, Oct 6','August 2025','')
+];
+var WAITING = [
+  {id:'bennett', family:'Bennett', names:'Sara and Mike Bennett', area:'Scottsdale', address:'7015 E Feather Ridge Rd, Scottsdale', phone:'(480) 555-0167', household:'2 adults, 3 kids (2, 6 and 9)', allergies:['Shellfish'], diet:'Dairy-free', wants:'Tue and Fri', waited:9, note:'Wants to start before Halloween.'},
+  {id:'morales', family:'Morales', names:'Rosa and Dan Morales', area:'Phoenix', address:'3127 E Canyon Wren Dr, Phoenix', phone:'(602) 555-0174', household:'2 adults', allergies:[], diet:'Keto', wants:'Mon', waited:5, note:'Flexible on time of day.'},
+  {id:'carter', family:'Carter', names:'Jess Carter', area:'Paradise Valley', address:'5560 E Sunset Mesa, Paradise Valley', phone:'(480) 555-0185', household:'2 adults, 1 toddler', allergies:['Peanuts'], diet:'Organic, toddler-friendly', wants:'Wed', waited:2, note:''}
+];
+var CALLS = [
+  {id:'torres', day:'Today', time:'11:00 AM', who:'Rachel Torres', kind:'event', line:'Wellness retreat in January, about 8 guests', phone:'(480) 555-0102', from:'Event form on your website, Wednesday night',
+    expect:['First call. Nothing is signed yet.','She wants pricing for 4 meals over 2 days.','2 vegetarians and 1 gluten-free guest.'],
+    said:'I am hosting a wellness retreat the last weekend of January. Lunch and dinner on Saturday and Sunday for about 8 guests.',
+    facts:[['Guests','About 8'],['Dates','Jan 30 and 31'],['Where','A rental in Carefree'],['Diet','2 vegetarian, 1 gluten-free'],['Budget they gave','Not sure yet']]},
+  {id:'hall', day:'Today', time:'2:00 PM', who:'Megan Hall', kind:'weekly', line:'Family of 4, gluten-free, 2 visits a week', phone:'(480) 555-0108', allergies:['Tree nuts'], from:'Intake form, Sep 27',
+    expect:['Intake done. Agreement sent 4 days ago, not signed yet.','Wants 2 visits a week, Mon and Thu.','Her youngest has a tree nut allergy.'],
+    said:'We are a busy family of four and want healthy dinners ready twice a week.',
+    facts:[['Household','2 adults, 2 kids (7 and 10)'],['Diet','Gluten-free'],['Area','Scottsdale'],['Days she wants','Mon and Thu']]},
+  {id:'whitfield', day:'Mon, Oct 5', time:'12:30 PM', who:'Dana Whitfield', kind:'weekly', line:'Postpartum meals, dairy-free', phone:'(480) 555-0115', from:'Intake form, Sep 29',
+    expect:['Intake done. No agreement sent yet.','Postpartum meals for about 3 months.','Dairy-free while nursing.'],
+    said:'I just had a baby and would love nourishing meals for the next few months.',
+    facts:[['Household','2 adults, newborn'],['Diet','Dairy-free, postpartum'],['Area','Paradise Valley']]},
+  {id:'grant', day:'Wed, Oct 7', time:'1:30 PM', who:'Olivia Grant', kind:'weekly', line:'High-protein, training for a marathon', phone:'(602) 555-0129', from:'Intake form, Sep 30',
+    expect:['Intake done.','High-protein meal prep, 1 visit a week.','She asked if a chef can come on weekends.'],
+    said:'Training for a marathon and want high-protein meal prep I do not have to think about.',
+    facts:[['Household','1 adult'],['Diet','High-protein'],['Area','Phoenix']]},
+  {id:'shah', day:'Wed, Oct 7', time:'2:00 PM', who:'Priya Shah', kind:'weekly', line:'Signed, first cook the week of Oct 19', phone:'(480) 555-0137', allergies:['Peanuts'], from:'Intake form, Sep 24',
+    expect:['Signed today. Ready to start.','First cook the week of Oct 19.','Her son has a peanut allergy.'],
+    said:'Vegetarian household. We love Indian and Mediterranean food.',
+    facts:[['Household','2 adults, 1 kid (5)'],['Diet','Vegetarian'],['Area','Scottsdale']]},
+  {id:'brooks', day:'Fri, Oct 9', time:'12:00 PM', who:'Lauren Brooks', kind:'event', line:'Surprise 40th birthday, 12 guests', phone:'(480) 555-0148', allergies:['Shellfish'], from:'Event form on your website, Oct 1',
+    expect:['It is a surprise, so text her, not her husband.','12 guests at her home on Nov 14.','One guest has a shellfish allergy.'],
+    said:'Surprise 40th birthday dinner for my husband, 12 guests at our home.',
+    facts:[['Guests','12'],['Date','Saturday, Nov 14'],['Where','Their home in Paradise Valley'],['Diet','1 pescatarian'],['Budget they gave','$2,000 to $3,000']]}
+];
+var EVENTS = [
+  {id:'whitmore', mon:'Oct', d:'10', title:'Anniversary dinner, 10 guests', line:'Paradise Valley · Chef Josh', status:[['Agreement signed','']],
+    facts:[['Occasion','Their 25th anniversary'],['When','Saturday, Oct 10 at 6:30 PM'],['Guests','10 adults'],['Where','Their home in Paradise Valley'],['Diet','1 vegetarian'],['Allergies','1 shellfish'],['Budget they gave','$1,500 to $2,000'],['Found you','Instagram'],['Planning call','Sep 22'],['Contact','Diane Whitmore · (480) 555-0124'],['Chef','Josh Hebert']],
+    said:'Something elegant but relaxed. Family style is fine. We would love a dessert that is not too sweet.'},
+  {id:'patel', mon:'Oct', d:'17', title:'Baby shower, 24 guests', line:'Scottsdale · still needs a chef', warn:true, status:[['Agreement is a draft','warn'],['Needs a chef','warn']],
+    facts:[['Occasion','Baby shower brunch'],['When','Saturday, Oct 17 at 11:00 AM'],['Guests','24, mostly adults'],['Where','Their backyard in Scottsdale'],['Diet','6 vegetarian, 2 gluten-free'],['Budget they gave','$2,500'],['Found you','The Bakers referred them'],['Planning call','Yesterday'],['Contact','Nisha Patel · (480) 555-0133'],['Chef','Not picked yet']],
+    said:'A light brunch with mocktails and a pretty grazing table.'},
+  {id:'reyes', mon:'Oct', d:'31', title:'Halloween dinner, 14 guests', line:'Phoenix · Chef Ziggy', status:[['Agreement signed',''],['Menu sent','']],
+    facts:[['Occasion','Halloween dinner party'],['When','Saturday, Oct 31 at 7:00 PM'],['Guests','14 adults'],['Where','Their home in Phoenix'],['Diet','2 dairy-free'],['Budget they gave','$2,000'],['Found you','Google'],['Planning call','Sep 18'],['Contact','Marco Reyes · (602) 555-0147'],['Chef','Ziggy Bristol']],
+    said:'Spooky but grown-up. Dark plates, moody colors and great cocktails.'}
+];
+var NEWS = [
+  {id:'lauren', who:'Lauren Kim sent her intake', line:'Family of 3, nut allergy', when:'9:42 AM',
+    sheet:{title:'Lauren Kim', sub:'New intake · 9:42 AM', expect:['She has not booked a call yet. She got your weekly call link.','Her daughter has a tree nut allergy.','Wants healthy weeknight dinners.'], said:'We would love healthy weeknight dinners. Our daughter has a tree nut allergy.', facts:[['Household','2 adults, 1 kid (6)'],['Diet','Mediterranean'],['Allergies','Tree nuts'],['Area','Scottsdale'],['Phone','(480) 555-0196']], phone:'(480) 555-0196'}},
+  {id:'priya', who:'Priya Shah signed on', line:'Weekly service, first cook the week of Oct 19', when:'8:15 AM',
+    sheet:{title:'Priya Shah', sub:'Signed her agreement · 8:15 AM', expect:['Your call with her is Wednesday at 2:00 PM.','After you talk, she goes to "Waiting for a chef".','Her son has a peanut allergy.'], said:'', facts:[['Household','2 adults, 1 kid (5)'],['Diet','Vegetarian'],['Allergies','Peanuts'],['Area','Scottsdale']], phone:'(480) 555-0137'}}
+];
+var NOTES_DEFAULT = [
+  {id:'n1', text:'Call the Bennetts about a Tuesday start', from:'', st:'open'},
+  {id:'n2', text:'Send the Patel shower agreement', from:'', st:'open'},
+  {id:'n3', text:'Ask Josh what he needs for the Oct 10 dinner', from:'', st:'open'},
+  {id:'n4', text:'The Bakers loved the salmon. Swap quinoa for rice next week.', from:'From Chef Hannah', st:'open'},
+  {id:'n5', text:'Order new aprons for the team', from:'', st:'open'}
+];
+
+/* ---------------- state ---------------- */
+var assign = store.get('assign', {});
+var notes = store.get('notes', null) || JSON.parse(JSON.stringify(NOTES_DEFAULT));
+var readNew = store.get('read', []);
+var pending = {};
+function saveNotes(){ store.set('notes', notes); }
+function allClients(){
+  return CLIENTS.concat(WAITING.filter(function(w){ return assign[w.id]; }).map(function(w){
+    return {id:w.id, family:w.family, names:w.names, chef:assign[w.id], area:w.area, address:w.address, phone:w.phone, household:w.household, allergies:w.allergies, diet:w.diet, days:w.wants, next:'starting soon', since:'Just now', note:w.note, fresh:true};
+  }));
+}
+function waitingList(){ return WAITING.filter(function(w){ return !assign[w.id]; }); }
+function findClient(id){ var all = allClients(); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
+function tel(p){ return 'tel:+1' + p.replace(/\D/g, ''); }
+function sms(p){ return 'sms:+1' + p.replace(/\D/g, ''); }
+function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' + esc(x) + '</span>'; }).join(''); }
+function factsHTML(f){ return '<dl class="facts">' + f.map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
+
+/* ---------------- toast with undo ---------------- */
+var toastT = null, toastUndo = null;
+function toast(msg, undo, ms){
+  var t = $('#toast'); $('#toastmsg').textContent = msg; toastUndo = undo || null;
+  $('#toastundo').hidden = !undo; t.hidden = false; clearTimeout(toastT);
+  if (!RM) t.animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'none'}], {duration:220, easing:EASE});
+  toastT = setTimeout(function(){ t.hidden = true; toastUndo = null; }, ms || 4200);
+}
+$('#toastundo').addEventListener('click', function(){ var u = toastUndo; $('#toast').hidden = true; toastUndo = null; if (u) u(); });
+
+/* ---------------- header ---------------- */
+(function(){
+  try {
+    var now = new Date();
+    $('#date').textContent = new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric', timeZone:'America/Phoenix'}).format(now);
+    var h = parseInt(new Intl.DateTimeFormat('en-US', {hour:'numeric', hourCycle:'h23', timeZone:'America/Phoenix'}).format(now), 10);
+    var g = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
+    $('#hello').innerHTML = g + ', <em>Amber.</em>';
+  } catch(e) {}
+})();
+
+/* ---------------- renderers ---------------- */
+function renderTiles(){
+  $('#t-clients').textContent = allClients().length;
+  $('#t-waiting').textContent = waitingList().length;
+  $('#t-calls').textContent = CALLS.length;
+}
+function renderNew(){
+  var items = NEWS.filter(function(n){ return readNew.indexOf(n.id) < 0; });
+  $('#new').innerHTML = items.map(function(n){
+    return '<button class="new-item" data-new="' + n.id + '"><span class="tag">New</span><span class="t">' + esc(n.who) + '</span><span class="w">' + esc(n.when) + '</span><span class="s">' + esc(n.line) + '</span></button>';
+  }).join('');
+  setBadge(items.length);
+}
+function callRow(c){
+  return '<li><button class="row" data-call="' + c.id + '"><span class="when">' + esc(c.time) + '</span><span><span class="who">' + esc(c.who) + '</span><span class="kind ' + c.kind + '">' + (c.kind === 'event' ? 'Event' : 'Weekly') + '</span></span><span class="what">' + esc(c.line) + (c.allergies ? ' ' + algs(c.allergies) : '') + '</span></button></li>';
+}
+function renderCalls(){
+  $('#today').innerHTML = CALLS.filter(function(c){ return c.day === 'Today'; }).map(callRow).join('');
+  var later = CALLS.filter(function(c){ return c.day !== 'Today'; });
+  var byDay = {}, order = [];
+  later.forEach(function(c){ var d = c.day.split(',')[0]; if (!byDay[d]) { byDay[d] = []; order.push(d); } byDay[d].push(c); });
+  $('#later').innerHTML = 'Later this week: ' + order.map(function(d){
+    return '<b>' + esc(d) + '</b> ' + byDay[d].map(function(c){ return '<button data-call="' + c.id + '">' + esc(c.who) + '</button>' + (c.kind === 'event' ? ' (event)' : ''); }).join(' and ');
+  }).join(', ');
+}
+function renderEvents(){
+  $('#events').innerHTML = EVENTS.map(function(e){
+    return '<li class="acc" data-acc><button class="row" aria-expanded="false"><span class="when">' + esc(e.mon + ' ' + e.d) + '</span><span style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="who">' + esc(e.title) + '</span>' + ICON.chev + '</span><span class="what"' + (e.warn ? ' style="color:var(--wait)"' : '') + '>' + esc(e.line) + '</span></button>' +
+      '<div class="acc-body"><div class="pad">' + e.status.map(function(s){ return '<span class="status ' + s[1] + '">' + esc(s[0]) + '</span>'; }).join('') + '</div>' +
+      '<div class="pad"><span class="quote">“' + esc(e.said) + '”</span></div>' + factsHTML(e.facts.map(function(f){ return [f[0], esc(f[1])]; })) + '</div></li>';
+  }).join('');
+}
+function renderChefs(){
+  var by = {}; allClients().forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
+  var ids = CHEFS.map(function(c){ return c[0]; }).filter(function(id){ return by[id]; });
+  ids.sort(function(a, b){ return by[b].length - by[a].length; });
+  var openNow = $$('#chefs .chef.open').map(function(li){ return li.dataset.chef; });
+  $('#chefs').innerHTML = ids.map(function(id){
+    var list = by[id], isOpen = openNow.indexOf(id) >= 0;
+    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + id + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(CHEF[id]) + '</span><span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
+      '<div class="chef-body">' + list.map(function(c){
+        return '<button class="cl" data-client="' + c.id + '"><span class="cn">' + esc(c.family) + '</span><span class="cmeta">' + esc(c.days) + ' · next ' + esc(c.next) + '</span><span class="csub">' + esc(c.household) + ' · ' + esc(c.area) + ' ' + algs(c.allergies) + '</span></button>';
+      }).join('') + '</div></li>';
+  }).join('');
+  var free = CHEFS.length - ids.length;
+  $('#chefmore').textContent = free > 0 ? free + ' more chefs have open days.' : '';
+}
+function chefOptions(){
+  return '<option value="">Choose a chef</option>' + CHEFS.map(function(c){ return '<option value="' + c[0] + '">' + esc(c[1]) + '</option>'; }).join('');
+}
+function waitRow(w){
+  var p = pending[w.id];
+  return '<div class="wrow" data-wait="' + w.id + '"><div class="wtop"><span><span class="who">' + esc(w.family) + ' family</span> <span style="color:var(--soft);font-size:14px">· ' + esc(w.area) + '</span></span><span class="days">' + w.waited + ' days</span></div>' +
+    '<div class="wsub">' + esc(w.household) + ' · ' + esc(w.diet) + ' · wants ' + esc(w.wants) + ' ' + algs(w.allergies) + '</div>' +
+    (p ? '<div class="sending">Sending to ' + esc(CHEF[p.chef]) + '…</div>' : '<div><select aria-label="Choose a chef for the ' + esc(w.family) + ' family" data-assign="' + w.id + '">' + chefOptions() + '</select></div>') + '</div>';
+}
+function renderWaiting(){
+  var list = waitingList();
+  var html = list.length ? list.map(waitRow).join('') : '<p class="none">Everyone has a chef.</p>';
+  $('#waiting').innerHTML = html;
+  var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
+}
+function renderNotes(){
+  var open = notes.filter(function(n){ return n.st === 'open'; });
+  $('#notes').innerHTML = open.length ? open.map(function(n){
+    return '<li data-note="' + n.id + '"><div class="nact"><button class="d" data-done>Done</button><button class="a" data-archive>Archive</button></div>' +
+      '<div class="nmain"><span class="grip" aria-label="Drag to reorder">' + ICON.grip + '</span><button class="chk" data-check aria-label="Mark done">' + ICON.check + '</button><div><span class="ntext">' + esc(n.text) + '</span>' + (n.from ? '<span class="nfrom">' + esc(n.from) + '</span>' : '') + '</div></div></li>';
+  }).join('') : '<li><p class="none">All clear. Add a note above.</p></li>';
+  var arch = notes.filter(function(n){ return n.st !== 'open'; });
+  $('#archtoggle').textContent = ($('#arch').hidden ? 'Archive' : 'Hide archive') + (arch.length ? ' (' + arch.length + ')' : '');
+  $('#arch').innerHTML = arch.length ? arch.map(function(n){
+    return '<li data-note="' + n.id + '"><span>' + esc(n.text) + '<br><span class="st">' + (n.st === 'done' ? 'Done' : 'Archived') + '</span></span><span class="ops"><button data-restore>Restore</button><button class="del" data-delete>Delete</button></span></li>';
+  }).join('') : '<li><span class="st">Nothing archived yet.</span></li>';
+  $$('#notes li[data-note]').forEach(bindSwipe);
+  if (window.Sortable && !$('#notes')._sortable) {
+    $('#notes')._sortable = window.Sortable.create($('#notes'), {handle:'.grip', animation:RM ? 0 : 200, ghostClass:'ghost', onEnd:function(){
+      var ids = $$('#notes li[data-note]').map(function(li){ return li.dataset.note; });
+      var openSorted = ids.map(function(id){ return noteById(id); }).filter(Boolean);
+      notes = openSorted.concat(notes.filter(function(n){ return n.st !== 'open'; })); saveNotes();
+    }});
+  }
+  if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
+}
+function renderAll(){ renderTiles(); renderNew(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+
+/* ---------------- sheets ---------------- */
+var sheets = [];
+function openSheet(html, onClose){
+  var scrim = document.createElement('div'); scrim.className = 'scrim';
+  var sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-modal', 'true');
+  sh.innerHTML = '<div class="grab"></div><button class="x" data-close aria-label="Close">' + ICON.x + '</button>' + html;
+  document.body.appendChild(scrim); document.body.appendChild(sh); document.body.classList.add('locked');
+  var desktop = window.matchMedia('(min-width: 761px)').matches;
+  if (!RM) {
+    scrim.animate([{opacity:0},{opacity:1}], {duration:240});
+    sh.animate(desktop ? [{opacity:0, transform:'translate(-50%,-46%) scale(.97)'},{opacity:1, transform:'translate(-50%,-50%) scale(1)'}] : [{transform:'translateY(100%)'},{transform:'translateY(0)'}], {duration:380, easing:EASE});
+  }
+  var api = {el:sh, closed:false, close:function(){
+    if (api.closed) return; api.closed = true;
+    sheets = sheets.filter(function(s){ return s !== api; });
+    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full')) document.body.classList.remove('locked'); if (onClose) onClose(); }
+    if (RM) return done();
+    scrim.animate([{opacity:1},{opacity:0}], {duration:200, fill:'forwards'});
+    var a = sh.animate(desktop ? [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},{opacity:0, transform:'translate(-50%,-46%) scale(.97)'}] : [{transform:'translateY(0)'},{transform:'translateY(100%)'}], {duration:260, easing:'ease-in', fill:'forwards'});
+    a.onfinish = done;
+  }};
+  scrim.addEventListener('click', api.close);
+  sh.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) api.close(); });
+  sheets.push(api);
+  setTimeout(function(){ var x = sh.querySelector('.x'); if (x) try { x.focus({preventScroll:true}); } catch(e) {} }, 50);
+  return api;
+}
+function prepHTML(o){
+  return '<h3>' + esc(o.title) + '</h3><p class="sub">' + o.sub + '</p>' +
+    '<div class="expect"><h4>What to expect</h4><ul>' + o.expect.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' +
+    (o.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(o.said) + '”</p>' : '') +
+    factsHTML(o.facts) +
+    (o.phone ? '<div class="acts"><a class="btn" href="' + tel(o.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(o.phone) + '">Text</a></div>' : '') +
+    '<p class="fine">Sample person. The real card fills in from their form and your notes.</p>';
+}
+function openPrep(id){
+  var c = CALLS.filter(function(x){ return x.id === id; })[0]; if (!c) return;
+  var facts = c.facts.map(function(f){ return [f[0], esc(f[1])]; });
+  if (c.allergies) facts.splice(1, 0, ['Allergies', algs(c.allergies)]);
+  facts.push(['Phone', esc(c.phone)]);
+  facts.push(['Came from', esc(c.from)]);
+  openSheet(prepHTML({title:c.who, sub:'<span class="kind ' + c.kind + '" style="margin:0">' + (c.kind === 'event' ? 'Event call' : 'Weekly service call') + '</span> &nbsp;' + esc(c.day) + ' at ' + esc(c.time), expect:c.expect, said:c.said, facts:facts, phone:c.phone}));
+}
+function clientFacts(c){
+  return [['Address', esc(c.address)], ['Phone', esc(c.phone)], ['Household', esc(c.household)], ['Allergies', c.allergies.length ? algs(c.allergies) : 'None'], ['Diet', esc(c.diet)], ['Chef', esc(CHEF[c.chef] || 'Not picked yet')], ['Service days', esc(c.days)], ['Next cook', esc(c.next)], ['Client since', esc(c.since)]].concat(c.note ? [['Note', esc(c.note)]] : []);
+}
+function openClient(id){
+  var c = findClient(id); if (!c) return;
+  openSheet('<h3>' + esc(c.names) + '</h3><p class="sub">' + esc(c.area) + ' · with ' + esc(CHEF[c.chef]) + '</p>' + factsHTML(clientFacts(c)) +
+    '<div class="acts"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div><p class="fine">Sample client.</p>');
+}
+function openNew(id){
+  var n = NEWS.filter(function(x){ return x.id === id; })[0]; if (!n) return;
+  if (readNew.indexOf(id) < 0) { readNew.push(id); store.set('read', readNew); }
+  var s = n.sheet;
+  openSheet(prepHTML({title:s.title, sub:esc(s.sub), expect:s.expect, said:s.said, facts:s.facts.map(function(f){ return [f[0], f[0] === 'Allergies' ? algs([f[1]]) : esc(f[1])]; }), phone:s.phone}), function(){ renderNew(); });
+}
+
+/* ---------------- assign a chef (her call) ---------------- */
+function confirmAssign(wid, chef, sel){
+  var w = WAITING.filter(function(x){ return x.id === wid; })[0];
+  var sent = false, first = CHEF[chef].split(' ')[0];
+  var sh = openSheet('<h3>Send to ' + esc(first) + '?</h3><p class="sub">The ' + esc(w.family) + ' family’s intake and menu go to ' + esc(CHEF[chef]) + '.</p>' +
+    factsHTML([['Household', esc(w.household)], ['Allergies', w.allergies.length ? algs(w.allergies) : 'None'], ['Diet', esc(w.diet)], ['Wants', esc(w.wants)], ['Area', esc(w.area)]]) +
+    '<div class="acts"><button class="btn" data-send>Send intake and menu</button><button class="btn ghost-b" data-close>Cancel</button></div><p class="fine">Sample: nothing is sent. In the real one this replaces the Google Sheet.</p>',
+    function(){ if (!sent && sel) sel.value = ''; });
+  sh.el.querySelector('[data-send]').addEventListener('click', function(){
+    sent = true; sh.close();
+    pending[wid] = {chef:chef, t:setTimeout(function(){
+      delete pending[wid]; assign[wid] = chef; store.set('assign', assign);
+      renderAll(); toast('Sent. ' + first + ' has the ' + w.family + ' intake and menu.');
+    }, 10000)};
+    renderWaiting();
+    toast('Sending to ' + first + ' in 10 seconds', function(){ clearTimeout(pending[wid].t); delete pending[wid]; renderWaiting(); toast('Cancelled. Nothing was sent.'); }, 10000);
+  });
+}
+document.addEventListener('change', function(e){
+  var sel = e.target.closest('select[data-assign]'); if (!sel || !sel.value) return;
+  confirmAssign(sel.dataset.assign, sel.value, sel);
+});
+
+/* ---------------- accordions ---------------- */
+function toggleAcc(li){
+  var body = li.querySelector('.acc-body'), btn = li.querySelector('.row'), open = !li.classList.contains('open');
+  btn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    li.classList.add('open'); if (RM) return;
+    var h = body.scrollHeight;
+    body.animate([{height:'0px', opacity:0},{height:h + 'px', opacity:1}], {duration:420, easing:EASE});
+    $$('dt, dd, .status, .quote, .acts', body).forEach(function(el, i){ el.animate([{opacity:0, transform:'translateY(6px)'},{opacity:1, transform:'none'}], {duration:300, delay:80 + i * 20, easing:'ease-out', fill:'backwards'}); });
+  } else {
+    if (RM) { li.classList.remove('open'); return; }
+    var a = body.animate([{height:body.offsetHeight + 'px', opacity:1},{height:'0px', opacity:0}], {duration:280, easing:EASE});
+    a.onfinish = function(){ li.classList.remove('open'); };
+  }
+}
+/* chefs: names flow from one line (horizontal) into a list (vertical) */
+function toggleChef(li){
+  var body = li.querySelector('.chef-body'), names = $$('.cn', body), btn = li.querySelector('.chef-head');
+  var first = names.map(function(n){ return n.getBoundingClientRect(); }), h0 = body.offsetHeight;
+  var open = !li.classList.contains('open'); li.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open));
+  if (RM) return;
+  var h1 = body.offsetHeight, last = names.map(function(n){ return n.getBoundingClientRect(); });
+  body.animate([{height:h0 + 'px'},{height:h1 + 'px'}], {duration:520, easing:EASE});
+  names.forEach(function(n, i){
+    var dx = first[i].left - last[i].left, dy = first[i].top - last[i].top;
+    n.animate([{transform:'translate(' + dx + 'px,' + dy + 'px)'},{transform:'translate(0,0)'}], {duration:520, delay:open ? i * 45 : 0, easing:EASE, fill:'backwards'});
+  });
+  if (open) $$('.cmeta, .csub', body).forEach(function(m, i){ m.animate([{opacity:0, transform:'translateX(14px)'},{opacity:1, transform:'none'}], {duration:360, delay:220 + i * 35, easing:'ease-out', fill:'backwards'}); });
+}
+
+/* ---------------- full screens morphing out of a number box ---------------- */
+function fullHTML(kind){
+  var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
+  if (kind === 'clients') {
+    var list = allClients().slice().sort(function(a, b){ return a.family.localeCompare(b.family); });
+    return '<div class="full-h"><div><h3>Weekly clients</h3><p>' + list.length + ' families · tap one for details</p></div>' + x + '</div>' +
+      '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
+      '<ul class="full-list">' + list.map(function(c){
+        var hay = [c.names, c.family, CHEF[c.chef], c.area, c.diet, c.allergies.join(' ')].join(' ').toLowerCase();
+        return '<li class="crow acc" data-acc data-hay="' + esc(hay) + '"><button class="row" aria-expanded="false"><span class="who">' + esc(c.names) + (c.fresh ? ' <span class="status">New</span>' : '') + '</span><span class="right">' + esc(CHEF[c.chef].split(' ')[0]) + ICON.chev + '</span><span class="what">' + esc(c.household) + ' · ' + esc(c.days) + ' ' + algs(c.allergies) + '</span></button><div class="acc-body">' + factsHTML(clientFacts(c)) +
+          '<div class="acts" style="margin:0 0 16px"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div></div></li>';
+      }).join('') + '</ul>';
+  }
+  if (kind === 'waiting') {
+    return '<div class="full-h"><div><h3>Waiting for a chef</h3><p>Pick a chef and their intake and menu go out.</p></div>' + x + '</div><div class="full-list"></div>';
+  }
+  var days = []; CALLS.forEach(function(c){ if (days.indexOf(c.day) < 0) days.push(c.day); });
+  return '<div class="full-h"><div><h3>Calls this week</h3><p>' + CALLS.length + ' calls · tap one to prepare</p></div>' + x + '</div>' +
+    days.map(function(d){ return '<div class="day-h">' + esc(d) + '</div><ul>' + CALLS.filter(function(c){ return c.day === d; }).map(callRow).join('') + '</ul>'; }).join('');
+}
+function clipFor(r){ return 'inset(' + r.top + 'px ' + (window.innerWidth - r.right) + 'px ' + (window.innerHeight - r.bottom) + 'px ' + r.left + 'px round 16px)'; }
+function openFull(kind, tile){
+  if ($('.full')) return;
+  var r = tile.getBoundingClientRect();
+  var ov = document.createElement('div'); ov.className = 'full'; ov.dataset.kind = kind; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
+  document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
+  if (kind === 'waiting') renderWaiting();
+  if (!RM) {
+    ov.animate([{clipPath:clipFor(r), backgroundColor:getComputedStyle(tile).backgroundColor},{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor}], {duration:520, easing:EASE});
+    ov.querySelector('.full-in').animate([{opacity:0, transform:'translateY(18px)'},{opacity:1, transform:'none'}], {duration:360, delay:200, easing:'ease-out', fill:'backwards'});
+  }
+  var s = $('#csearch', ov);
+  if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); });
+  setTimeout(function(){ var b = ov.querySelector('[data-closefull]'); if (b) try { b.focus({preventScroll:true}); } catch(e) {} }, 60);
+}
+function closeFull(){
+  var ov = $('.full'); if (!ov || ov._closing) return; ov._closing = true;
+  function done(){ ov.remove(); if (!sheets.length) document.body.classList.remove('locked'); renderAll(); }
+  if (RM) return done();
+  var r = ov._tile.getBoundingClientRect();
+  ov.querySelector('.full-in').animate([{opacity:1},{opacity:0}], {duration:180, fill:'forwards'});
+  var a = ov.animate([{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor},{clipPath:clipFor(r), backgroundColor:getComputedStyle(ov._tile).backgroundColor}], {duration:440, easing:EASE, fill:'forwards'});
+  a.onfinish = done;
+}
+
+/* ---------------- notes: edit, done, swipe, archive ---------------- */
+function noteById(id){ return notes.filter(function(n){ return n.id === id; })[0]; }
+function finishNote(id, st, li){
+  var n = noteById(id); if (!n) return;
+  function apply(){
+    n.st = st;
+    notes = notes.filter(function(x){ return x.id !== id; }).concat([n]); saveNotes(); renderNotes();
+    toast(st === 'done' ? 'Done. Moved to the archive.' : 'Archived.', function(){ n.st = 'open'; notes = [n].concat(notes.filter(function(x){ return x.id !== id; })); saveNotes(); renderNotes(); });
+  }
+  if (RM || !li) return apply();
+  li.querySelector('.nmain').classList.add('doing');
+  var a = li.animate([{height:li.offsetHeight + 'px', opacity:1},{height:'0px', opacity:0}], {duration:360, delay:st === 'done' ? 260 : 0, easing:EASE, fill:'forwards'});
+  a.onfinish = apply;
+}
+var openSwipe = null, MAXS = 152;
+function settle(main, open){
+  main.style.transition = 'transform .28s ' + EASE; main.style.transform = open ? 'translateX(-' + MAXS + 'px)' : '';
+  var li = main.parentNode; li.classList.toggle('swiped', open);
+  if (open) { if (openSwipe && openSwipe !== main) settle(openSwipe, false); openSwipe = main; } else if (openSwipe === main) openSwipe = null;
+}
+function startEdit(li){
+  var t = li.querySelector('.ntext'), n = noteById(li.dataset.note); if (!t || !n) return;
+  t.contentEditable = 'true'; t.focus();
+  try { var rg = document.createRange(); rg.selectNodeContents(t); rg.collapse(false); var s = window.getSelection(); s.removeAllRanges(); s.addRange(rg); } catch(e) {}
+  function key(e){ if (e.key === 'Enter') { e.preventDefault(); t.blur(); } if (e.key === 'Escape') { t.textContent = n.text; t.blur(); } }
+  function end(){ t.removeEventListener('blur', end); t.removeEventListener('keydown', key); t.contentEditable = 'false'; var v = t.textContent.trim(); if (v) { n.text = v; saveNotes(); } else t.textContent = n.text; }
+  t.addEventListener('blur', end); t.addEventListener('keydown', key);
+}
+function bindSwipe(li){
+  var main = li.querySelector('.nmain'); if (!main) return;
+  var x0 = 0, y0 = 0, base = 0, dx = 0, active = false, lock = null;
+  main.addEventListener('pointerdown', function(e){
+    if (e.target.closest('.grip, .chk') || main.querySelector('[contenteditable="true"]')) return;
+    active = true; lock = null; x0 = e.clientX; y0 = e.clientY; base = li.classList.contains('swiped') ? -MAXS : 0; dx = base; main.style.transition = 'none';
+  });
+  main.addEventListener('pointermove', function(e){
+    if (!active) return;
+    var mx = e.clientX - x0, my = e.clientY - y0;
+    if (lock === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) { lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'; if (lock === 'x') { try { main.setPointerCapture(e.pointerId); } catch(_) {} } }
+    if (lock === 'x') { dx = Math.min(0, Math.max(-MAXS - 40, base + mx)); main.style.transform = 'translateX(' + dx + 'px)'; }
+  });
+  main.addEventListener('pointerup', function(){
+    if (!active) return; active = false;
+    if (lock === 'x') settle(main, dx < -MAXS / 2);
+    else if (lock === null) { if (li.classList.contains('swiped')) settle(main, false); else startEdit(li); }
+  });
+  main.addEventListener('pointercancel', function(){ if (!active) return; active = false; settle(main, lock === 'x' ? dx < -MAXS / 2 : li.classList.contains('swiped')); });
+}
+$('#notes').addEventListener('click', function(e){
+  var li = e.target.closest('li[data-note]'); if (!li) return;
+  if (e.target.closest('[data-check]') || e.target.closest('[data-done]')) finishNote(li.dataset.note, 'done', li);
+  else if (e.target.closest('[data-archive]')) finishNote(li.dataset.note, 'archived', li);
+});
+$('#arch').addEventListener('click', function(e){
+  var li = e.target.closest('li[data-note]'); if (!li) return; var id = li.dataset.note, n = noteById(id); if (!n) return;
+  if (e.target.closest('[data-restore]')) { n.st = 'open'; notes = [n].concat(notes.filter(function(x){ return x.id !== id; })); saveNotes(); renderNotes(); toast('Back in your notes.'); }
+  if (e.target.closest('[data-delete]')) { var idx = notes.indexOf(n); notes.splice(idx, 1); saveNotes(); renderNotes(); toast('Deleted.', function(){ notes.splice(idx, 0, n); saveNotes(); renderNotes(); }); }
+});
+$('#archtoggle').addEventListener('click', function(){ var a = $('#arch'); a.hidden = !a.hidden; renderNotes(); if (!a.hidden && !RM) a.animate([{opacity:0, transform:'translateY(-6px)'},{opacity:1, transform:'none'}], {duration:260, easing:EASE}); });
+$('#addnote').addEventListener('submit', function(e){
+  e.preventDefault(); var inp = $('#noteinput'), v = inp.value.trim(); if (!v) return;
+  var n = {id:'n' + Date.now(), text:v, from:'', st:'open'}; notes.unshift(n); saveNotes(); inp.value = ''; renderNotes();
+  var li = $('#notes li[data-note="' + n.id + '"]'); if (li && !RM) li.animate([{opacity:0, transform:'translateY(-8px)'},{opacity:1, transform:'none'}], {duration:300, easing:EASE});
+});
+
+/* ---------------- notifications + install ---------------- */
+var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var isMobile = isIOS || /Android/i.test(navigator.userAgent);
+var canPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function setBadge(n){ try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch(e) {} }
+function b64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4), s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; }
+function installSteps(){
+  return isIOS ?
+    '<ol class="steps"><li><span>Open this page in <b>Safari</b>.</span></li><li><span>Tap the <b>Share</b> button (the square with the arrow).</span></li><li><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li><li><span>Open <b>NI Today</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>' :
+    '<ol class="steps"><li><span>Open the browser menu (the three dots).</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Open <b>NI Today</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>';
+}
+function openNotify(){
+  var granted = canPush && Notification.permission === 'granted', body;
+  if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add NI Today to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
+  else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open NI Today from your Home Screen (iOS 16.4 or newer).</p>';
+  else body = '<h3>Notifications</h3><p class="sub">Get a notification when a new intake or event inquiry comes in, so nothing gets lost in your inbox.</p>' +
+    '<div class="acts"><button class="btn" data-push>' + (granted ? 'Send me a test notification' : 'Turn on notifications') + '</button></div><p class="fine" id="pushmsg">' + (granted ? 'Notifications are on.' : 'Your phone will ask you to allow them.') + '</p>';
+  var sh = openSheet(body), b = sh.el.querySelector('[data-push]');
+  if (b) b.addEventListener('click', function(){
+    var msg = sh.el.querySelector('#pushmsg');
+    Notification.requestPermission().then(function(p){
+      if (p !== 'granted') { msg.textContent = 'Notifications are off. Turn them on in Settings, Notifications, NI Today.'; return; }
+      $('#bell').classList.add('on'); msg.textContent = 'Setting up…';
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.getSubscription().then(function(s){ return s || reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToU8(VAPID_PUBLIC)}); });
+      }).then(function(sub){
+        return fetch('/.netlify/functions/push-test', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({subscription:sub})});
+      }).then(function(r){
+        msg.textContent = r.ok ? 'Done. A test notification arrives in a few seconds. Try locking your phone.' : 'The test could not be sent. Try again in a minute.';
+      });
+    }).catch(function(){ msg.textContent = 'Something went wrong turning on notifications. Try again.'; });
+  });
+}
+$('#bell').addEventListener('click', openNotify);
+if (canPush && Notification.permission === 'granted') $('#bell').classList.add('on');
+if (isMobile && !isStandalone && !store.get('hintoff', false)) $('#hint').hidden = false;
+$('#hint-go').addEventListener('click', openNotify);
+$('#hint-x').addEventListener('click', function(){ $('#hint').hidden = true; store.set('hintoff', true); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
+
+/* ---------------- global clicks ---------------- */
+document.addEventListener('click', function(e){
+  var t;
+  if ((t = e.target.closest('[data-closefull]'))) return closeFull();
+  if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
+  if ((t = e.target.closest('[data-new]'))) return openNew(t.dataset.new);
+  if ((t = e.target.closest('[data-call]'))) return openPrep(t.dataset.call);
+  if ((t = e.target.closest('.chef-head'))) return toggleChef(t.closest('.chef'));
+  if ((t = e.target.closest('.cl'))) { var chef = t.closest('.chef'); if (!chef.classList.contains('open')) return toggleChef(chef); return openClient(t.dataset.client); }
+  if ((t = e.target.closest('[data-acc] > .row'))) return toggleAcc(t.parentNode);
+  if (openSwipe && !e.target.closest('#notes')) settle(openSwipe, false);
+});
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  if (sheets.length) sheets[sheets.length - 1].close(); else if ($('.full')) closeFull();
+});
+$('#reset').addEventListener('click', function(){
+  ['assign', 'notes', 'read', 'hintoff'].forEach(function(k){ try { localStorage.removeItem('nitoday:' + k); } catch(e) {} });
+  location.href = location.pathname;
+});
+
+renderAll();
+/* deep link from a notification: /?open=lauren */
+try { var op = new URLSearchParams(location.search).get('open'); if (op) setTimeout(function(){ openNew(op); }, 350); } catch(e) {}
+})();
+</script>
+</body>
+</html>

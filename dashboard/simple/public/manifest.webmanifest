@@ -1,0 +1,14 @@
+{
+  "name": "NI Today",
+  "short_name": "NI Today",
+  "description": "Nutrition Intuition at a glance: calls, chefs, clients, events and notes.",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F1",
+  "theme_color": "#FBF8F1",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

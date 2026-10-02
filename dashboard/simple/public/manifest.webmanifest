@@ -1,6 +1,6 @@
 {
-  "name": "NI Today",
-  "short_name": "NI Today",
+  "name": "Nutrition Intuition",
+  "short_name": "Nutrition Intuition",
   "description": "Nutrition Intuition at a glance: calls, chefs, clients, events and notes.",
   "start_url": "/?source=app",
   "scope": "/",

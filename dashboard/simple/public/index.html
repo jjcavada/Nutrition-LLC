@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>NI Today</title>
+<title>Nutrition Intuition</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="NI Today">
+<meta name="apple-mobile-web-app-title" content="Nutrition Intuition">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#FBF8F1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#171B14" media="(prefers-color-scheme: dark)">
@@ -129,8 +129,17 @@ li:last-child>.row{border-bottom:0}
 .chef.open .cmeta{display:block;text-align:right;font-size:13.5px;color:var(--soft);white-space:nowrap}
 .chef.open .csub{display:block;grid-column:1 / -1;font-size:13.5px;color:var(--soft)}
 .morechefs{margin-top:12px;font-weight:600;font-size:14px;color:var(--weekly)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--tile);border-radius:12px;padding:4px;margin:4px 0 12px}
+.seg button{border-radius:9px;padding:9px 10px;font-weight:600;font-size:14.5px;color:var(--soft);text-align:center;transition:background-color .2s,color .2s}
+.seg button[aria-selected="true"]{background:var(--raise);color:var(--head);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.overview{font-size:14px;color:var(--soft);margin:0 0 6px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
+.overview .key{display:inline-flex;align-items:center;gap:6px}
+.wk{display:inline-flex;gap:3px;flex:none}
+.wk i{width:19px;height:19px;border-radius:6px;font-style:normal;font-size:10.5px;font-weight:700;display:grid;place-items:center;border:1px solid var(--hair);color:var(--faint)}
+.wk i.on{background:var(--weekly-bg);border-color:transparent;color:var(--weekly)}
+.chef-head .free{display:block;font-weight:400}
 .chef.empty .chef-head{cursor:default;padding-bottom:12px}
-.free{font-size:13px;color:var(--faint);white-space:nowrap}
+.free{font-size:13px;color:var(--faint)}
 .notes-sec{max-width:760px}
 
 /* waiting */
@@ -247,7 +256,6 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
   </header>
 
   <h1 id="hello">Good morning, <em>Amber.</em></h1>
-  <div class="hint" id="hint" hidden><span>Get the app: add <b>NI Today</b> to your Home Screen</span><button class="go" id="hint-go">Show me</button><button class="dismiss" id="hint-x" aria-label="Hide this tip">&times;</button></div>
 
   <div class="new" id="new" aria-label="New"></div>
 
@@ -271,7 +279,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
     </div>
     <div>
       <section aria-labelledby="h-wait">
-        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2><button class="aux" data-openfull="waiting">See all chefs</button></div>
+        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2><button class="aux" data-openfull="waiting" data-tab="chefs">See all chefs</button></div>
         <div id="waiting"></div>
       </section>
     </div>
@@ -466,7 +474,12 @@ function renderEvents(){
       '<div class="pad"><span class="quote">“' + esc(e.said) + '”</span></div>' + factsHTML(e.facts.map(function(f){ return [f[0], esc(f[1])]; })) + '</div></li>';
   }).join('');
 }
-var chefsAll = false;
+var chefsAll = false, WD = ['Mon','Tue','Wed','Thu','Fri'];
+function week(list){
+  var busy = {}; list.forEach(function(c){ WD.forEach(function(d){ if (c.days.indexOf(d) >= 0) busy[d] = true; }); });
+  var free = WD.filter(function(d){ return !busy[d]; }), label = free.length ? 'Free ' + free.join(', ') : 'Cooking every weekday';
+  return '<span class="wk" title="' + label + '" aria-label="' + label + '">' + WD.map(function(d){ return '<i class="' + (busy[d] ? 'on' : '') + '">' + d[0] + '</i>'; }).join('') + '</span>';
+}
 function renderChefs(){
   var box = $('.full[data-kind="waiting"] #fchefs'); if (!box) return;
   var by = {}; allClients().forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
@@ -476,13 +489,14 @@ function renderChefs(){
   var shown = chefsAll ? ids : ids.slice(0, 10);
   box.innerHTML = shown.map(function(id){
     var list = by[id] || [], isOpen = openNow.indexOf(id) >= 0;
-    if (!list.length) return '<li class="chef empty" data-chef="' + id + '"><div class="chef-head"><span class="who">' + esc(CHEF[id]) + '</span><span class="free">No clients yet</span><span class="n num">0</span></div></li>';
-    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + id + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(CHEF[id]) + '</span><span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
+    if (!list.length) return '<li class="chef empty" data-chef="' + id + '"><div class="chef-head"><span class="who">' + esc(CHEF[id]) + '<span class="free">No clients yet</span></span>' + week([]) + '<span class="n num">0</span></div></li>';
+    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + id + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(CHEF[id]) + '</span>' + week(list) + '<span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
       '<div class="chef-body">' + list.map(function(c){
         return '<button class="cl" data-client="' + c.id + '"><span class="cn">' + esc(c.family) + '</span><span class="cmeta">' + esc(c.days) + ' · next ' + esc(c.next) + '</span><span class="csub">' + esc(c.household) + ' · ' + esc(c.area) + ' ' + algs(c.allergies) + '</span></button>';
       }).join('') + '</div></li>';
   }).join('');
   var more = $('.full[data-kind="waiting"] #morechefs');
+  var sum = $('.full[data-kind="waiting"] #chefsum'); if (sum) sum.textContent = CHEFS.length + ' chefs · ' + allClients().length + ' clients · ' + ids.filter(function(id){ return !by[id]; }).length + ' with no clients yet';
   if (more) { more.hidden = ids.length <= 10; more.textContent = chefsAll ? 'Show fewer chefs' : 'Show all ' + ids.length + ' chefs'; }
 }
 function chefOptions(){
@@ -499,6 +513,7 @@ function renderWaiting(){
   var html = list.length ? list.map(waitRow).join('') : '<p class="none">Everyone has a chef.</p>';
   $('#waiting').innerHTML = html;
   var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
+  var tn = $('#tabwaitn'); if (tn) tn.textContent = list.length;
 }
 function renderNotes(){
   var open = notes.filter(function(n){ return n.st === 'open'; });
@@ -648,21 +663,32 @@ function fullHTML(kind){
       }).join('') + '</ul>';
   }
   if (kind === 'waiting') {
-    return '<div class="full-h"><div><h3>Waiting for a chef</h3><p>Pick a chef and their intake and menu go out.</p></div>' + x + '</div><div class="full-list"></div>' +
-      '<div class="sh" style="margin-top:28px"><h2>Chefs and their clients</h2><span class="aux">Tap a chef</span></div><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button>';
+    return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +
+      '<div class="seg" role="tablist" aria-label="Show"><button role="tab" data-tab="wait" aria-selected="true">Waiting (<span id="tabwaitn">' + waitingList().length + '</span>)</button><button role="tab" data-tab="chefs" aria-selected="false">All chefs (' + CHEFS.length + ')</button></div>' +
+      '<div class="tab-wait"><div class="full-list"></div></div>' +
+      '<div class="tab-chefs" hidden><p class="overview"><span id="chefsum"></span><span class="key"><span class="wk"><i class="on">M</i></span> cooking that day</span></p><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button></div>';
   }
   var days = []; CALLS.forEach(function(c){ if (days.indexOf(c.day) < 0) days.push(c.day); });
   return '<div class="full-h"><div><h3>Calls this week</h3><p>' + CALLS.length + ' calls · tap one to prepare</p></div>' + x + '</div>' +
     days.map(function(d){ return '<div class="day-h">' + esc(d) + '</div><ul>' + CALLS.filter(function(c){ return c.day === d; }).map(callRow).join('') + '</ul>'; }).join('');
 }
+function showTab(ov, tab){
+  if (!ov) return;
+  var chefs = tab === 'chefs', w = ov.querySelector('.tab-wait'), c = ov.querySelector('.tab-chefs');
+  ov.querySelectorAll('.seg [data-tab]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+  w.hidden = chefs; c.hidden = !chefs;
+  ov.querySelector('#fh3').textContent = chefs ? 'All chefs' : 'Waiting for a chef';
+  ov.querySelector('#fhp').textContent = chefs ? 'Who cooks for whom, and which days each chef is free.' : 'Pick a chef and their intake and menu go out.';
+  if (!RM) (chefs ? c : w).animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:280, easing:'ease-out'});
+}
 function clipFor(r){ return 'inset(' + r.top + 'px ' + (window.innerWidth - r.right) + 'px ' + (window.innerHeight - r.bottom) + 'px ' + r.left + 'px round 16px)'; }
-function openFull(kind, tile){
+function openFull(kind, tile, tab){
   if ($('.full')) return;
   var r = tile.getBoundingClientRect();
   var ov = document.createElement('div'); ov.className = 'full'; ov.dataset.kind = kind; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
   ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
   document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
-  if (kind === 'waiting') { renderWaiting(); renderChefs(); }
+  if (kind === 'waiting') { renderWaiting(); renderChefs(); if (tab) showTab(ov, tab); }
   if (!RM) {
     ov.animate([{clipPath:clipFor(r), backgroundColor:getComputedStyle(tile).backgroundColor},{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor}], {duration:520, easing:EASE});
     ov.querySelector('.full-in').animate([{opacity:0, transform:'translateY(18px)'},{opacity:1, transform:'none'}], {duration:360, delay:200, easing:'ease-out', fill:'backwards'});
@@ -755,20 +781,20 @@ function setBadge(n){ try { if (navigator.setAppBadge) { if (n) navigator.setApp
 function b64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4), s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; }
 function installSteps(){
   return isIOS ?
-    '<ol class="steps"><li><span>Open this page in <b>Safari</b>.</span></li><li><span>Tap the <b>Share</b> button (the square with the arrow).</span></li><li><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li><li><span>Open <b>NI Today</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>' :
-    '<ol class="steps"><li><span>Open the browser menu (the three dots).</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Open <b>NI Today</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>';
+    '<ol class="steps"><li><span>Open this page in <b>Safari</b>.</span></li><li><span>Tap the <b>Share</b> button (the square with the arrow).</span></li><li><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>' :
+    '<ol class="steps"><li><span>Open the browser menu (the three dots).</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>';
 }
 function openNotify(){
   var granted = canPush && Notification.permission === 'granted', body;
-  if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add NI Today to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
-  else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open NI Today from your Home Screen (iOS 16.4 or newer).</p>';
+  if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add Nutrition Intuition to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
+  else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open Nutrition Intuition from your Home Screen (iOS 16.4 or newer).</p>';
   else body = '<h3>Notifications</h3><p class="sub">Get a notification when a new intake or event inquiry comes in, so nothing gets lost in your inbox.</p>' +
     '<div class="acts"><button class="btn" data-push>' + (granted ? 'Send me a test notification' : 'Turn on notifications') + '</button></div><p class="fine" id="pushmsg">' + (granted ? 'Notifications are on.' : 'Your phone will ask you to allow them.') + '</p>';
   var sh = openSheet(body), b = sh.el.querySelector('[data-push]');
   if (b) b.addEventListener('click', function(){
     var msg = sh.el.querySelector('#pushmsg');
     Notification.requestPermission().then(function(p){
-      if (p !== 'granted') { msg.textContent = 'Notifications are off. Turn them on in Settings, Notifications, NI Today.'; return; }
+      if (p !== 'granted') { msg.textContent = 'Notifications are off. Turn them on in Settings, Notifications, Nutrition Intuition.'; return; }
       $('#bell').classList.add('on'); msg.textContent = 'Setting up…';
       return navigator.serviceWorker.ready.then(function(reg){
         return reg.pushManager.getSubscription().then(function(s){ return s || reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToU8(VAPID_PUBLIC)}); });
@@ -782,9 +808,6 @@ function openNotify(){
 }
 $('#bell').addEventListener('click', openNotify);
 if (canPush && Notification.permission === 'granted') $('#bell').classList.add('on');
-if (isMobile && !isStandalone && !store.get('hintoff', false)) $('#hint').hidden = false;
-$('#hint-go').addEventListener('click', openNotify);
-$('#hint-x').addEventListener('click', function(){ $('#hint').hidden = true; store.set('hintoff', true); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
 
 /* ---------------- global clicks ---------------- */
@@ -792,7 +815,8 @@ document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-closefull]'))) return closeFull();
   if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
-  if ((t = e.target.closest('[data-openfull]'))) return openFull(t.dataset.openfull, $('.tile[data-full="' + t.dataset.openfull + '"]'));
+  if ((t = e.target.closest('.seg [data-tab]'))) return showTab(t.closest('.full'), t.dataset.tab);
+  if ((t = e.target.closest('[data-openfull]'))) return openFull(t.dataset.openfull, $('.tile[data-full="' + t.dataset.openfull + '"]'), t.dataset.tab);
   if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }
   if ((t = e.target.closest('[data-new]'))) return openNew(t.dataset.new);
   if ((t = e.target.closest('[data-call]'))) return openPrep(t.dataset.call);

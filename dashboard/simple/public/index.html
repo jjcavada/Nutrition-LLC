@@ -128,7 +128,10 @@ li:last-child>.row{border-bottom:0}
 .chef.open .cn{color:var(--head);font-weight:600}
 .chef.open .cmeta{display:block;text-align:right;font-size:13.5px;color:var(--soft);white-space:nowrap}
 .chef.open .csub{display:block;grid-column:1 / -1;font-size:13.5px;color:var(--soft)}
-.chef-more{color:var(--faint);font-size:13.5px;padding-top:10px;margin:0}
+.morechefs{margin-top:12px;font-weight:600;font-size:14px;color:var(--weekly)}
+.chef.empty .chef-head{cursor:default;padding-bottom:12px}
+.free{font-size:13px;color:var(--faint);white-space:nowrap}
+.notes-sec{max-width:760px}
 
 /* waiting */
 .wrow{padding:12px 0;border-bottom:1px solid var(--hair);display:grid;gap:8px}
@@ -261,30 +264,26 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
         <ul id="today"></ul>
         <p class="later" id="later"></p>
       </section>
-      <section aria-labelledby="h-notes">
-        <div class="sh"><h2 id="h-notes">My notes</h2></div>
-        <form class="addnote" id="addnote" autocomplete="off"><input id="noteinput" placeholder="Add a note or to-do" aria-label="New note"><button type="submit">Add</button></form>
-        <ul class="notes" id="notes"></ul>
-        <div class="archbar"><span id="notehelp">Drag to reorder. Swipe left to finish or archive.</span><button id="archtoggle">Archive</button></div>
-        <ul class="arch" id="arch" hidden></ul>
+      <section aria-labelledby="h-events">
+        <div class="sh"><h2 id="h-events">Events coming up</h2><span class="aux">Tap for details</span></div>
+        <ul id="events"></ul>
       </section>
     </div>
     <div>
       <section aria-labelledby="h-wait">
-        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2></div>
+        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2><button class="aux" data-openfull="waiting">See all chefs</button></div>
         <div id="waiting"></div>
-      </section>
-      <section aria-labelledby="h-events">
-        <div class="sh"><h2 id="h-events">Events coming up</h2></div>
-        <ul id="events"></ul>
-      </section>
-      <section aria-labelledby="h-chefs">
-        <div class="sh"><h2 id="h-chefs">Chefs and their clients</h2></div>
-        <ul id="chefs"></ul>
-        <p class="chef-more" id="chefmore"></p>
       </section>
     </div>
   </div>
+
+  <section aria-labelledby="h-notes" class="notes-sec">
+    <div class="sh"><h2 id="h-notes">My to-do list</h2></div>
+    <form class="addnote" id="addnote" autocomplete="off"><input id="noteinput" placeholder="Add a to-do or note" aria-label="New to-do"><button type="submit">Add</button></form>
+    <ul class="notes" id="notes"></ul>
+    <div class="archbar"><span id="notehelp">Drag to reorder. Swipe left to finish or archive.</span><button id="archtoggle">Archive</button></div>
+    <ul class="arch" id="arch" hidden></ul>
+  </section>
 
   <footer class="foot">
     <span>Sample names. Nothing here is sent for real. The real one fills in from your calendar, contacts and notes.</span>
@@ -467,20 +466,24 @@ function renderEvents(){
       '<div class="pad"><span class="quote">“' + esc(e.said) + '”</span></div>' + factsHTML(e.facts.map(function(f){ return [f[0], esc(f[1])]; })) + '</div></li>';
   }).join('');
 }
+var chefsAll = false;
 function renderChefs(){
+  var box = $('.full[data-kind="waiting"] #fchefs'); if (!box) return;
   var by = {}; allClients().forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
-  var ids = CHEFS.map(function(c){ return c[0]; }).filter(function(id){ return by[id]; });
-  ids.sort(function(a, b){ return by[b].length - by[a].length; });
-  var openNow = $$('#chefs .chef.open').map(function(li){ return li.dataset.chef; });
-  $('#chefs').innerHTML = ids.map(function(id){
-    var list = by[id], isOpen = openNow.indexOf(id) >= 0;
+  var ids = CHEFS.map(function(c){ return c[0]; });
+  ids.sort(function(x, y){ return (by[y] || []).length - (by[x] || []).length; });
+  var openNow = $$('.chef.open', box).map(function(li){ return li.dataset.chef; });
+  var shown = chefsAll ? ids : ids.slice(0, 10);
+  box.innerHTML = shown.map(function(id){
+    var list = by[id] || [], isOpen = openNow.indexOf(id) >= 0;
+    if (!list.length) return '<li class="chef empty" data-chef="' + id + '"><div class="chef-head"><span class="who">' + esc(CHEF[id]) + '</span><span class="free">No clients yet</span><span class="n num">0</span></div></li>';
     return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + id + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(CHEF[id]) + '</span><span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
       '<div class="chef-body">' + list.map(function(c){
         return '<button class="cl" data-client="' + c.id + '"><span class="cn">' + esc(c.family) + '</span><span class="cmeta">' + esc(c.days) + ' · next ' + esc(c.next) + '</span><span class="csub">' + esc(c.household) + ' · ' + esc(c.area) + ' ' + algs(c.allergies) + '</span></button>';
       }).join('') + '</div></li>';
   }).join('');
-  var free = CHEFS.length - ids.length;
-  $('#chefmore').textContent = free > 0 ? free + ' more chefs have open days.' : '';
+  var more = $('.full[data-kind="waiting"] #morechefs');
+  if (more) { more.hidden = ids.length <= 10; more.textContent = chefsAll ? 'Show fewer chefs' : 'Show all ' + ids.length + ' chefs'; }
 }
 function chefOptions(){
   return '<option value="">Choose a chef</option>' + CHEFS.map(function(c){ return '<option value="' + c[0] + '">' + esc(c[1]) + '</option>'; }).join('');
@@ -645,7 +648,8 @@ function fullHTML(kind){
       }).join('') + '</ul>';
   }
   if (kind === 'waiting') {
-    return '<div class="full-h"><div><h3>Waiting for a chef</h3><p>Pick a chef and their intake and menu go out.</p></div>' + x + '</div><div class="full-list"></div>';
+    return '<div class="full-h"><div><h3>Waiting for a chef</h3><p>Pick a chef and their intake and menu go out.</p></div>' + x + '</div><div class="full-list"></div>' +
+      '<div class="sh" style="margin-top:28px"><h2>Chefs and their clients</h2><span class="aux">Tap a chef</span></div><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button>';
   }
   var days = []; CALLS.forEach(function(c){ if (days.indexOf(c.day) < 0) days.push(c.day); });
   return '<div class="full-h"><div><h3>Calls this week</h3><p>' + CALLS.length + ' calls · tap one to prepare</p></div>' + x + '</div>' +
@@ -658,7 +662,7 @@ function openFull(kind, tile){
   var ov = document.createElement('div'); ov.className = 'full'; ov.dataset.kind = kind; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
   ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
   document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
-  if (kind === 'waiting') renderWaiting();
+  if (kind === 'waiting') { renderWaiting(); renderChefs(); }
   if (!RM) {
     ov.animate([{clipPath:clipFor(r), backgroundColor:getComputedStyle(tile).backgroundColor},{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor}], {duration:520, easing:EASE});
     ov.querySelector('.full-in').animate([{opacity:0, transform:'translateY(18px)'},{opacity:1, transform:'none'}], {duration:360, delay:200, easing:'ease-out', fill:'backwards'});
@@ -788,9 +792,11 @@ document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-closefull]'))) return closeFull();
   if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
+  if ((t = e.target.closest('[data-openfull]'))) return openFull(t.dataset.openfull, $('.tile[data-full="' + t.dataset.openfull + '"]'));
+  if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }
   if ((t = e.target.closest('[data-new]'))) return openNew(t.dataset.new);
   if ((t = e.target.closest('[data-call]'))) return openPrep(t.dataset.call);
-  if ((t = e.target.closest('.chef-head'))) return toggleChef(t.closest('.chef'));
+  if ((t = e.target.closest('button.chef-head'))) return toggleChef(t.closest('.chef'));
   if ((t = e.target.closest('.cl'))) { var chef = t.closest('.chef'); if (!chef.classList.contains('open')) return toggleChef(chef); return openClient(t.dataset.client); }
   if ((t = e.target.closest('[data-acc] > .row'))) return toggleAcc(t.parentNode);
   if (openSwipe && !e.target.closest('#notes')) settle(openSwipe, false);

@@ -224,6 +224,26 @@ Phase 2 HTTP call → Webhook
 
 ---
 
+### Phase 2 incident 2026-10-04 and fix 2026-10-08 (binding)
+- **What happened:** Katie Keating signed her client agreement (SignWell doc 27e4b976, 2026-10-04 17:24Z). Phase 2 module 3
+  (`searchContacts`, query = signer email, limit 1) returned **Jennifer Nieves** (a 3-day-old contact) instead of Katie.
+  Jennifer got agreement_signed + qb_customer_created, the Phase 2 note with Katie's doc id, a QuickBooks customer, the AI
+  menu and the consultation invite. Katie stayed in New Lead. Amber spotted it in her video ("she never moved over").
+- **Root cause:** GHL search is fuzzy (name, phone, email, tags, company) and the scenario trusted the first hit without
+  comparing emails. Same class as GR-012 (GHL backend quirks). Direct search today returns the right contact, so it was
+  index lag on a new contact.
+- **Fix shipped 2026-10-08:** router after module 3 in **Phase 2 (4071952)** and **Phase 4 (4212046)**: the happy path
+  requires `lower(trim(found.email)) = lower(trim(signerEmail))`; the mismatch path emails jjcavada1@gmail.com
+  "[Make STOP] ... WRONG contact found" with both contacts and stops (nothing tagged or moved). 6116697 and 6191114 work
+  by contact id / upsert, so no guard needed. Read-back: both active, isinvalid false.
+- **Also fixed:** Phase 2 module 6 wrote the two tags as ONE literal string `"agreement_signed,qb_customer_created"`
+  since Feb (9 contacts carried it: Doria, Walsh, Hott, Olson, Carr, Harrington, Klose, Levine, O'Connor). Split into two
+  real tags on all 9 and in the blueprint.
+- **Repair:** Katie moved to Agreement Signed, tags + Phase 2 note (real doc id) added, Phase 3 hook fired by hand ->
+  AI menu note + chef-sheet row + Phase 4 consultation invite all landed 17:53Z. Jennifer moved back to New Lead, tags
+  removed, correction note added (her QuickBooks customer record is harmless, her own name/email). Contract:
+  `VALIDATION_CONTRACT_phase2-wrong-contact.md`. Transcripts: `_transcripts/2026-10-08_amber_voice_and_video.md`.
+
 ### Phase 4: Consultation Invite + Waitlist
 | Field | Value |
 |-------|-------|
@@ -520,7 +540,7 @@ Amber opens form link → enters contractor name, email, phone → submits
 
 **Purpose:** Allows Amber to trigger contractor onboarding WITHOUT logging into GoHighLevel.
 
-**2026-10-02 update:** Amber's link is now **https://www.nutritionintuitionaz.com/new-chef/** (website page `website/src/pages/new-chef.html`, noindex, not in nav/sitemap, confirm step before sending, same JSON + same hook; the old contractor.aznutritionintuition.shop form still works). Welcome email (module 6) gained item **5. YOUR WEBSITE PROFILE** linking the chef profile Google Form (1FAIpQLScefoQPWwYx0dYVL8ZDijynSBKyV2Q9DTvoSi53nTkkUzwT7A; needs a Google sign-in because of the photo upload). Module 10 note records it. Error alerts (email jjcavada1 + Resume) on modules 3, 4, 5, 6, 7, 8, 9, 10 (3, 4, 9 added later the same day at Jay's request; module 2 stays Resume-only because it errors normally on existing contacts and module 11 finds them). Checkr connection 7871197 verified live 2026-10-02 via RPC `packcages` (lists checkrdirect_basic_plus_criminal). As of 2026-10-02 this scenario had NO recorded runs; the first real use is the live proof. Never push a test contractor through it (creates a real QB vendor, SignWell agreement and Checkr invitation). Contract: `VALIDATION_CONTRACT_new-chef-onboarding.md`.
+**2026-10-02 update:** Amber's link is now **https://www.nutritionintuitionaz.com/new-chef/** (website page `website/src/pages/new-chef.html`, noindex, not in nav/sitemap, confirm step before sending, same JSON + same hook; the old contractor.aznutritionintuition.shop form still works). Welcome email (module 6) gained item **5. YOUR WEBSITE PROFILE** linking the chef profile Google Form (1FAIpQLScefoQPWwYx0dYVL8ZDijynSBKyV2Q9DTvoSi53nTkkUzwT7A; needs a Google sign-in because of the photo upload). Module 10 note records it. Error alerts (email jjcavada1 + Resume) on modules 3, 4, 5, 6, 7, 8, 9, 10 (3, 4, 9 added later the same day at Jay's request; module 2 stays Resume-only because it errors normally on existing contacts and module 11 finds them). Checkr connection 7871197 verified live 2026-10-02 via RPC `packcages` (lists checkrdirect_basic_plus_criminal). First live run PROVEN 2026-10-03 (Angelica Ortiz, exec 94294732, 11 ops, SignWell aa5f8825, Checkr invitation 288cf6c7 pending, zero alerts). Never push a test contractor through it (creates a real QB vendor, SignWell agreement and Checkr invitation). Contract: `VALIDATION_CONTRACT_new-chef-onboarding.md`.
 She just bookmarks the form link and fills in name/email/phone. Everything else is automated.
 
 **Connections Used:**

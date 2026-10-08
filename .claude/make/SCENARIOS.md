@@ -1,5 +1,50 @@
 # Make.com Scenarios Registry
 
+> ## READ THIS FIRST - the IDs below this banner are STALE (2026-09-01)
+>
+> Everything under "Active Scenarios" documents the ORIGINAL build in Jay's own Make account.
+> Production moved to **Amber's account, team `1853710`**, and the scenario IDs changed. The registry
+> below was never re-pointed. **Verify against the live account before touching anything.**
+>
+> **Live production IDs (confirmed 2026-09-01):**
+>
+> | Phase | LIVE id | Name | Webhook |
+> |---|---|---|---|
+> | Phase 1 | **4082106** | GHL - Onboarding - Phase 1 : Welcome Package + E-Sign | `https://hook.us2.make.com/tcjvc991uxm3i4ihkh1mok382ltjfsk6` (hook 1856066) |
+> | Phase 2 | **4071952** | GHL - Client Onboarding - Phase 2: Agreement Signed + QB Setup | |
+> | Phase 3 | **4082143** | GHL - Phase 3: AI Menu Generator (OpenAI) | hook 1856074 `Ai_Menu_Hook` |
+> | Phase 4 | **4212046** | GHL - Client Onboarding - Phase 4: Consultation Invite + Waitlist | |
+> | Phase 9 | **4173311** / **4446319** | Contractor Onboarding: Send Packet / Form Trigger | |
+> | Week-1 | **5313458** | First QB Invoice -> AI Check-in Draft + Amber Review | |
+>
+> `4076295` (documented below as "Phase 1") is NOT the live Phase 1. The live one is `4082106`.
+>
+> **Phase 1 flow as of 2026-09-01 is 9 modules, not 7** - a welcome video email and a 300 s delay were
+> inserted between the opportunity and the SignWell send, so the intro video lands before the agreement:
+>
+> `1 webhook -> 2 SetVariables -> 3 GHL upsert contact -> 4 create opportunity -> 8 welcome video email
+> -> 9 util:FunctionSleep 300s -> 5 SignWell -> 6 update contact -> 7 add note`
+>
+> **2026-09-15: module 10 added (signing link emailed from Amber's Gmail).** Flow is now 10 modules:
+> `... -> 5 SignWell -> 10 google-email:sendAnEmail (conn 7478377, to {{2.email}}, subject "Your Nutrition Intuition
+> service agreement is ready to sign", button + plain link = {{5.data.recipients[1].signing_url}}) -> 6 update contact -> 7 add note`.
+> Module 7's note now ends with `SIGNWELL: Document ID {{5.data.id}} / Signing link {{5.data.recipients[1].signing_url}}`
+> so Amber can copy the link from GHL. Module 10 onerror = warning email to jjcavada1 + builtin:Resume (a Gmail failure
+> never blocks 6/7). Reason: SignWell's own email (signwelldocs@signwell.com, sender cannot be changed) was junk-filtered
+> for 2 of 3 clients on 09-12..09-14 and SignWell "Sent" only means emailed. The create-from-template response carries
+> `recipients[].signing_url` (verified 2026-09-15 with a test_mode probe, deleted). Blueprint copy:
+> `../../_backups/4082106_blueprint_2026-09-15_signing-link.json`. Contract: `../../VALIDATION_CONTRACT_phase1-signing-link.md`.
+>
+> Note module 3 is a `highlevel:universal` POST to `/contacts/upsert`, NOT `createAContact` - it was
+> swapped on 2026-07-01 after the location's disallow-duplicates setting 400'd the scenario into
+> auto-disable. See `../DECISIONS.md`.
+>
+> Connections in Amber's team: GHL `7303129`, Gmail `7478377` (amberbarcellos@gmail.com), QuickBooks
+> `7302963`, OpenAI `7520490`. Amber's org has **no `organization view` API right**, so
+> `app-modules_list` / `app-module_get` / `validate_module_configuration` 403 there - run those against
+> Jay's own org `4086323`, since module names and schemas are global.
+
+
 ## Active Scenarios
 
 ### Phase 1: Intake Form + Welcome Package
@@ -52,7 +97,7 @@ Google Form Submit → Apps Script POST to webhook
 | **Webhook URL** | `https://hook.us2.make.com/nd7xs6bjruqu3v22u694mfm695zu4yh4` |
 | **Last Edit** | 2026-02-07 |
 
-**Flow (11 modules):**
+**Flow (9 modules):**
 ```
 SignWell Agreement Signed (document_completed event)
     ↓
@@ -63,24 +108,16 @@ SignWell Agreement Signed (document_completed event)
 5. GHL Search Opportunities - Find opportunity
     ↓
 6. QuickBooks Create Customer - name, email, phone
-7. QuickBooks Create Invoice - $1.00 refundable (Item ID: 200000202)
-8. QuickBooks Send Invoice - Emails customer with Pay Now link
     ↓
-9. GHL Update Opportunity - Stage: QB Card Link Sent
-10. GHL Update Contact - Add tags
-11. GHL Add Note - Log automation summary
+7. GHL Update Opportunity - Stage: QB Customer Created
+8. GHL Update Contact - Add tags
+9. GHL Add Note - Log automation summary
     ↓
-12. HTTP - Trigger Phase 3 webhook
-13. HTTP - Trigger Phase 2.1 webhook (SignWell PDF → Google Drive)
+10. HTTP - Trigger Phase 3 webhook
+11. HTTP - Trigger Phase 2.1 webhook (SignWell PDF → Google Drive)
 ```
 
-**Key Configuration:**
-- Invoice Amount: $1.00 (refundable for card storage)
-- QB Item ID: 200000202 (Card Setup - No Charge)
-- Requires: QuickBooks Payments enabled for Pay Now button
-- Customer Memo: Explains $1 is refundable
-
-**Tags Applied:** `agreement_signed`, `make_processed`, `qb_customer_created`, `card_link_sent`, plus one of: `payment_card`, `payment_zelle`, or `payment_venmo`
+**Tags Applied:** `agreement_signed`, `make_processed`, `qb_customer_created`, plus one of: `payment_card`, `payment_zelle`, or `payment_venmo`
 
 **SignWell Data Paths:**
 - signerEmail: `{{1.data.object.recipients[1].email}}`
@@ -187,6 +224,26 @@ Phase 2 HTTP call → Webhook
 
 ---
 
+### Phase 2 incident 2026-10-04 and fix 2026-10-08 (binding)
+- **What happened:** Katie Keating signed her client agreement (SignWell doc 27e4b976, 2026-10-04 17:24Z). Phase 2 module 3
+  (`searchContacts`, query = signer email, limit 1) returned **Jennifer Nieves** (a 3-day-old contact) instead of Katie.
+  Jennifer got agreement_signed + qb_customer_created, the Phase 2 note with Katie's doc id, a QuickBooks customer, the AI
+  menu and the consultation invite. Katie stayed in New Lead. Amber spotted it in her video ("she never moved over").
+- **Root cause:** GHL search is fuzzy (name, phone, email, tags, company) and the scenario trusted the first hit without
+  comparing emails. Same class as GR-012 (GHL backend quirks). Direct search today returns the right contact, so it was
+  index lag on a new contact.
+- **Fix shipped 2026-10-08:** router after module 3 in **Phase 2 (4071952)** and **Phase 4 (4212046)**: the happy path
+  requires `lower(trim(found.email)) = lower(trim(signerEmail))`; the mismatch path emails jjcavada1@gmail.com
+  "[Make STOP] ... WRONG contact found" with both contacts and stops (nothing tagged or moved). 6116697 and 6191114 work
+  by contact id / upsert, so no guard needed. Read-back: both active, isinvalid false.
+- **Also fixed:** Phase 2 module 6 wrote the two tags as ONE literal string `"agreement_signed,qb_customer_created"`
+  since Feb (9 contacts carried it: Doria, Walsh, Hott, Olson, Carr, Harrington, Klose, Levine, O'Connor). Split into two
+  real tags on all 9 and in the blueprint.
+- **Repair:** Katie moved to Agreement Signed, tags + Phase 2 note (real doc id) added, Phase 3 hook fired by hand ->
+  AI menu note + chef-sheet row + Phase 4 consultation invite all landed 17:53Z. Jennifer moved back to New Lead, tags
+  removed, correction note added (her QuickBooks customer record is harmless, her own name/email). Contract:
+  `VALIDATION_CONTRACT_phase2-wrong-contact.md`. Transcripts: `_transcripts/2026-10-08_amber_voice_and_video.md`.
+
 ### Phase 4: Consultation Invite + Waitlist
 | Field | Value |
 |-------|-------|
@@ -206,7 +263,7 @@ Phase 3 HTTP call → Webhook
 3. GHL Update Opportunity - Stage: Waitlist (Consult In-progress)
     ↓
 4. Gmail - Send branded email to CLIENT with booking link
-   → book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE
+   → book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE  (WEEKLY call calendar; correct for intake clients)
     ↓
 5. GHL Update Contact - Add tag: consultation_invited
 6. GHL Add Note - Log consultation invite sent
@@ -252,8 +309,7 @@ Client signs agreement                                │
 SignWell webhook → Make.com                           │
     ↓                                                 │
 • QuickBooks customer created                         │
-• $1 invoice sent (card storage)                      │
-• Stage → QB Card Link Sent                           │
+• Stage → QB Customer Created                         │
 • Phase 3 webhook triggered with:                     │
   { contactId, fullName, email } ─────────────────────┼──┐
 • Phase 2.1 webhook triggered with:                   │  │
@@ -366,9 +422,9 @@ Pipeline: Client Onboarding (t6tPDiRCfcKiVr7vUkxW)
 │ ID: 1d85984d-42d2-4120-b0c9-c14e047fa5ce                     │
 │ Set by: (manual or future automation)                        │
 ├──────────────────────────────────────────────────────────────┤
-│ Stage 2: QB Card Link Sent                                   │
+│ Stage 2: QB Customer Created                                 │
 │ ID: 04ec66ef-3c01-4de5-9d41-d4030888a1bf                     │
-│ Set by: Phase 2 (after QB invoice sent)                      │
+│ Set by: Phase 2 (after QB customer created)                  │
 ├──────────────────────────────────────────────────────────────┤
 │ Stage 3: AI Menu Generated                                   │
 │ ID: 27da74c4-02d8-4bd2-97f7-31628f517a6c                     │
@@ -392,7 +448,6 @@ Pipeline: Client Onboarding (t6tPDiRCfcKiVr7vUkxW)
 | `make_processed` | Phase 1, 2 | Automation completed |
 | `agreement_signed` | Phase 2 | E-signature completed |
 | `qb_customer_created` | Phase 2 | QuickBooks customer exists |
-| `card_link_sent` | Phase 2 | $1 invoice sent for card |
 | `consultation_invited` | Phase 4 | Booking link email sent to client |
 | `payment_card` | Phase 2 | Prefers Automatic Card Payments |
 | `payment_zelle` | Phase 2 | Prefers Zelle |
@@ -484,6 +539,8 @@ Amber opens form link → enters contractor name, email, phone → submits
 ```
 
 **Purpose:** Allows Amber to trigger contractor onboarding WITHOUT logging into GoHighLevel.
+
+**2026-10-02 update:** Amber's link is now **https://www.nutritionintuitionaz.com/new-chef/** (website page `website/src/pages/new-chef.html`, noindex, not in nav/sitemap, confirm step before sending, same JSON + same hook; the old contractor.aznutritionintuition.shop form still works). Welcome email (module 6) gained item **5. YOUR WEBSITE PROFILE** linking the chef profile Google Form (1FAIpQLScefoQPWwYx0dYVL8ZDijynSBKyV2Q9DTvoSi53nTkkUzwT7A; needs a Google sign-in because of the photo upload). Module 10 note records it. Error alerts (email jjcavada1 + Resume) on modules 3, 4, 5, 6, 7, 8, 9, 10 (3, 4, 9 added later the same day at Jay's request; module 2 stays Resume-only because it errors normally on existing contacts and module 11 finds them). Checkr connection 7871197 verified live 2026-10-02 via RPC `packcages` (lists checkrdirect_basic_plus_criminal). First live run PROVEN 2026-10-03 (Angelica Ortiz, exec 94294732, 11 ops, SignWell aa5f8825, Checkr invitation 288cf6c7 pending, zero alerts). Never push a test contractor through it (creates a real QB vendor, SignWell agreement and Checkr invitation). Contract: `VALIDATION_CONTRACT_new-chef-onboarding.md`.
 She just bookmarks the form link and fills in name/email/phone. Everything else is automated.
 
 **Connections Used:**
@@ -526,7 +583,7 @@ WhatsApp Business Cloud → Meta webhook → Make.com webhook
      7. HTTP - Send WhatsApp reply confirming email sent
    Route B (intent = book_calendar):
      8. HTTP - Send WhatsApp reply with booking link
-        (https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE)
+        (https://book.aznutritionintuition.shop/widget/booking/wtbOuayfIZ6DycweJDSE)  [2026-10-02: weekly calendar only; if this route is revived, send https://www.nutritionintuitionaz.com/contact/#book so the client picks weekly vs event]
    Route C (intent = general_reply):
      9. HTTP - Send WhatsApp reply with AI response
 ```
@@ -713,7 +770,7 @@ Phase 2 calls webhook with { clientName, signerEmail, signedAt, documentUrl }
 
 📄 View Signed Document (link)
 
-All automation steps running (QB customer, invoice, menu, consultation invite).
+All automation steps running (QB customer, menu, consultation invite).
 ```
 
 **ACTION REQUIRED:** Replace `REPLACE_WITH_AMBER_CHAT_ID` in module 2 with Amber's actual Telegram chat ID. Get it by checking any execution history of scenario 4539954 — the `chatId` field in the Telegram module.
@@ -756,3 +813,67 @@ All automation steps running (QB customer, invoice, menu, consultation invite).
 ---
 
 *Last Updated: 2026-04-06*
+
+
+## Chef Assignment via Google Sheet (2026-09-08)
+- Sheet `1168iYxhn_YziStSfsu6r_UBUQQ2Kh46fTmQ6fWzzdz0` (Jay Drive, share with Amber). Bound Apps Script: `ventures/Nutrition-Intuition/chef-assignment-sheet/AppsScript.gs`.
+- Phase 3 (4082143) module 11 POSTs every new menu to the sheet web app -> row appears as **Pending: pick a chef**.
+- Picking a chef in col E -> installable onEdit -> POST Make hook `u61w8d7yp6wl7eu4bs68ggezde6p8uwa` (scenario **6116697**) -> chef gets newest menu + intake, GHL Assigned Chef written back, CRM note. Make replies 200 "sent" / 409 "no-menu" synchronously and the Status cell reflects it.
+- Test chef "JJ Cavada (test)" -> jjcavada1@gmail.com exists in BOTH the sheet CHEFS list and Make 6116697 module 5. Remove both when Amber is live.
+- Web app URL: https://script.google.com/macros/s/AKfycbwn0gZIYZ66ERlfpS3QK5pD_8nt0YjG34YXD8GPMdEC-mmDfbQxZynj4lRq79Byv4YR8g/exec (Version 2). Code change => new version deploy required.
+
+
+## Website - Forms (Event Inquiry + General Inquiry) — scenario **6248370**, hook 2805024 (`nu52ipdwuyg96k2xb1jqnfw44qjmtrw1`) — LIVE 2026-09-12
+- Fed by the new website's Netlify Function (`ventures/Nutrition-Intuition/website/functions/submit.js`). Payload: `{formType: event|general, name, email, phone(E.164), ...}`.
+- Module 2 SetVariables holds the switch `autoSendEventAgreement` (`no` = SignWell DRAFT Amber sends after the call; `yes` = agreement emailed to the client immediately).
+- Route A (event), **v2 since 2026-09-12 (call first)**: 10 GHL upsert tags event_inquiry/website_lead → **16 HTTP GET `https://services.leadconnectorhq.com/calendars/events`** (PIT header, calendarId `wtbOuayfIZ6DycweJDSE` [replaced by userId on 2026-10-02, see below], locationId, startTime/endTime = `{{timestamp*1000}}` .. +90 days) → **17 SetVariables** `callStart` = `first(map(ifempty(16.data.events; emptyarray); "startTime"; "contactId"; 10.body.contact.id))`, `callTime` = that parsed with `YYYY-MM-DDTHH:mm:ssZ` and formatted `dddd, MMMM D [at] h:mm A` in America/Phoenix (empty when no upcoming consult) → 11 SignWell DRAFT from template 7608b468 (unchanged) → 12 email Amber (subject ends "| call booked" or "| no call yet"; row "Planning call"; `to` = `{{if(1.test = "1"; "jjcavada1@gmail.com"; "amber@nutritionintuitionaz.com")}}`) → 13 client confirmation (call date/time when booked, otherwise the booking button) → 14 CRM note with "Planning call: …" → 15 WebhookRespond `event-ok`.
+  - Why module 16 is a raw HTTP call: the Make HighLevel app connection 7303129 returns `[401] The token is not authorized for this scope` on `/calendars/events` (calendar scope missing), so the GHL Private Integration Token is used in the header (same cleartext pattern as the SignWell key).
+  - Website `/events/` now shows Step 01 = the GHL booking widget, Step 02 = the details form; clients book first, then send details, so Amber gets both in one email. Proven 2026-09-12: exec `54b821fe…` (10 ops) with test appointment → "Planning call: Wednesday, September 16 at 10:00 AM" in Amber's email, client email and CRM note; exec `e042484b…` proved the no-call branch + the module-16 alert email.
+  - Test without emailing Amber: add `"test":"1"` to the payload (Amber's copy goes to jjcavada1). Every test creates a SignWell draft: delete it with `DELETE /api/v1/documents/{id}/` (204).
+- **2026-10-02 call-purpose split:** Amber now has two booking calendars (weekly `wtbOuayfIZ6DycweJDSE`, event `vj3iEVtjT9BNAnlUhKcW`). Module 16 queries by `userId=FXhRBT40lYMaDBbHEEmJ` (all Amber's calendars) instead of `calendarId`; module 13 "Book your planning call" links the EVENT calendar; module 22 "book a 15-minute call" links the website picker `https://www.nutritionintuitionaz.com/contact/#book`. Proven 2026-10-02: test appointment on the event calendar + test=1 event inquiry wrote note "Planning call: Friday, October 16 at 2:30 PM" (contact ZZTEST, test artifacts deleted). Read-back after update: active, isinvalid false.
+- **2026-10-02:** scenario **6191114** "GHL - Events - Agreement Signed -> Book Consultation" modules 4 (email button), 304 (error fallback link) and 5 (CRM note) now link the EVENT calendar `vj3iEVtjT9BNAnlUhKcW` (was wtbOu, which would have titled event clients "Weekly service call"). Read-back: active, isinvalid false. Known edge (pre-existing): module 17 takes the contact's FIRST event in the next 90 days across all statuses/calendars, so a cancelled or weekly call could be reported as the planning call; low probability for new event leads.
+- Route B (general): 20 upsert tags general_inquiry/website_lead → 21 email Amber → 22 auto-reply → 23 note → 24 WebhookRespond `general-ok`.
+- Website intake goes to Phase 1 (4082106) hook directly with Google-Form-shaped field names; Phase 1 unchanged.
+- All modules onerror → jjcavada1@gmail.com. SignWell API key in module 11 (same cleartext pattern as Phase 1 module 5).
+
+## Website - Chef Profile Invite (from Amber's Gmail) — scenario **6248559**, hook 2805116 (`oln32bt9xtlvvvxvjxwdja69jgffhpsl`) — LIVE 2026-09-12, invites SENT
+- Purpose: one email per chef asking for their Meet-the-Team profile through the Google Form `https://docs.google.com/forms/d/e/1FAIpQLScefoQPWwYx0dYVL8ZDijynSBKyV2Q9DTvoSi53nTkkUzwT7A/viewform`.
+- Flow: webhook `{to, firstName, formUrl, cc?}` → google-email:sendAnEmail (conn 7478377 = amberbarcellos@gmail.com; cc defaults to amber@nutritionintuitionaz.com; bcc jjcavada1@gmail.com; onerror → alert email to JJ + Commit) → WebhookRespond 200 `sent to <to>`.
+- Sent 2026-09-12 06:44–06:45Z to all 17 chefs listed in `ventures/Nutrition-Intuition/website/content/chef-invites.json` (per-chef `sentAt` recorded). Proof: 17 executions status 1 (3 ops each) + 17 BCC copies in Jay's Gmail. Deadline in the email: **Friday, September 18** (the first draft said "Friday, September 19", a Saturday; fixed before sending).
+- Re-send to one chef: clear that chef's `sentAt` in `website/content/chef-invites.json`, then `node content/send-chef-invites.js content/chef-invites.json` (idempotent; POSTs `{to, firstName, formUrl}`; add `cc` to override the default).
+- Response side is NOT Make: Google Form → responses sheet `1py5ha2lEG-LmAMeIjWlt3_-6diOAvwyJW3I7q9jDRkk` + Apps Script on-submit trigger (`onChefResponse`, project `1NYI53wb0LEBW_p4Cmo04itGCyfZkRAcoHRhugSe-vY-fP8Jo_MZcgmHn`, Jay's account) → MailApp email "Chef profile received: <name>" to jjcavada1 cc amber@nutritionintuitionaz.com with the answers + headshot Drive link. Proven with a ZZTEST submission 2026-09-12 06:40Z (sheet row + email + file), then removed with `deleteTestData()`.
+- **2026-09-15 resend (Amber's request, "some people thought it might be spam"):** scenario now accepts optional `subject`, `intro` (paragraph inserted after "Hi {{firstName}}," via `{{if(1.intro; '<p ...>'; '')}}{{1.intro}}{{if(1.intro; '</p>'; '')}}`) and `deadline` (`ifempty(1.deadline; "Friday, September 18")`); defaults keep the original email. `send-chef-invites.js` merges top-level `overrides` from `chef-invites.json` into every payload. Resent 16:36–16:37Z to the 16 chefs without a response (Vi Nguyen excluded, `responded: 2026-09-15`); per-chef first-wave stamps moved to `history[]`. Subject "Resending: your spot on the new Meet the Team page", intro QA'd (email-qa). Test to jjcavada1 first (16:36:13Z, rendered correctly).
+
+
+## Client Records -> Google Drive — scenario **6561132**, hook 2910980 (`e957s569fzs8kv8ksfndggi8q1kbnmig`) — LIVE 2026-10-09
+- Why: Amber 2026-10-01/08 ("when it comes from the internet it doesn't link up to my Google Drive", PDFs she can send to chefs, a client count).
+- Drive (amberbarcellos@gmail.com, Make connection 11563801): `Client Agreements/Clients (automatic)` `1rEXFMmqtu3z9RVS5mqjy0yo-5D9e49g1` ->
+  one folder per client `<Name> (<YYYY-MM-DD>)`. Sheet `Nutrition Intuition - Client List (automatic)` `1gYFiSFliDOtrBcuOW3YpaqOUfb-pFz4MSO0Db_P3Jr8`
+  (Sheets connection 11563807; tab Clients, gid 1175750813; A..K = Intake date | Client | Email | Phone | Status | Signed date | Chef | Folder |
+  Intake PDF | Contract PDF | GHL contact ID; row 2 = TOTALS formula; data from row 3; shared read-only with jjcavada1@gmail.com).
+- Payload `{event: intake|signed, contactId, fullName, email, phone, noteId (intake), documentId (signed)}`. Callers: **Phase 1 4082106 module 11**
+  (last module, after the intake note; passes `noteId = {{7.id}}`) and **Phase 2 4071952 module 14** (last module of the exact-email route, after
+  the Phase 3 POST). Both onerror -> WARNING email to jjcavada1 + Resume (non-blocking). Phase 2 module 13 (Phase 3 hook) also got alert + Resume.
+- Per-contact state = GHL contact custom fields created 2026-10-09 (`POST /locations/{id}/customFields`): Drive Folder `gvpeDjMhrDTQeF5DdKr3`,
+  Drive Folder ID `TDFaFryZiNlxQcWczRtH`, Client List Row `HrWD0d4LtVrhrIiJL4tp`, Signed Document ID `MPctGk9kwtpdYJaZQBSk`. Written by
+  `highlevel:universal` PUT /contacts/{id} `{customFields:[{id, field_value}]}`, read from GET /contacts/{id} with `map(customFields; "value"; "id"; <id>)`.
+- Routes (router after 2 SetVariables, GET notes, GET contact, 2 parse steps): **A** intake + no folder -> intake-pdf -> createAFolder -> folder
+  fields -> upload `Intake - <Name>.pdf` -> addRow (Status Intake, A = the note's Submitted date, phone as text) -> row field -> note |
+  **B** intake + folder/row -> `Intake - <Name> (<YYYY-MM-DD HHmm>).pdf` into the folder, column I updated, note | **C** signed + folder/row +
+  new document -> SignWell `GET /documents/{id}/completed_pdf/` (raw PDF, no API document consumed) -> `Service Agreement - <Name> - <date>.pdf`
+  -> cells E/F/J -> doc-id field -> note | **D** signed + no folder (client from before the automation) -> folder, contract, row Signed, fields,
+  note | **E** anything else -> NOTICE email to Jay (no silent no-op; a repeated `signed` for the same document lands here).
+- Intake PDF: `POST https://www.nutritionintuitionaz.com/.netlify/functions/intake-pdf` (`website/functions/intake-pdf.js`, pdf-lib 1.17.1;
+  secret in hub `_credentials/NI_INTAKE_PDF_SECRET.txt`, bundled from git-ignored `functions/intake-pdf.secret.json`; body `name_b64` / `text_b64`
+  because Make cannot JSON-escape multi-line note text). Intake text = the note whose id Phase 1 passed. No "newest note" guessing: Make returns
+  the GHL notes list in an unstable order and the inspector caught a PDF built from the wrong note (GR-069).
+- Every module onerror -> email jjcavada1 + Commit (the run stays "success" on purpose: Make auto-deactivates after 3 errors, the email is the
+  signal). **Sequential processing ON** (a queue flush ran 5 queued requests in parallel and made 4 folders for one contact during testing).
+  Blueprint gotcha: an onerror handler referencing a later module fails runtime validation and deactivates the scenario.
+- Proven 2026-10-09 by direct hook POSTs on ZZTEST `W4UfXxOmRlkMBUwZkg0f` with its own completed doc `95f8893e-d807-45ac-a81f-5350fdadb75d`:
+  A 13 ops, B 10, C 13, D 13, E 7; fresh-context inspector report + evidence in `VALIDATION_CONTRACT_client-records-to-drive.md`.
+  **NOT yet proven: the live Phase 1 / Phase 2 -> hook call** (each costs a SignWell API document); next real client = proof.
+- Manual re-fire: POST the hook with the same payload (an intake re-fire needs `noteId`; the Phase 1 WARNING email carries it). Test/clean-up
+  pattern: one-off scenario with `google-sheets:deleteRow` (needs the gid, `rpcSheet ids:true`) + `google-drive:deleteAFile select1=folder`.
+- Pending (Jay's go): backfill the ~27 existing clients (SignWell GETs only), send Amber the folder + sheet links, optionally file event
+  agreements (6191114) the same way. Ops: ~13 per new intake + 13 per signing.

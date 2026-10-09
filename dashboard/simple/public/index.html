@@ -618,6 +618,10 @@ function expectHTML(sum, c){
   if (sum && sum.summary) return '<div class="expect"><h4>In short</h4><p>' + esc(sum.summary) + '</p></div>';
   return '<div class="expect"><h4>In short</h4><p>' + esc(c && c.isNew ? 'Intake received. The agreement is sent but not signed yet.' : 'No intake summary yet for this person.') + '</p>' + (c && !c.hasSummary && c.id ? '<div class="acts" style="margin-top:10px"><button class="btn ghost-b" data-summary="' + esc(c.id) + '">Build the summary now</button></div>' : '') + '</div>';
 }
+function notesHTML(c){
+  if (!c.notes || !c.notes.length) return '';
+  return '<div class="expect"><h4>Notes in GHL</h4><ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:8px">' + c.notes.map(function(n){ return '<li><span style="opacity:.65;font-size:12px">' + esc(whenShort(n.when)) + '</span><br>' + esc(n.body).replace(/\n/g, '<br>') + '</li>'; }).join('') + '</ul></div>';
+}
 function restrictionsHTML(c){
   if (!c.restrictions || !c.restrictions.length) return '';
   return '<div class="expect"><h4>What the intake form says</h4><ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:5px">' + c.restrictions.map(function(r){ return '<li><b>' + esc(r.label) + ':</b> ' + esc(r.value) + '</li>'; }).join('') + '</ul></div>';
@@ -628,7 +632,7 @@ function personSheet(c, extra){
   return '<h3>' + esc(c.name) + '</h3><p class="sub">' + (extra && extra.sub ? extra.sub : esc(stageLabel(c))) + '</p>' +
     expectHTML(sum, c) +
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
-    factsHTML(facts) + restrictionsHTML(c) + docsHTML(c) +
+    factsHTML(facts) + restrictionsHTML(c) + notesHTML(c) + docsHTML(c) +
     (c.phone ? '<div class="acts"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div>' : '') +
     '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>';
 }
@@ -636,7 +640,7 @@ function withDetails(c, cb){
   c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
   api('contact/' + c.id).then(function(r){ return r.json(); }).then(function(d){
     if (d && d.summary) c.summaryObj = d.summary;
-    if (d) { c.restrictions = d.restrictions || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
+    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
     cb(c, true);
   }).catch(function(){ cb(c, false); });
 }

@@ -142,6 +142,12 @@ function restrictionsOf(text) {
   });
   return out;
 }
+// Amber's own GHL notes on the contact (anything the automations did not write), newest first, so what she types in GHL shows on the card
+const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION)/i; // automation notes and HTML-pasted emails are not Amber's notes
+function humanNotes(notes) {
+  return (notes || []).filter((n) => n.body && !AUTOMATION_NOTE.test(n.body)).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 5)
+    .map((n) => ({ id: n.id, when: n.dateAdded || '', body: String(n.body).trim().slice(0, 1200) }));
+}
 function intakeText(body) { return String(body || '').replace(/^\s*=== INTAKE FORM DATA ===\s*/i, '').split(/=== END INTAKE DATA ===/i)[0].trim(); }
 function parseInquiry(body) { // "WEBSITE EVENT INQUIRY" notes: Label: value lines
   const facts = []; String(body || '').split('\n').forEach((l) => { const m = l.match(/^([A-Za-z][A-Za-z /]{1,30}):\s*(.+)$/); if (m && !/^(Received|Name|Email|Phone|Contact ID|Source)$/i.test(m[1].trim())) facts.push([m[1].trim(), m[2].trim()]); });
@@ -193,7 +199,8 @@ async function buildSnapshot() {
   const newItems = [];
   clients.forEach((c) => {
     const raw = byId[c.id] || {};
-    if (c.isNew && raw.dateAdded && new Date(raw.dateAdded).getTime() > weekAgo) newItems.push({ id: 'intake:' + c.id, kind: 'intake', contactId: c.id, who: c.name + ' sent an intake', line: c.line || 'Agreement sent, not signed yet', when: raw.dateAdded });
+    // a NEW intake = a new opportunity this week (a returning contact's second intake would never show if we keyed on the contact's own creation date)
+    if (c.isNew && c.createdAt && new Date(c.createdAt).getTime() > weekAgo) newItems.push({ id: 'intake:' + c.id, kind: 'intake', contactId: c.id, who: c.name + ' sent an intake', line: c.line || 'Agreement sent, not signed yet', when: c.createdAt });
     // "signed this week" = the opportunity moved into Agreement Signed (or straight on to AI Menu, which Phase 3 does minutes later) within 7 days.
     // contact.dateUpdated is NOT a signing signal: any field write (summary backfill, Drive fields) bumps it (inspector finding D1, 2026-10-09).
     const signedAt = c.stageChangedAt || '';
@@ -291,7 +298,7 @@ export default async (req) => {
       const n = intakeNote(notes, cf(f, cfg.fields.intakeNoteId));
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
-        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
+        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
         intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc) });
     }
     if (route === 'assign' && req.method === 'POST') {

@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Nutrition Intuition</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nutrition Intuition">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBF8F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171B14" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a quiet one-page "kitchen notebook" that opens up when touched. Three number boxes morph to full
+   screens; lists expand in place; prep cards slide up from the bottom. Nutrition Intuition brand tokens.
+   Everything on screen comes from GoHighLevel, Google Drive and the client list through /api (see netlify/functions/api.mjs). */
+:root{
+  --paper:#FBF8F1; --raise:#FFFFFF; --tile:#F3EDE0; --ink:#2E352A; --head:#3E4736; --soft:#6E7666; --faint:#979E8C; --hair:#E4DBC6;
+  --weekly:#5F8F3A; --weekly-bg:#E6F0DA; --event:#B4562F; --event-bg:#F7E4D9; --wait:#B4562F;
+  --allergy:#B42318; --allergy-bg:#FCE9E7; --good:#4F7F33;
+  --btn:#3E4736; --btn-fg:#FBF8F1; --scrim:rgba(24,28,20,.42); --focus:rgba(110,154,69,.5);
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --text:"Figtree", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --ease:cubic-bezier(.22,.8,.2,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --paper:#171B14; --raise:#1F251B; --tile:#222920; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#7E8673; --hair:#30382A;
+  --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
+  --allergy:#F4978E; --allergy-bg:#3B1F1C; --good:#A6CC7C;
+  --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:rgba(166,204,124,.5); color-scheme:dark } }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.55 var(--text);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body.locked{overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:8px}
+.num{font-variant-numeric:lining-nums tabular-nums}
+.page{max-width:1080px;margin:0 auto;padding-block:calc(22px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));padding-inline:clamp(18px,5vw,48px)}
+
+/* lock screen (6 digits, like a phone) */
+.lock{position:fixed;inset:0;z-index:100;background:var(--paper);display:grid;place-items:center;padding:24px}
+.lock[hidden]{display:none}
+.lock-in{width:min(340px,100%);text-align:center}
+.lock-in .mark{display:block;margin-bottom:28px}
+.lock-t{font-family:var(--display);font-weight:300;font-size:26px;color:var(--head);margin:0 0 18px}
+.dots{display:flex;justify-content:center;gap:16px;margin:0 0 26px;height:16px}
+.dots i{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--head);transition:background .15s}
+.dots i.on{background:var(--head)}
+.dots.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(7px)}}
+.pad{display:grid;grid-template-columns:repeat(3,76px);gap:14px 22px;justify-content:center}
+.pad button{width:76px;height:76px;border-radius:50%;background:var(--tile);font-family:var(--display);font-weight:300;font-size:32px;color:var(--head);display:grid;place-items:center;transition:transform .1s,background .15s}
+.pad button:active{transform:scale(.94);background:var(--hair)}
+.pad button.ghost{background:transparent;font-family:var(--text);font-size:15px;font-weight:600;color:var(--soft)}
+.lock-msg{min-height:22px;margin:18px 0 0;font-size:14px;color:var(--soft)}
+.lock-msg.err{color:var(--allergy)}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mark{font-family:var(--display);font-weight:300;font-size:15px;letter-spacing:.02em;color:var(--soft);line-height:1.15}
+.top-r{display:flex;align-items:center;gap:14px}
+.date{font-size:14px;color:var(--soft)}
+.bell{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair);color:var(--head);position:relative}
+.bell svg{width:18px;height:18px}
+.bell.on::after{content:"";position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--weekly)}
+h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:18px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--weekly)}
+.sync{margin-top:10px;font-size:13.5px;color:var(--faint);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sync button{color:var(--weekly);font-weight:600}
+.sync .err{color:var(--allergy)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--hair);border-top-color:var(--weekly);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* new strip */
+.new{margin-top:18px;display:grid;gap:8px}
+.new-item{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;background:var(--raise);border:1px solid var(--hair);border-radius:14px;padding:12px 14px;width:100%}
+.new-item .tag{grid-row:span 2;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--paper);background:var(--weekly);border-radius:999px;padding:3px 8px}
+.new-item .t{font-weight:600;color:var(--head);min-width:0}
+.new-item .s{grid-column:2;font-size:14px;color:var(--soft)}
+.new-item .w{grid-row:span 2;font-size:13px;color:var(--faint);white-space:nowrap}
+
+/* number boxes */
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 4px}
+.tile{background:var(--tile);border-radius:16px;padding:16px 16px 14px;display:grid;gap:4px;text-align:left;position:relative;transition:transform .2s var(--ease)}
+.tile:active{transform:scale(.98)}
+.tile b{font-family:var(--display);font-weight:300;font-size:clamp(40px,7vw,58px);line-height:1;color:var(--head)}
+.tile span{font-size:14px;color:var(--soft);line-height:1.3}
+.tile.wait b{color:var(--wait)}
+.tile .arr{position:absolute;top:14px;right:14px;width:16px;height:16px;color:var(--faint)}
+
+/* columns */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px clamp(28px,5vw,64px)}
+section{padding-top:26px;min-width:0}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 4px}
+h2{font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft);margin:0}
+.sh .aux{font-size:13.5px;color:var(--weekly);font-weight:600}
+ul{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:2px 14px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--hair);width:100%}
+li:last-child>.row{border-bottom:0}
+.when{font-variant-numeric:tabular-nums;color:var(--soft);font-size:14px;white-space:nowrap}
+.who{font-weight:600;color:var(--head)}
+.what{grid-column:2;color:var(--soft);font-size:14.5px}
+.kind{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;margin-left:8px;white-space:nowrap}
+.kind::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.kind.weekly{color:var(--weekly)} .kind.event{color:var(--event)}
+.alg{display:inline-block;font-size:12px;font-weight:600;color:var(--allergy);background:var(--allergy-bg);border-radius:999px;padding:2px 8px;margin:2px 4px 0 0;white-space:nowrap}
+.later{color:var(--soft);font-size:14.5px;padding:10px 0 0;line-height:1.9}
+.later button{font-weight:600;color:var(--ink);text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:4px}
+.later b{font-weight:600;color:var(--soft)}
+
+/* accordions (events, clients) */
+.acc>.row{cursor:pointer}
+.chev{width:14px;height:14px;color:var(--faint);transition:transform .35s var(--ease);flex:none}
+.open>.row .chev,.open>.chef-head .chev{transform:rotate(180deg)}
+.acc-body{display:none;overflow:hidden}
+.open>.acc-body{display:block}
+.facts{display:grid;grid-template-columns:minmax(96px,auto) minmax(0,1fr);gap:8px 14px;padding:4px 0 16px 92px;font-size:14.5px;margin:0}
+.facts dt{color:var(--soft)} .facts dd{margin:0;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.pad-l{padding:0 0 10px 92px}
+.quote{font-family:var(--display);font-style:italic;font-weight:300;font-size:17px;line-height:1.45;color:var(--head)}
+.status{display:inline-block;font-size:12.5px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--weekly-bg);color:var(--weekly);margin:0 4px 4px 0}
+.status.warn{background:var(--event-bg);color:var(--event)}
+.status.dim{background:var(--tile);color:var(--soft)}
+
+/* chefs */
+.chef{border-bottom:1px solid var(--hair)}
+.chef:last-child{border-bottom:0}
+.chef-head{display:flex;align-items:center;gap:10px;width:100%;padding:12px 0 2px}
+.chef-head .who{flex:1}
+.chef-head .n{font-family:var(--display);font-size:22px;font-weight:300;color:var(--head)}
+.chef-body{padding:0 0 12px;overflow:hidden}
+.cl{display:inline;color:var(--soft);font-size:14.5px}
+.cn{display:inline-block}
+.chef:not(.open) .cl:not(:last-child) .cn::after{content:","}
+.chef:not(.open) .cl{margin-right:.32em}
+.cmeta,.csub{display:none}
+.chef.open .chef-body{display:grid;gap:0;padding-top:6px}
+.chef.open .cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:baseline;padding:10px 0 10px 14px;border-left:2px solid var(--weekly-bg);margin:0;text-align:left;width:100%}
+.chef.open .cn{color:var(--head);font-weight:600}
+.chef.open .cmeta{display:block;text-align:right;font-size:13.5px;color:var(--soft);white-space:nowrap}
+.chef.open .csub{display:block;grid-column:1 / -1;font-size:13.5px;color:var(--soft)}
+.morechefs{margin-top:12px;font-weight:600;font-size:14px;color:var(--weekly)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--tile);border-radius:12px;padding:4px;margin:4px 0 12px}
+.seg button{border-radius:9px;padding:9px 10px;font-weight:600;font-size:14.5px;color:var(--soft);text-align:center;transition:background-color .2s,color .2s}
+.seg button[aria-selected="true"]{background:var(--raise);color:var(--head);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.overview{font-size:14px;color:var(--soft);margin:0 0 6px}
+.chef-head .free{display:block;font-weight:400}
+.chef.empty .chef-head{cursor:default;padding-bottom:12px}
+.free{font-size:13px;color:var(--faint)}
+.notes-sec{max-width:760px}
+
+/* waiting */
+.wrow{padding:12px 0;border-bottom:1px solid var(--hair);display:grid;gap:8px}
+.wrow:last-child{border-bottom:0}
+.wtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.days{color:var(--wait);font-size:13.5px;font-weight:600;white-space:nowrap}
+.wsub{color:var(--soft);font-size:14.5px}
+select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(--hair);background:var(--raise) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23979E8C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/16px;border-radius:12px;padding:10px 38px 10px 12px;font-size:16px}
+.sending{font-size:14px;color:var(--weekly);font-weight:600}
+.none{color:var(--soft);font-size:14.5px;padding:12px 0;margin:0}
+
+/* notes */
+.addnote{display:flex;gap:8px;margin:8px 0 6px}
+.addnote input{flex:1;min-width:0;border:1px solid var(--hair);background:var(--raise);border-radius:12px;padding:10px 12px;font-size:16px}
+.addnote button{border-radius:12px;padding:0 16px;background:var(--btn);color:var(--btn-fg);font-weight:600;font-size:15px}
+.notes li{position:relative;overflow:hidden;border-bottom:1px solid var(--hair)}
+.notes li:last-child{border-bottom:0}
+.nact{position:absolute;top:0;bottom:0;right:0;display:flex}
+.nact button{width:76px;display:grid;place-items:center;font-size:13.5px;font-weight:700;color:#fff}
+.nact .d{background:#5F8F3A} .nact .a{background:#8A8F80}
+.nmain{position:relative;background:var(--paper);display:grid;grid-template-columns:22px 26px minmax(0,1fr);gap:10px;align-items:start;padding:12px 0;touch-action:pan-y;will-change:transform;user-select:none;-webkit-user-select:none}
+.grip{color:var(--faint);cursor:grab;touch-action:none;padding-top:2px;display:grid;place-items:center}
+.grip svg{width:16px;height:16px}
+.chk{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--faint);margin-top:1px;display:grid;place-items:center;transition:all .2s}
+.chk svg{width:12px;height:12px;opacity:0;color:var(--btn-fg)}
+.nmain.doing .chk{background:var(--weekly);border-color:var(--weekly)}
+.nmain.doing .chk svg{opacity:1}
+.ntext{outline:none;min-width:0;word-wrap:break-word;color:var(--ink)}
+.ntext[contenteditable="true"]{background:var(--raise);box-shadow:0 0 0 2px var(--focus);border-radius:6px;padding:0 4px;user-select:text;-webkit-user-select:text}
+.nmain.doing .ntext{text-decoration:line-through;color:var(--faint)}
+.nfrom{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
+.ghost{opacity:.35}
+.archbar{display:flex;justify-content:space-between;gap:10px;padding-top:12px;font-size:13.5px;color:var(--soft)}
+.archbar button{font-weight:600;color:var(--weekly);white-space:nowrap}
+.arch li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--hair);font-size:14.5px;color:var(--soft)}
+.arch li:last-child{border-bottom:0}
+.arch .ops{display:flex;gap:12px}
+.arch .ops button{font-weight:600;font-size:13.5px;color:var(--weekly)}
+.arch .ops .del{color:var(--allergy)}
+.arch .st{font-size:12px;color:var(--faint)}
+
+/* full screens (morph out of a number box) */
+.full{position:fixed;inset:0;z-index:40;background:var(--paper);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.full-in{max-width:760px;margin:0 auto;padding-block:calc(14px + env(safe-area-inset-top, 0px)) calc(40px + env(safe-area-inset-bottom, 0px));padding-inline:clamp(18px,5vw,40px)}
+.full-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;position:sticky;top:0;background:var(--paper);padding:10px 0 12px;z-index:2}
+.full-h h3{font-family:var(--display);font-weight:300;font-size:clamp(30px,6vw,42px);line-height:1.05;color:var(--head);margin:0}
+.full-h p{margin:4px 0 0;color:var(--soft);font-size:14.5px}
+.x{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--tile);color:var(--head)}
+.x svg{width:16px;height:16px}
+.search{width:100%;border:1px solid var(--hair);background:var(--raise);border-radius:12px;padding:11px 14px;font-size:16px;margin:4px 0 6px}
+.full .facts,.full .pad-l{padding-left:0}
+.crow{border-bottom:1px solid var(--hair)}
+.crow:last-child{border-bottom:0}
+.crow>.row{grid-template-columns:minmax(0,1fr) auto;cursor:pointer}
+.crow>.row .what{grid-column:1 / -1}
+.crow .right{display:flex;align-items:center;gap:10px;color:var(--soft);font-size:13.5px;white-space:nowrap}
+.day-h{font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:18px 0 4px}
+
+/* sheets (prep card, client, confirm, notifications) */
+.scrim{position:fixed;inset:0;z-index:60;background:var(--scrim)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--raise);border-radius:22px 22px 0 0;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px clamp(18px,5vw,28px) calc(24px + env(safe-area-inset-bottom, 0px))}
+.grab{width:40px;height:5px;border-radius:99px;background:var(--hair);margin:0 auto 10px}
+.sheet .x{position:absolute;top:14px;right:16px}
+.sheet h3{font-family:var(--display);font-weight:300;font-size:30px;line-height:1.1;color:var(--head);margin:6px 48px 4px 0}
+.sheet .sub{color:var(--soft);font-size:14.5px;margin:0 0 14px}
+.expect{background:var(--tile);border-radius:14px;padding:14px 16px;margin:4px 0 16px}
+.expect h4{margin:0 0 8px;font:600 12px/1 var(--text);letter-spacing:.14em;text-transform:uppercase;color:var(--soft)}
+.expect ul{display:grid;gap:6px}
+.expect li{padding-left:16px;position:relative;font-size:15px}
+.expect li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--weekly)}
+.expect p{margin:0;font-size:15px}
+.sheet .facts{padding:0 0 6px}
+.acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 20px;font-weight:700;font-size:15px;background:var(--btn);color:var(--btn-fg);text-decoration:none;flex:1;min-width:120px}
+.btn.ghost-b{background:transparent;color:var(--head);border:1px solid var(--hair)}
+.btn[aria-disabled="true"]{opacity:.5;pointer-events:none}
+.docs{display:grid;gap:8px;margin:14px 0 4px}
+.doc{display:flex;align-items:center;gap:12px;border:1px solid var(--hair);border-radius:14px;padding:12px 14px;text-decoration:none;color:var(--head);font-weight:600;font-size:15px;background:var(--raise)}
+.doc small{display:block;font-weight:400;color:var(--soft);font-size:13px}
+.doc svg{width:20px;height:20px;flex:none;color:var(--weekly)}
+.doc.off{color:var(--faint);pointer-events:none}
+.doc.off svg{color:var(--faint)}
+.fine{font-size:13px;color:var(--faint);margin:12px 0 0}
+.raw{white-space:pre-wrap;font-size:13.5px;line-height:1.5;color:var(--soft);background:var(--tile);border-radius:12px;padding:12px 14px;max-height:50vh;overflow:auto;margin:10px 0 0}
+.steps{display:grid;gap:10px;margin:8px 0 0;padding:0;counter-reset:s}
+.steps li{list-style:none;counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;font-size:15px}
+.steps li::before{content:counter(s);width:26px;height:26px;border-radius:50%;background:var(--tile);display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--head)}
+.rowbtn{display:block;width:100%;text-align:left}
+
+/* toast */
+.toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:80;background:var(--btn);color:var(--btn-fg);border-radius:999px;padding:11px 8px 11px 18px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;box-shadow:0 12px 30px -12px rgba(0,0,0,.45);max-width:calc(100% - 32px)}
+.toast[hidden]{display:none}
+.toast button{color:var(--btn-fg);background:rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;font-weight:700}
+.toast .msg{min-width:0;padding-right:10px}
+
+.foot{margin-top:38px;padding-top:18px;border-top:1px solid var(--hair);display:flex;justify-content:space-between;gap:10px 24px;flex-wrap:wrap;color:var(--soft);font-size:13.5px}
+.foot button{color:var(--faint);text-decoration:underline;text-underline-offset:3px}
+.skel{color:var(--faint);font-size:14.5px;padding:12px 0}
+
+@media (min-width:761px){
+  .sheet{left:50%;right:auto;bottom:auto;top:50%;width:min(560px,calc(100% - 48px));transform:translate(-50%,-50%);border-radius:22px;max-height:86vh}
+  .grab{display:none}
+}
+@media (max-width:760px){
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .nums{gap:8px}
+  .tile{padding:14px 12px 12px}
+  .tile span{font-size:13px}
+  .row{grid-template-columns:70px minmax(0,1fr)}
+  .when{font-size:13px}
+  .facts,.pad-l{padding-left:0}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<div class="lock" id="lock" hidden>
+  <div class="lock-in">
+    <span class="mark">nutrition<br>intuition</span>
+    <p class="lock-t">Enter your passcode</p>
+    <div class="dots" id="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="pad" id="pad" role="group" aria-label="Passcode keypad"></div>
+    <p class="lock-msg" id="lockmsg"></p>
+  </div>
+</div>
+
+<main class="page" id="page">
+  <header class="top">
+    <span class="mark">nutrition<br>intuition</span>
+    <div class="top-r">
+      <span class="date" id="date"></span>
+      <button class="bell" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    </div>
+  </header>
+
+  <h1 id="hello">Good morning, <em>Amber.</em></h1>
+  <div class="sync" id="sync"></div>
+
+  <div class="new" id="new" aria-label="New"></div>
+
+  <div class="nums">
+    <button class="tile" data-full="clients"><b class="num" id="t-clients">&nbsp;</b><span>clients with a chef</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="tile wait" data-full="waiting"><b class="num" id="t-waiting">&nbsp;</b><span>waiting for a chef</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="tile" data-full="calls"><b class="num" id="t-calls">&nbsp;</b><span>calls this week</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+  </div>
+
+  <div class="cols">
+    <div>
+      <section aria-labelledby="h-today">
+        <div class="sh"><h2 id="h-today">Today's calls</h2><span class="aux">Tap to prepare</span></div>
+        <ul id="today"></ul>
+        <p class="later" id="later"></p>
+      </section>
+      <section aria-labelledby="h-events">
+        <div class="sh"><h2 id="h-events">Event inquiries</h2><span class="aux">Tap for details</span></div>
+        <ul id="events"></ul>
+      </section>
+    </div>
+    <div>
+      <section aria-labelledby="h-wait">
+        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2><button class="aux" data-openfull="waiting" data-tab="chefs">See all chefs</button></div>
+        <div id="waiting"></div>
+      </section>
+    </div>
+  </div>
+
+  <section aria-labelledby="h-notes" class="notes-sec">
+    <div class="sh"><h2 id="h-notes">My to-do list</h2></div>
+    <form class="addnote" id="addnote" autocomplete="off"><input id="noteinput" placeholder="Add a to-do or note" aria-label="New to-do"><button type="submit">Add</button></form>
+    <ul class="notes" id="notes"></ul>
+    <div class="archbar"><span id="notehelp">Drag to reorder. Swipe left to finish or archive.</span><button id="archtoggle">Archive</button></div>
+    <ul class="arch" id="arch" hidden></ul>
+  </section>
+
+  <footer class="foot">
+    <span>Everything here comes from GoHighLevel, Google Drive and the client list. Nothing to re-enter.</span>
+    <span><button id="refresh">Refresh</button> &nbsp; <button id="lockbtn">Lock</button></span>
+  </footer>
+</main>
+<div class="toast" id="toast" role="status" hidden><span class="msg" id="toastmsg"></span><button id="toastundo" hidden>Undo</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function(){
+'use strict';
+var VAPID_PUBLIC = 'BPSc8oUZeU5d-CNPhhi0pQoEDFOE-5tpC0lvKzE2cVujrxYFoztm_Ujf9IBhikqFPGcJKaQYQEJ0CtHxWqWDSz8';
+var SALT = 'fbe1fef5a1e80a111eb105e1c7837c03';
+var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var EASE = 'cubic-bezier(.22,.8,.2,1)';
+function $(s, r){ return (r || document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+var store = {
+  get: function(k, d){ try { var v = localStorage.getItem('nitoday:' + k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set: function(k, v){ try { localStorage.setItem('nitoday:' + k, JSON.stringify(v)); } catch(e){} },
+  del: function(k){ try { localStorage.removeItem('nitoday:' + k); } catch(e){} }
+};
+var ICON = {
+  chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'
+};
+
+/* ---------------- lock ---------------- */
+var KEY = store.get('key', '');
+var code = '';
+function sha256(s){ var b = new TextEncoder().encode(s); return crypto.subtle.digest('SHA-256', b).then(function(h){ return Array.prototype.map.call(new Uint8Array(h), function(x){ return ('0' + x.toString(16)).slice(-2); }).join(''); }); }
+function dots(){ $$('#dots i').forEach(function(d, i){ d.classList.toggle('on', i < code.length); }); }
+function lockMsg(t, err){ var m = $('#lockmsg'); m.textContent = t || ''; m.classList.toggle('err', !!err); }
+function showLock(){ $('#lock').hidden = false; document.body.classList.add('locked'); code = ''; dots(); lockMsg(''); }
+function hideLock(){ $('#lock').hidden = true; if (!sheets.length && !$('.full')) document.body.classList.remove('locked'); }
+function lock(){ KEY = ''; DATA = null; store.del('key'); store.del('snap'); try { if (window.caches) caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); } catch(e){} location.replace('/'); }
+function tryCode(){
+  lockMsg('Checking…');
+  sha256(SALT + code).then(function(h){
+    return fetch('/api/unlock', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:h})}).then(function(r){
+      if (r.ok) { KEY = h; store.set('key', h); hideLock(); load(true); return; }
+      var d = $('#dots'); d.classList.add('shake'); setTimeout(function(){ d.classList.remove('shake'); }, 500);
+      code = ''; dots(); lockMsg(r.status === 401 ? 'That is not the passcode. Try again.' : (r.status === 429 ? 'Too many tries. Wait 15 minutes and try again.' : 'Could not check the passcode. Try again in a moment.'), true);
+    });
+  }).catch(function(){ code = ''; dots(); lockMsg('No connection. Try again.', true); });
+}
+(function(){
+  var keys = ['1','2','3','4','5','6','7','8','9','',  '0','del'];
+  $('#pad').innerHTML = keys.map(function(k){
+    if (k === '') return '<span></span>';
+    if (k === 'del') return '<button type="button" class="ghost" data-k="del" aria-label="Delete">Delete</button>';
+    return '<button type="button" data-k="' + k + '">' + k + '</button>';
+  }).join('');
+  $('#pad').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-k]'); if (!b) return;
+    if (b.dataset.k === 'del') { code = code.slice(0, -1); dots(); lockMsg(''); return; }
+    if (code.length >= 6) return;
+    code += b.dataset.k; dots();
+    if (code.length === 6) tryCode();
+  });
+  document.addEventListener('keydown', function(e){
+    if ($('#lock').hidden) return;
+    if (/^[0-9]$/.test(e.key) && code.length < 6) { code += e.key; dots(); if (code.length === 6) tryCode(); }
+    if (e.key === 'Backspace') { code = code.slice(0, -1); dots(); }
+  });
+})();
+function api(path, opts){
+  opts = opts || {};
+  var h = Object.assign({'X-NI-Key': KEY}, opts.headers || {});
+  return fetch('/api/' + path, Object.assign({}, opts, {headers:h})).then(function(r){
+    if (r.status === 401) { lock(); throw new Error('locked'); }
+    return r;
+  });
+}
+
+/* ---------------- live data ---------------- */
+var DATA = null;
+/* the offline copy of the snapshot is AES-GCM encrypted with a key derived from the passcode key; it is deleted on Lock, so a locked phone holds no readable client data */
+function b64(buf){ var u = new Uint8Array(buf), t = ''; for (var i = 0; i < u.length; i += 8192) t += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(t); }
+function unb64(t){ var b = atob(t), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+function snapKey(){ return crypto.subtle.importKey('raw', new TextEncoder().encode(KEY).slice(0, 32), 'AES-GCM', false, ['encrypt', 'decrypt']); }
+function saveSnap(d){ if (!KEY || !window.crypto || !crypto.subtle) return; var iv = crypto.getRandomValues(new Uint8Array(12)); snapKey().then(function(k){ return crypto.subtle.encrypt({name:'AES-GCM', iv: iv}, k, new TextEncoder().encode(JSON.stringify(d))); }).then(function(ct){ store.set('snap', {iv: b64(iv), ct: b64(ct)}); }).catch(function(){ store.del('snap'); }); }
+function loadSnap(){ var t = store.get('snap', null); if (!KEY || !t || !t.iv || !t.ct || !window.crypto || !crypto.subtle) { if (t && !t.ct) store.del('snap'); return Promise.resolve(null); } return snapKey().then(function(k){ return crypto.subtle.decrypt({name:'AES-GCM', iv: unb64(t.iv)}, k, unb64(t.ct)); }).then(function(pt){ return JSON.parse(new TextDecoder().decode(pt)); }).catch(function(){ store.del('snap'); return null; }); }
+var loading = false, lastErr = '';
+function sync(){
+  var s = $('#sync'); if (!s) return;
+  var age = DATA ? Math.round((Date.now() - new Date(DATA.generatedAt).getTime()) / 60000) : null;
+  s.innerHTML = (loading ? '<span class="spin" aria-hidden="true"></span> Updating…' : (age === null ? '' : 'Updated ' + (age < 1 ? 'just now' : age + ' min ago'))) +
+    (lastErr ? ' <span class="err">' + esc(lastErr) + '</span> <button id="retry">Retry</button>' : '');
+}
+function load(fresh){
+  if (loading) return; loading = true; lastErr = ''; sync();
+  api('today' + (fresh ? '?fresh=1' : '')).then(function(r){ return r.json(); }).then(function(d){
+    if (!d || !d.clients) throw new Error(d && d.error ? d.error : 'bad data');
+    DATA = d; saveSnap(d); loading = false; renderAll();
+  }).catch(function(e){
+    loading = false; lastErr = e.message === 'locked' ? '' : (navigator.onLine ? 'Could not load the latest. ' + (DATA ? 'Showing what loaded last time.' : '') : 'You are offline. ' + (DATA ? 'Showing what loaded last time.' : '')); renderAll();
+  });
+}
+document.addEventListener('click', function(e){ if (e.target.closest('#retry') || e.target.closest('#refresh')) load(true); });
+document.addEventListener('visibilitychange', function(){ if (!document.hidden && KEY && DATA && Date.now() - new Date(DATA.generatedAt).getTime() > 3 * 60000) load(false); });
+setInterval(function(){ if (!document.hidden && KEY) load(false); }, 5 * 60000);
+
+function clients(){ return DATA ? DATA.clients : []; }
+function active(){ return clients().filter(function(c){ return c.hasChef && !c.isNew; }); }
+function waitingList(){ return clients().filter(function(c){ return c.waiting; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0); }); }
+function findClient(id){ return clients().filter(function(c){ return c.id === id; })[0] || null; }
+function chefNames(){ return DATA ? DATA.chefs.map(function(c){ return c.name; }) : []; }
+function chefOptions(){ return '<option value="">Choose a chef</option>' + (DATA ? DATA.chefOptions : []).map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join(''); }
+function tel(p){ return 'tel:' + String(p || '').replace(/[^\d+]/g, ''); }
+function sms(p){ return 'sms:' + String(p || '').replace(/[^\d+]/g, ''); }
+function nicePhone(p){ var d = String(p || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d.length === 10 ? '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6) : (p || ''); }
+function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' + esc(x) + '</span>'; }).join(''); }
+function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
+function stageLabel(c){
+  if (c.isNew) return 'Intake received, agreement not signed yet';
+  if (c.chef) return 'With ' + c.chef;
+  return {signed:'Agreement signed, waiting for a chef', menu:'Menu built, waiting for a chef', consult:'Consultation scheduled, waiting for a chef', waitlist:'Waiting for a chef', assigned:'Chef assigned'}[c.stage] || 'Waiting for a chef';
+}
+function docsHTML(c){
+  function doc(label, url, sub){ return url ? '<a class="doc" href="' + esc(url) + '" target="_blank" rel="noopener">' + ICON.doc + '<span>' + esc(label) + '<small>' + esc(sub || 'Opens in Google Drive') + '</small></span></a>' : '<span class="doc off">' + ICON.doc + '<span>' + esc(label) + '<small>Not in Drive yet</small></span></span>'; }
+  return '<div class="docs">' + doc('Intake form (PDF)', c.intakePdf) + doc('Signed agreement (PDF)', c.contractPdf, 'Opens in Google Drive') + (c.driveFolder ? '<a class="doc" href="' + esc(c.driveFolder) + '" target="_blank" rel="noopener">' + ICON.folder + '<span>Client folder<small>Everything for this client in Google Drive</small></span></a>' : '') + '</div>';
+}
+
+/* ---------------- notes (on this phone) ---------------- */
+var notes = store.get('notes', null) || [];
+var readNew = store.get('read', []);
+var pending = {};
+function saveNotes(){ store.set('notes', notes); }
+
+/* ---------------- toast with undo ---------------- */
+var toastT = null, toastUndo = null;
+function toast(msg, undo, ms){
+  var t = $('#toast'); $('#toastmsg').textContent = msg; toastUndo = undo || null;
+  $('#toastundo').hidden = !undo; t.hidden = false; clearTimeout(toastT);
+  if (!RM) t.animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'none'}], {duration:220, easing:EASE});
+  toastT = setTimeout(function(){ t.hidden = true; toastUndo = null; }, ms || 4200);
+}
+$('#toastundo').addEventListener('click', function(){ var u = toastUndo; $('#toast').hidden = true; toastUndo = null; if (u) u(); });
+
+/* ---------------- header ---------------- */
+(function(){
+  try {
+    var now = new Date();
+    $('#date').textContent = new Intl.DateTimeFormat('en-US', {weekday:'long', month:'long', day:'numeric', timeZone:'America/Phoenix'}).format(now);
+    var h = parseInt(new Intl.DateTimeFormat('en-US', {hour:'numeric', hourCycle:'h23', timeZone:'America/Phoenix'}).format(now), 10);
+    var g = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
+    $('#hello').innerHTML = g + ', <em>Amber.</em>';
+  } catch(e) {}
+})();
+
+/* ---------------- renderers ---------------- */
+function renderTiles(){
+  if (!DATA) return;
+  $('#t-clients').textContent = active().length;
+  $('#t-waiting').textContent = waitingList().length;
+  $('#t-calls').textContent = DATA.counts.calls;
+}
+function renderNew(){
+  var items = (DATA ? DATA.newItems : []).filter(function(n){ return readNew.indexOf(n.id) < 0; });
+  $('#new').innerHTML = items.map(function(n){
+    return '<button class="new-item" data-new="' + esc(n.id) + '"><span class="tag">New</span><span class="t">' + esc(n.who) + '</span><span class="w">' + esc(whenShort(n.when)) + '</span><span class="s">' + esc(n.line) + '</span></button>';
+  }).join('');
+  setBadge(items.length);
+}
+function whenShort(iso){ try { var d = new Date(iso), now = new Date(); var same = d.toDateString() === now.toDateString(); return new Intl.DateTimeFormat('en-US', same ? {hour:'numeric', minute:'2-digit', timeZone:'America/Phoenix'} : {month:'short', day:'numeric', timeZone:'America/Phoenix'}).format(d); } catch(e){ return ''; } }
+function callRow(c){
+  return '<li><button class="row" data-call="' + esc(c.id) + '"><span class="when">' + esc(c.time) + '</span><span><span class="who">' + esc(c.who) + '</span><span class="kind ' + c.kind + '">' + (c.kind === 'event' ? 'Event' : 'Weekly') + '</span></span><span class="what">' + esc(c.line) + (c.allergies && c.allergies.length ? ' ' + algs(c.allergies) : '') + '</span></button></li>';
+}
+function renderCalls(){
+  if (!DATA) { $('#today').innerHTML = '<li><p class="skel">Loading your calls…</p></li>'; $('#later').innerHTML = ''; return; }
+  var upcoming = DATA.calls.filter(function(c){ return c.dayKey >= DATA.today; });
+  var todays = upcoming.filter(function(c){ return c.day === 'Today'; });
+  $('#today').innerHTML = todays.length ? todays.map(callRow).join('') : '<li><p class="none">No calls booked for today.</p></li>';
+  var later = upcoming.filter(function(c){ return c.day !== 'Today'; });
+  var byDay = {}, order = [];
+  later.forEach(function(c){ var d = c.day; if (!byDay[d]) { byDay[d] = []; order.push(d); } byDay[d].push(c); });
+  $('#later').innerHTML = later.length ? 'Later this week: ' + order.map(function(d){
+    return '<b>' + esc(d) + '</b> ' + byDay[d].map(function(c){ return '<button data-call="' + esc(c.id) + '">' + esc(c.who) + '</button>' + (c.kind === 'event' ? ' (event)' : ''); }).join(' and ');
+  }).join(', ') : (todays.length ? '' : 'Nothing else booked this week.');
+}
+function renderEvents(){
+  var list = DATA ? DATA.events : [];
+  $('#events').innerHTML = list.length ? list.map(function(e){
+    var facts = e.facts.map(function(f){ return [f[0], esc(f[1])]; });
+    facts.push(['Phone', esc(nicePhone(e.phone))]); if (e.call) facts.unshift(['Planning call', esc(e.call)]);
+    return '<li class="acc" data-acc><button class="row" aria-expanded="false"><span class="when">' + esc(e.whenLabel) + '</span><span style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="who">' + esc(e.who) + '</span>' + ICON.chev + '</span><span class="what">' + esc(e.facts.slice(0, 2).map(function(f){ return f[1]; }).join(' · ') || 'Event inquiry from the website') + '</span></button>' +
+      '<div class="acc-body"><div class="pad-l">' + (e.call ? '<span class="status">Call booked</span>' : '<span class="status warn">No call booked yet</span>') + '</div>' +
+      (e.said ? '<div class="pad-l"><span class="quote">“' + esc(e.said) + '”</span></div>' : '') + factsHTML(facts) +
+      '<div class="acts" style="margin:0 0 16px;padding-left:92px"><a class="btn" href="' + tel(e.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(e.phone) + '">Text</a></div></div></li>';
+  }).join('') : '<li><p class="none">No event inquiries right now.</p></li>';
+}
+var chefsAll = false;
+function renderChefs(){
+  var box = $('.full[data-kind="waiting"] #fchefs'); if (!box || !DATA) return;
+  var by = {}; DATA.chefs.forEach(function(ch){ by[ch.name] = ch.clients.map(findClient).filter(Boolean); });
+  var names = Object.keys(by).sort(function(x, y){ return (by[y] || []).length - (by[x] || []).length || x.localeCompare(y); });
+  var openNow = $$('.chef.open', box).map(function(li){ return li.dataset.chef; });
+  var shown = chefsAll ? names : names.slice(0, 10);
+  box.innerHTML = shown.map(function(n){
+    var list = by[n] || [], isOpen = openNow.indexOf(n) >= 0;
+    if (!list.length) return '<li class="chef empty" data-chef="' + esc(n) + '"><div class="chef-head"><span class="who">' + esc(n) + '<span class="free">No clients yet</span></span><span class="n num">0</span></div></li>';
+    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + esc(n) + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(n) + '</span><span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
+      '<div class="chef-body">' + list.map(function(c){
+        return '<button class="cl" data-client="' + esc(c.id) + '"><span class="cn">' + esc(c.name) + '</span><span class="cmeta">' + esc(c.wants || ('since ' + c.since)) + '</span><span class="csub">' + esc([c.household, c.area].filter(Boolean).join(' · ')) + ' ' + algs(c.allergies) + '</span></button>';
+      }).join('') + '</div></li>';
+  }).join('');
+  var more = $('.full[data-kind="waiting"] #morechefs');
+  var sum = $('.full[data-kind="waiting"] #chefsum'); if (sum) sum.textContent = names.length + ' chefs · ' + active().length + ' clients with a chef · ' + names.filter(function(n){ return !by[n].length; }).length + ' with no clients yet';
+  if (more) { more.hidden = names.length <= 10; more.textContent = chefsAll ? 'Show fewer chefs' : 'Show all ' + names.length + ' chefs'; }
+}
+function waitRow(w){
+  var p = pending[w.id];
+  return '<div class="wrow" data-wait="' + esc(w.id) + '"><div class="wtop"><button class="who rowbtn" data-client="' + esc(w.id) + '" style="flex:1">' + esc(w.name) + (w.area ? ' <span style="color:var(--soft);font-size:14px;font-weight:400">· ' + esc(w.area) + '</span>' : '') + '</button><span class="days">' + (w.waitingDays != null ? w.waitingDays + ' days' : '') + '</span></div>' +
+    '<div class="wsub">' + esc([w.household, w.diet, w.wants ? 'wants ' + w.wants : stageLabel(w)].filter(Boolean).join(' · ')) + ' ' + algs(w.allergies) + '</div>' +
+    (p ? '<div class="sending">Sending to ' + esc(p.chef) + '…</div>' : '<div><select aria-label="Choose a chef for ' + esc(w.name) + '" data-assign="' + esc(w.id) + '">' + chefOptions() + '</select></div>') + '</div>';
+}
+function renderWaiting(){
+  if (!DATA) { $('#waiting').innerHTML = '<p class="skel">Loading…</p>'; return; }
+  var list = waitingList();
+  var html = list.length ? list.map(waitRow).join('') : '<p class="none">Everyone has a chef.</p>';
+  $('#waiting').innerHTML = html;
+  var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
+  var tn = $('#tabwaitn'); if (tn) tn.textContent = list.length;
+}
+function renderNotes(){
+  var open = notes.filter(function(n){ return n.st === 'open'; });
+  $('#notes').innerHTML = open.length ? open.map(function(n){
+    return '<li data-note="' + n.id + '"><div class="nact"><button class="d" data-done>Done</button><button class="a" data-archive>Archive</button></div>' +
+      '<div class="nmain"><span class="grip" aria-label="Drag to reorder">' + ICON.grip + '</span><button class="chk" data-check aria-label="Mark done">' + ICON.check + '</button><div><span class="ntext">' + esc(n.text) + '</span>' + (n.from ? '<span class="nfrom">' + esc(n.from) + '</span>' : '') + '</div></div></li>';
+  }).join('') : '<li><p class="none">All clear. Add a note above.</p></li>';
+  var arch = notes.filter(function(n){ return n.st !== 'open'; });
+  $('#archtoggle').textContent = ($('#arch').hidden ? 'Archive' : 'Hide archive') + (arch.length ? ' (' + arch.length + ')' : '');
+  $('#arch').innerHTML = arch.length ? arch.map(function(n){
+    return '<li data-note="' + n.id + '"><span>' + esc(n.text) + '<br><span class="st">' + (n.st === 'done' ? 'Done' : 'Archived') + '</span></span><span class="ops"><button data-restore>Restore</button><button class="del" data-delete>Delete</button></span></li>';
+  }).join('') : '<li><span class="st">Nothing archived yet.</span></li>';
+  $$('#notes li[data-note]').forEach(bindSwipe);
+  if (window.Sortable && !$('#notes')._sortable) {
+    $('#notes')._sortable = window.Sortable.create($('#notes'), {handle:'.grip', animation:RM ? 0 : 200, ghostClass:'ghost', onEnd:function(){
+      var ids = $$('#notes li[data-note]').map(function(li){ return li.dataset.note; });
+      var openSorted = ids.map(function(id){ return noteById(id); }).filter(Boolean);
+      notes = openSorted.concat(notes.filter(function(n){ return n.st !== 'open'; })); saveNotes();
+    }});
+  }
+  if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
+}
+function renderAll(){ sync(); renderTiles(); renderNew(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+
+/* ---------------- sheets ---------------- */
+var sheets = [];
+function openSheet(html, onClose){
+  var scrim = document.createElement('div'); scrim.className = 'scrim';
+  var sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-modal', 'true');
+  sh.innerHTML = '<div class="grab"></div><button class="x" data-close aria-label="Close">' + ICON.x + '</button>' + html;
+  document.body.appendChild(scrim); document.body.appendChild(sh); document.body.classList.add('locked');
+  var desktop = window.matchMedia('(min-width: 761px)').matches;
+  if (!RM) {
+    scrim.animate([{opacity:0},{opacity:1}], {duration:240});
+    sh.animate(desktop ? [{opacity:0, transform:'translate(-50%,-46%) scale(.97)'},{opacity:1, transform:'translate(-50%,-50%) scale(1)'}] : [{transform:'translateY(100%)'},{transform:'translateY(0)'}], {duration:380, easing:EASE});
+  }
+  var api = {el:sh, closed:false, close:function(){
+    if (api.closed) return; api.closed = true;
+    sheets = sheets.filter(function(s){ return s !== api; });
+    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full') && $('#lock').hidden) document.body.classList.remove('locked'); if (onClose) onClose(); }
+    if (RM) return done();
+    scrim.animate([{opacity:1},{opacity:0}], {duration:200, fill:'forwards'});
+    var a = sh.animate(desktop ? [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},{opacity:0, transform:'translate(-50%,-46%) scale(.97)'}] : [{transform:'translateY(0)'},{transform:'translateY(100%)'}], {duration:260, easing:'ease-in', fill:'forwards'});
+    a.onfinish = done;
+  }};
+  scrim.addEventListener('click', api.close);
+  sh.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) api.close(); });
+  sheets.push(api);
+  setTimeout(function(){ var x = sh.querySelector('.x'); if (x) try { x.focus({preventScroll:true}); } catch(e) {} }, 50);
+  return api;
+}
+function expectHTML(sum, c){
+  var items = sum && Array.isArray(sum.expect) && sum.expect.length ? sum.expect : null;
+  if (items) return '<div class="expect"><h4>What to expect</h4><ul>' + items.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+  if (sum && sum.summary) return '<div class="expect"><h4>In short</h4><p>' + esc(sum.summary) + '</p></div>';
+  return '<div class="expect"><h4>In short</h4><p>' + esc(c && c.isNew ? 'Intake received. The agreement is sent but not signed yet.' : 'No intake summary yet for this person.') + '</p>' + (c && !c.hasSummary && c.id ? '<div class="acts" style="margin-top:10px"><button class="btn ghost-b" data-summary="' + esc(c.id) + '">Build the summary now</button></div>' : '') + '</div>';
+}
+function restrictionsHTML(c){
+  if (!c.restrictions || !c.restrictions.length) return '';
+  return '<div class="expect"><h4>What the intake form says</h4><ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:5px">' + c.restrictions.map(function(r){ return '<li><b>' + esc(r.label) + ':</b> ' + esc(r.value) + '</li>'; }).join('') + '</ul></div>';
+}
+function personSheet(c, extra){
+  var sum = c.summaryObj || null;
+  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
+  return '<h3>' + esc(c.name) + '</h3><p class="sub">' + (extra && extra.sub ? extra.sub : esc(stageLabel(c))) + '</p>' +
+    expectHTML(sum, c) +
+    (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
+    factsHTML(facts) + restrictionsHTML(c) + docsHTML(c) +
+    (c.phone ? '<div class="acts"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div>' : '') +
+    '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>';
+}
+function withDetails(c, cb){
+  c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
+  api('contact/' + c.id).then(function(r){ return r.json(); }).then(function(d){
+    if (d && d.summary) c.summaryObj = d.summary;
+    if (d) { c.restrictions = d.restrictions || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
+    cb(c, true);
+  }).catch(function(){ cb(c, false); });
+}
+function openPerson(id, sub){
+  var c = findClient(id); if (!c) { toast('Not in the client pipeline.'); return; }
+  var sh = openSheet(personSheet(c, {sub:sub}));
+  withDetails(c, function(cc, ok){ if (sh.closed) return; var html = personSheet(cc, {sub:sub}); sh.el.innerHTML = '<div class="grab"></div><button class="x" data-close aria-label="Close">' + ICON.x + '</button>' + html; });
+}
+function openPrep(id){
+  var c = DATA.calls.filter(function(x){ return x.id === id; })[0]; if (!c) return;
+  var sub = '<span class="kind ' + c.kind + '" style="margin:0">' + (c.kind === 'event' ? 'Event call' : 'Weekly service call') + '</span> &nbsp;' + esc(c.day) + ' at ' + esc(c.time);
+  if (c.contactId && findClient(c.contactId)) return openPerson(c.contactId, sub);
+  openSheet('<h3>' + esc(c.who) + '</h3><p class="sub">' + sub + '</p><div class="expect"><h4>In short</h4><p>' + esc(c.line) + '</p></div>' + factsHTML([['Came from', esc(c.from)], ['Phone', esc(nicePhone(c.phone))]]) + (c.phone ? '<div class="acts"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div>' : ''));
+}
+function openNew(id){
+  var n = (DATA ? DATA.newItems : []).filter(function(x){ return x.id === id; })[0]; if (!n) return;
+  if (readNew.indexOf(id) < 0) { readNew.push(id); store.set('read', readNew); }
+  openPerson(n.contactId, esc(n.kind === 'intake' ? 'New intake · ' + whenShort(n.when) : 'Signed the agreement · ' + whenShort(n.when)));
+  renderNew();
+}
+document.addEventListener('click', function(e){
+  var t;
+  if ((t = e.target.closest('[data-intake]'))) {
+    var c = findClient(t.dataset.intake), box = $('#rawbox', t.closest('.sheet')); if (!c || !box) return;
+    if (box.innerHTML) { box.innerHTML = ''; t.textContent = 'Read the full intake'; return; }
+    box.innerHTML = '<p class="skel">Loading…</p>';
+    function show(){ box.innerHTML = c.intake ? '<div class="raw">' + esc(c.intake) + '</div>' : '<p class="none">No intake form on file for this person.</p>'; t.textContent = 'Hide the intake'; }
+    if (c.intake !== undefined) show(); else withDetails(c, show);
+    return;
+  }
+  if ((t = e.target.closest('[data-summary]'))) {
+    t.setAttribute('aria-disabled', 'true'); t.textContent = 'Building…';
+    api('summary', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:t.dataset.summary})}).then(function(r){ return r.json(); }).then(function(d){
+      t.textContent = d && d.queued ? 'On its way. Reopen this card in a minute.' : (d && d.reason === 'no-intake' ? 'No intake form to summarize.' : 'Could not start it. Try again.');
+    }).catch(function(){ t.textContent = 'Could not start it. Try again.'; });
+  }
+});
+
+/* ---------------- assign a chef (her call) ---------------- */
+function confirmAssign(cid, chef, sel){
+  var w = findClient(cid); if (!w) return;
+  var sent = false, first = chef.split(' ')[0];
+  var sh = openSheet('<h3>Send to ' + esc(first) + '?</h3><p class="sub">' + esc(w.name) + '’s intake and 15-item menu go to ' + esc(chef) + ' by email, and ' + esc(first) + ' becomes their chef in GoHighLevel.</p>' +
+    factsHTML([['Household', esc(w.household)], ['Allergies', w.allergies.length ? algs(w.allergies) : (w.hasSummary ? 'None listed' : '')], ['Diet', esc(w.diet)], ['Wants', esc(w.wants)], ['Area', esc(w.area)]]) +
+    '<div class="acts"><button class="btn" data-send>Send intake and menu</button><button class="btn ghost-b" data-close>Cancel</button></div><p class="fine">Same as picking a chef in the Google Sheet. If the menu has not been built yet, nothing is sent and you will see a message.</p>',
+    function(){ if (!sent && sel) sel.value = ''; });
+  sh.el.querySelector('[data-send]').addEventListener('click', function(){
+    sent = true; sh.close();
+    pending[cid] = {chef:chef}; renderWaiting();
+    api('assign', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:cid, chef:chef, clientName:w.name})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
+      delete pending[cid];
+      if (x.d && x.d.ok) {
+        w.chef = chef; w.hasChef = true; w.waiting = false;
+        var ch = DATA.chefs.filter(function(c){ return c.name === chef; })[0]; if (ch) { if (ch.clients.indexOf(cid) < 0) ch.clients.push(cid); } else DATA.chefs.push({name:chef, clients:[cid]});
+        saveSnap(DATA); renderAll(); toast('Sent. ' + first + ' has ' + w.name + '’s intake and menu.');
+      } else if (x.d && x.d.reason === 'no-menu') { renderWaiting(); toast('No menu built yet for ' + w.name + '. Nothing was sent.', null, 6000); }
+      else { renderWaiting(); toast('Could not send. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); }
+    }).catch(function(e){ delete pending[cid]; renderWaiting(); if (e.message !== 'locked') toast('Could not send. Check your connection.'); });
+  });
+}
+document.addEventListener('change', function(e){
+  var sel = e.target.closest('select[data-assign]'); if (!sel || !sel.value) return;
+  confirmAssign(sel.dataset.assign, sel.value, sel);
+});
+
+/* ---------------- accordions ---------------- */
+function toggleAcc(li){
+  var body = li.querySelector('.acc-body'), btn = li.querySelector('.row'), open = !li.classList.contains('open');
+  btn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    li.classList.add('open'); if (RM) return;
+    var h = body.scrollHeight;
+    body.animate([{height:'0px', opacity:0},{height:h + 'px', opacity:1}], {duration:420, easing:EASE});
+    $$('dt, dd, .status, .quote, .acts', body).forEach(function(el, i){ el.animate([{opacity:0, transform:'translateY(6px)'},{opacity:1, transform:'none'}], {duration:300, delay:80 + i * 20, easing:'ease-out', fill:'backwards'}); });
+  } else {
+    if (RM) { li.classList.remove('open'); return; }
+    var a = body.animate([{height:body.offsetHeight + 'px', opacity:1},{height:'0px', opacity:0}], {duration:280, easing:EASE});
+    a.onfinish = function(){ li.classList.remove('open'); };
+  }
+}
+function toggleChef(li){
+  var body = li.querySelector('.chef-body'), names = $$('.cn', body), btn = li.querySelector('.chef-head');
+  var first = names.map(function(n){ return n.getBoundingClientRect(); }), h0 = body.offsetHeight;
+  var open = !li.classList.contains('open'); li.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open));
+  if (RM) return;
+  var h1 = body.offsetHeight, last = names.map(function(n){ return n.getBoundingClientRect(); });
+  body.animate([{height:h0 + 'px'},{height:h1 + 'px'}], {duration:520, easing:EASE});
+  names.forEach(function(n, i){
+    var dx = first[i].left - last[i].left, dy = first[i].top - last[i].top;
+    n.animate([{transform:'translate(' + dx + 'px,' + dy + 'px)'},{transform:'translate(0,0)'}], {duration:520, delay:open ? i * 45 : 0, easing:EASE, fill:'backwards'});
+  });
+  if (open) $$('.cmeta, .csub', body).forEach(function(m, i){ m.animate([{opacity:0, transform:'translateX(14px)'},{opacity:1, transform:'none'}], {duration:360, delay:220 + i * 35, easing:'ease-out', fill:'backwards'}); });
+}
+
+/* ---------------- full screens morphing out of a number box ---------------- */
+function clientRow(c){
+  var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
+  return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c)) + ' ' + algs(c.allergies) + '</span></button></li>';
+}
+function fullHTML(kind){
+  var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
+  if (kind === 'clients') {
+    var withChef = active(), noChef = clients().filter(function(c){ return !c.hasChef && !c.isNew; }), newer = clients().filter(function(c){ return c.isNew; });
+    return '<div class="full-h"><div><h3>Clients</h3><p>' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet</p></div>' + x + '</div>' +
+      '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
+      '<div class="day-h">With a chef</div><ul class="full-list">' + (withChef.length ? withChef.map(clientRow).join('') : '<li><p class="none">No one yet.</p></li>') + '</ul>' +
+      '<div class="day-h">Waiting for a chef</div><ul class="full-list">' + (noChef.length ? noChef.map(clientRow).join('') : '<li><p class="none">No one waiting.</p></li>') + '</ul>' +
+      '<div class="day-h">Intake received, not signed yet</div><ul class="full-list">' + (newer.length ? newer.map(clientRow).join('') : '<li><p class="none">Nobody pending.</p></li>') + '</ul>';
+  }
+  if (kind === 'waiting') {
+    return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +
+      '<div class="seg" role="tablist" aria-label="Show"><button role="tab" data-tab="wait" aria-selected="true">Waiting (<span id="tabwaitn">' + waitingList().length + '</span>)</button><button role="tab" data-tab="chefs" aria-selected="false">All chefs (' + chefNames().length + ')</button></div>' +
+      '<div class="tab-wait"><div class="full-list"></div></div>' +
+      '<div class="tab-chefs" hidden><p class="overview"><span id="chefsum"></span></p><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button></div>';
+  }
+  var upcoming = DATA ? DATA.calls.filter(function(c){ return c.dayKey >= DATA.today; }) : [];
+  var days = []; upcoming.forEach(function(c){ if (days.indexOf(c.day) < 0) days.push(c.day); });
+  return '<div class="full-h"><div><h3>Calls this week</h3><p>' + upcoming.length + ' booked · tap one to prepare</p></div>' + x + '</div>' +
+    (days.length ? days.map(function(d){ return '<div class="day-h">' + esc(d) + '</div><ul>' + upcoming.filter(function(c){ return c.day === d; }).map(callRow).join('') + '</ul>'; }).join('') : '<p class="none">No calls booked in the next 7 days.</p>');
+}
+function showTab(ov, tab){
+  if (!ov) return;
+  var chefs = tab === 'chefs', w = ov.querySelector('.tab-wait'), c = ov.querySelector('.tab-chefs');
+  ov.querySelectorAll('.seg [data-tab]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+  w.hidden = chefs; c.hidden = !chefs;
+  ov.querySelector('#fh3').textContent = chefs ? 'All chefs' : 'Waiting for a chef';
+  ov.querySelector('#fhp').textContent = chefs ? 'Who cooks for whom, from the Assigned Chef field in GoHighLevel.' : 'Pick a chef and their intake and menu go out.';
+  if (!RM) (chefs ? c : w).animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:280, easing:'ease-out'});
+}
+function clipFor(r){ return 'inset(' + r.top + 'px ' + (window.innerWidth - r.right) + 'px ' + (window.innerHeight - r.bottom) + 'px ' + r.left + 'px round 16px)'; }
+function openFull(kind, tile, tab){
+  if ($('.full') || !DATA) return;
+  var r = tile.getBoundingClientRect();
+  var ov = document.createElement('div'); ov.className = 'full'; ov.dataset.kind = kind; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+  ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
+  document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
+  if (kind === 'waiting') { renderWaiting(); renderChefs(); if (tab) showTab(ov, tab); }
+  if (!RM) {
+    ov.animate([{clipPath:clipFor(r), backgroundColor:getComputedStyle(tile).backgroundColor},{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor}], {duration:520, easing:EASE});
+    ov.querySelector('.full-in').animate([{opacity:0, transform:'translateY(18px)'},{opacity:1, transform:'none'}], {duration:360, delay:200, easing:'ease-out', fill:'backwards'});
+  }
+  var s = $('#csearch', ov);
+  if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); });
+  setTimeout(function(){ var b = ov.querySelector('[data-closefull]'); if (b) try { b.focus({preventScroll:true}); } catch(e) {} }, 60);
+}
+function closeFull(){
+  var ov = $('.full'); if (!ov || ov._closing) return; ov._closing = true;
+  function done(){ ov.remove(); if (!sheets.length) document.body.classList.remove('locked'); renderAll(); }
+  if (RM) return done();
+  var r = ov._tile.getBoundingClientRect();
+  ov.querySelector('.full-in').animate([{opacity:1},{opacity:0}], {duration:180, fill:'forwards'});
+  var a = ov.animate([{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor},{clipPath:clipFor(r), backgroundColor:getComputedStyle(ov._tile).backgroundColor}], {duration:440, easing:EASE, fill:'forwards'});
+  a.onfinish = done;
+}
+
+/* ---------------- notes: edit, done, swipe, archive ---------------- */
+function noteById(id){ return notes.filter(function(n){ return n.id === id; })[0]; }
+function finishNote(id, st, li){
+  var n = noteById(id); if (!n) return;
+  function apply(){
+    n.st = st;
+    notes = notes.filter(function(x){ return x.id !== id; }).concat([n]); saveNotes(); renderNotes();
+    toast(st === 'done' ? 'Done. Moved to the archive.' : 'Archived.', function(){ n.st = 'open'; notes = [n].concat(notes.filter(function(x){ return x.id !== id; })); saveNotes(); renderNotes(); });
+  }
+  if (RM || !li) return apply();
+  li.querySelector('.nmain').classList.add('doing');
+  var a = li.animate([{height:li.offsetHeight + 'px', opacity:1},{height:'0px', opacity:0}], {duration:360, delay:st === 'done' ? 260 : 0, easing:EASE, fill:'forwards'});
+  a.onfinish = apply;
+}
+var openSwipe = null, MAXS = 152;
+function settle(main, open){
+  main.style.transition = 'transform .28s ' + EASE; main.style.transform = open ? 'translateX(-' + MAXS + 'px)' : '';
+  var li = main.parentNode; li.classList.toggle('swiped', open);
+  if (open) { if (openSwipe && openSwipe !== main) settle(openSwipe, false); openSwipe = main; } else if (openSwipe === main) openSwipe = null;
+}
+function startEdit(li){
+  var t = li.querySelector('.ntext'), n = noteById(li.dataset.note); if (!t || !n) return;
+  t.contentEditable = 'true'; t.focus();
+  try { var rg = document.createRange(); rg.selectNodeContents(t); rg.collapse(false); var s = window.getSelection(); s.removeAllRanges(); s.addRange(rg); } catch(e) {}
+  function key(e){ if (e.key === 'Enter') { e.preventDefault(); t.blur(); } if (e.key === 'Escape') { t.textContent = n.text; t.blur(); } }
+  function end(){ t.removeEventListener('blur', end); t.removeEventListener('keydown', key); t.contentEditable = 'false'; var v = t.textContent.trim(); if (v) { n.text = v; saveNotes(); } else t.textContent = n.text; }
+  t.addEventListener('blur', end); t.addEventListener('keydown', key);
+}
+function bindSwipe(li){
+  var main = li.querySelector('.nmain'); if (!main) return;
+  var x0 = 0, y0 = 0, base = 0, dx = 0, active = false, lock = null;
+  main.addEventListener('pointerdown', function(e){
+    if (e.target.closest('.grip, .chk') || main.querySelector('[contenteditable="true"]')) return;
+    active = true; lock = null; x0 = e.clientX; y0 = e.clientY; base = li.classList.contains('swiped') ? -MAXS : 0; dx = base; main.style.transition = 'none';
+  });
+  main.addEventListener('pointermove', function(e){
+    if (!active) return;
+    var mx = e.clientX - x0, my = e.clientY - y0;
+    if (lock === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) { lock = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'; if (lock === 'x') { try { main.setPointerCapture(e.pointerId); } catch(_) {} } }
+    if (lock === 'x') { dx = Math.min(0, Math.max(-MAXS - 40, base + mx)); main.style.transform = 'translateX(' + dx + 'px)'; }
+  });
+  main.addEventListener('pointerup', function(){
+    if (!active) return; active = false;
+    if (lock === 'x') settle(main, dx < -MAXS / 2);
+    else if (lock === null) { if (li.classList.contains('swiped')) settle(main, false); else startEdit(li); }
+  });
+  main.addEventListener('pointercancel', function(){ if (!active) return; active = false; settle(main, lock === 'x' ? dx < -MAXS / 2 : li.classList.contains('swiped')); });
+}
+$('#notes').addEventListener('click', function(e){
+  var li = e.target.closest('li[data-note]'); if (!li) return;
+  if (e.target.closest('[data-check]') || e.target.closest('[data-done]')) finishNote(li.dataset.note, 'done', li);
+  else if (e.target.closest('[data-archive]')) finishNote(li.dataset.note, 'archived', li);
+});
+$('#arch').addEventListener('click', function(e){
+  var li = e.target.closest('li[data-note]'); if (!li) return; var id = li.dataset.note, n = noteById(id); if (!n) return;
+  if (e.target.closest('[data-restore]')) { n.st = 'open'; notes = [n].concat(notes.filter(function(x){ return x.id !== id; })); saveNotes(); renderNotes(); toast('Back in your notes.'); }
+  if (e.target.closest('[data-delete]')) { var idx = notes.indexOf(n); notes.splice(idx, 1); saveNotes(); renderNotes(); toast('Deleted.', function(){ notes.splice(idx, 0, n); saveNotes(); renderNotes(); }); }
+});
+$('#archtoggle').addEventListener('click', function(){ var a = $('#arch'); a.hidden = !a.hidden; renderNotes(); if (!a.hidden && !RM) a.animate([{opacity:0, transform:'translateY(-6px)'},{opacity:1, transform:'none'}], {duration:260, easing:EASE}); });
+$('#addnote').addEventListener('submit', function(e){
+  e.preventDefault(); var inp = $('#noteinput'), v = inp.value.trim(); if (!v) return;
+  var n = {id:'n' + Date.now(), text:v, from:'', st:'open'}; notes.unshift(n); saveNotes(); inp.value = ''; renderNotes();
+  var li = $('#notes li[data-note="' + n.id + '"]'); if (li && !RM) li.animate([{opacity:0, transform:'translateY(-8px)'},{opacity:1, transform:'none'}], {duration:300, easing:EASE});
+});
+
+/* ---------------- notifications + install ---------------- */
+var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var isMobile = isIOS || /Android/i.test(navigator.userAgent);
+var canPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function setBadge(n){ try { if (navigator.setAppBadge) { if (n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } } catch(e) {} }
+function b64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4), s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; }
+function installSteps(){
+  return isIOS ?
+    '<ol class="steps"><li><span>Open this page in <b>Safari</b>.</span></li><li><span>Tap the <b>Share</b> button (the square with the arrow).</span></li><li><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>' :
+    '<ol class="steps"><li><span>Open the browser menu (the three dots).</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>';
+}
+function openNotify(){
+  var granted = canPush && Notification.permission === 'granted', body;
+  if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add Nutrition Intuition to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
+  else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open Nutrition Intuition from your Home Screen (iOS 16.4 or newer).</p>';
+  else body = '<h3>Notifications</h3><p class="sub">Get a notification when a new intake comes in and when a client signs their agreement.</p>' +
+    '<div class="acts"><button class="btn" data-push>' + (granted ? 'Send me a test notification' : 'Turn on notifications') + '</button></div><p class="fine" id="pushmsg">' + (granted ? 'Notifications are on.' : 'Your phone will ask you to allow them.') + '</p>';
+  var sh = openSheet(body), b = sh.el.querySelector('[data-push]');
+  if (b) b.addEventListener('click', function(){
+    var msg = sh.el.querySelector('#pushmsg');
+    Notification.requestPermission().then(function(p){
+      if (p !== 'granted') { msg.textContent = 'Notifications are off. Turn them on in Settings, Notifications, Nutrition Intuition.'; return; }
+      $('#bell').classList.add('on'); msg.textContent = 'Setting up…';
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.getSubscription().then(function(s){ return s || reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToU8(VAPID_PUBLIC)}); });
+      }).then(function(sub){
+        return api('subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({subscription:sub, test:true})});
+      }).then(function(r){
+        msg.textContent = r.ok ? 'Done. A test notification arrives in a few seconds.' : 'Could not finish. Try again in a minute.';
+      });
+    }).catch(function(){ msg.textContent = 'Something went wrong turning on notifications. Try again.'; });
+  });
+}
+$('#bell').addEventListener('click', openNotify);
+if (canPush && Notification.permission === 'granted') $('#bell').classList.add('on');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function(){});
+
+/* ---------------- global clicks ---------------- */
+document.addEventListener('click', function(e){
+  var t;
+  if ((t = e.target.closest('[data-closefull]'))) return closeFull();
+  if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
+  if ((t = e.target.closest('.seg [data-tab]'))) return showTab(t.closest('.full'), t.dataset.tab);
+  if ((t = e.target.closest('[data-openfull]'))) return openFull(t.dataset.openfull, $('.tile[data-full="' + t.dataset.openfull + '"]'), t.dataset.tab);
+  if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }
+  if ((t = e.target.closest('[data-new]'))) return openNew(t.dataset.new);
+  if ((t = e.target.closest('[data-call]'))) return openPrep(t.dataset.call);
+  if ((t = e.target.closest('button.chef-head'))) return toggleChef(t.closest('.chef'));
+  if ((t = e.target.closest('.cl'))) { var chef = t.closest('.chef'); if (!chef.classList.contains('open')) return toggleChef(chef); return openPerson(t.dataset.client); }
+  if ((t = e.target.closest('[data-client]'))) return openPerson(t.dataset.client);
+  if ((t = e.target.closest('[data-acc] > .row'))) return toggleAcc(t.parentNode);
+  if ((t = e.target.closest('#lockbtn'))) return lock();
+  if (openSwipe && !e.target.closest('#notes')) settle(openSwipe, false);
+});
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  if (sheets.length) sheets[sheets.length - 1].close(); else if ($('.full')) closeFull();
+});
+
+/* ---------------- start ---------------- */
+if (!KEY) { store.del('snap'); DATA = null; renderAll(); showLock(); }
+else { renderAll(); loadSnap().then(function(d){ if (d && !DATA) { DATA = d; renderAll(); } load(false); }); }
+try { var op = new URLSearchParams(location.search).get('open'); if (op && KEY) setTimeout(function(){ if (findClient(op)) openPerson(op); }, 900); } catch(e) {}
+})();
+</script>
+</body>
+</html>

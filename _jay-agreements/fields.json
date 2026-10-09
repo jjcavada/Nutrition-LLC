@@ -1,0 +1,46 @@
+[
+ {
+  "type": "signature",
+  "api_id": "dev_sig",
+  "recipient_id": "2",
+  "page": 4,
+  "required": true,
+  "x": 244.0,
+  "y": 157.3,
+  "width": 320,
+  "height": 40
+ },
+ {
+  "type": "date",
+  "api_id": "dev_date",
+  "recipient_id": "2",
+  "page": 4,
+  "required": true,
+  "x": 244.0,
+  "y": 246.6,
+  "width": 200,
+  "height": 32
+ },
+ {
+  "type": "signature",
+  "api_id": "client_sig",
+  "recipient_id": "1",
+  "page": 4,
+  "required": true,
+  "x": 244.0,
+  "y": 347.4,
+  "width": 320,
+  "height": 40
+ },
+ {
+  "type": "date",
+  "api_id": "client_date",
+  "recipient_id": "1",
+  "page": 4,
+  "required": true,
+  "x": 244.0,
+  "y": 475.0,
+  "width": 200,
+  "height": 32
+ }
+]

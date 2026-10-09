@@ -820,6 +820,18 @@ All automation steps running (QB customer, menu, consultation invite).
 - Phase 3 (4082143) module 11 POSTs every new menu to the sheet web app -> row appears as **Pending: pick a chef**.
 - Picking a chef in col E -> installable onEdit -> POST Make hook `u61w8d7yp6wl7eu4bs68ggezde6p8uwa` (scenario **6116697**) -> chef gets newest menu + intake, GHL Assigned Chef written back, CRM note. Make replies 200 "sent" / 409 "no-menu" synchronously and the Status cell reflects it.
 - Test chef "JJ Cavada (test)" -> jjcavada1@gmail.com exists in BOTH the sheet CHEFS list and Make 6116697 module 5. Remove both when Amber is live.
+- **2026-10-09 (NI Today app):** the app's chef dropdown POSTs the same hook with `{contactId, opportunityId, chefName, clientName, source:"NI Today app"}`.
+  `opportunityId` matters: module 3 (`listOpportunities limit 1`) otherwise picks an arbitrary opportunity when a contact has several (ZZTEST has 4
+  abandoned ones). Module 15 (PUT Assigned Chef) had a bare `Resume` handler = invisible failure; it now emails a WARNING to jjcavada1 + Resume.
+  The app also writes the Assigned Chef field itself after Make answers `sent` (backstop). 9 clients whose chef was picked in the sheet but never
+  landed in GHL (Monroe Peters, Rebecca Patterson, Stacie Olson, Cambrielle Lee, Hillary Walsh, Tracey Hott, Lucy Caldwell, Marcia Bower,
+  ashley walker) were written by API on 2026-10-09; cause unknown (Make keeps no module I/O for this org: `executions_get-detail` returns only
+  `{status}`). GHL accepts ANY string on the SINGLE_OPTIONS field via API (no option validation) and `opportunities/search` returns the field
+  without values: verify with `GET /opportunities/{id}`.
+  Module 11 now sends the chef the NEWEST intake note (`sort desc`), matching the app's summary; it used to send the oldest (3 real clients
+  have two intake notes).
+- **Week-1 check-in 5313458 ("First QB Invoice -> AI Check-in Draft + Amber Review") DEACTIVATED 2026-10-09** at Amber's request (her Granola
+  notes: "turn off the one-week follow-up triggered by first invoice, not used, just noise"; she texts clients herself). Reactivate only if she asks.
 - Web app URL: https://script.google.com/macros/s/AKfycbwn0gZIYZ66ERlfpS3QK5pD_8nt0YjG34YXD8GPMdEC-mmDfbQxZynj4lRq79Byv4YR8g/exec (Version 2). Code change => new version deploy required.
 
 
@@ -835,6 +847,16 @@ All automation steps running (QB customer, menu, consultation invite).
 - Route B (general): 20 upsert tags general_inquiry/website_lead → 21 email Amber → 22 auto-reply → 23 note → 24 WebhookRespond `general-ok`.
 - Website intake goes to Phase 1 (4082106) hook directly with Google-Form-shaped field names; Phase 1 unchanged.
 - All modules onerror → jjcavada1@gmail.com. SignWell API key in module 11 (same cleartext pattern as Phase 1 module 5).
+
+### 2026-10-09 changes (Amber's Granola notes: "overwhelming, one spot, streamline")
+- **Online event form REMOVED from the website** (`website/src/pages/events.html`, commit a92583a, live): the events page keeps the
+  planning-call booking (event calendar vj3iEVtjT9BNAnlUhKcW) and points to the contact form / phone. Amber plans every event in a
+  conversation and shows no contract until after the call. The scenario's event route (modules 10-15) stays as is but nothing feeds it;
+  `functions/submit.js` still accepts formType `event` (harmless).
+- **Amber's notification emails restyled (modules 12 + 21)**: plain paragraphs, no tables or background colours, subject in a human
+  voice ("<Name> wrote in about <interest>"), the client's email in the body. Reason: the old HTML-table design landed in her
+  spam/clutter, so Serif (her AI reply drafter) never saw it. If they still miss the inbox, Amber adds one Gmail filter:
+  from amber@nutritionintuitionaz.com + subject "wrote in about" -> never spam, mark important, category Primary.
 
 ## Website - Chef Profile Invite (from Amber's Gmail) — scenario **6248559**, hook 2805116 (`oln32bt9xtlvvvxvjxwdja69jgffhpsl`) — LIVE 2026-09-12, invites SENT
 - Purpose: one email per chef asking for their Meet-the-Team profile through the Google Form `https://docs.google.com/forms/d/e/1FAIpQLScefoQPWwYx0dYVL8ZDijynSBKyV2Q9DTvoSi53nTkkUzwT7A/viewform`.
@@ -875,5 +897,32 @@ All automation steps running (QB customer, menu, consultation invite).
   **NOT yet proven: the live Phase 1 / Phase 2 -> hook call** (each costs a SignWell API document); next real client = proof.
 - Manual re-fire: POST the hook with the same payload (an intake re-fire needs `noteId`; the Phase 1 WARNING email carries it). Test/clean-up
   pattern: one-off scenario with `google-sheets:deleteRow` (needs the gid, `rpcSheet ids:true`) + `google-drive:deleteAFile select1=folder`.
-- Pending (Jay's go): backfill the ~27 existing clients (SignWell GETs only), send Amber the folder + sheet links, optionally file event
+- **v2.2 (2026-10-09, for the NI Today app):** contact fields added: Intake PDF `csbNizYuKmZSCnX0LGTi`, Contract PDF `RObNXllAxeU13ZMm8B28`,
+  Intake Note ID `a01ozxZ8Jb3P2QXEo9Jx`, Intake Summary `foroSVzzgtaKlbueyGZt` (LARGE_TEXT, **base64 of the JSON** because Make cannot
+  JSON-escape free text; the app decodes). Routes A/B also run `openai-gpt-3:CreateCompletion` (gpt-4o, chat, temp 0.2, JSON keys line /
+  summary / expect[3] / household / allergies[] / diet / wants / area / from / said; fail-soft WARNING + Resume) and POST
+  `https://ni-today.netlify.app/api/notify` (web push, fail-soft); routes C/D write Contract PDF and POST notify. New **route F** `event=summary`
+  (payload `{event:"summary", contactId, fullName, email, noteId}`) = summary + note id only; used by the app's `POST /api/summary` and the
+  2026-10-09 backfill of every live client. Route E now also catches `summary` without an intake note. Generator: session scratch `gen6.py`
+  (43 modules, 6 routes); if the Netlify site is renamed again the three notify URLs (modules 29/47/57) must be re-pushed.
+- **Backfill DONE 2026-10-09:** 45 live clients -> folder + intake PDF + row (+ summary), 31 contracts via the Phase 2 note's `Document ID` (34 fired; 3 ids are 404 in SignWell = deleted documents: Amanda Graff,
+  ashley walker, Jennifer Walters, each raised the module 40 ERROR email); 9 more signed clients have no document id in GHL at all (listed
+  in hub memory `ni-drive-records.md`). Those 12 contracts are not in Drive and need a manual lookup. Zero failed/warning runs (alerts + Commit by design).
+- Pending: send Amber the folder + sheet links, optionally file event
   agreements (6191114) the same way. Ops: ~13 per new intake + 13 per signing.
+
+## NI Today app (Amber's phone dashboard) — https://ni-today.netlify.app — LIVE 2026-10-09
+- Netlify site 27c28d65-75e2-4577-a301-ef468d4be8ad (renamed from amber-dashboard-preview 2026-10-09; the old subdomain is dead). Source
+  `dashboard/simple` (`public/index.html` PWA + `netlify/functions/api.mjs`; git-ignored `netlify/functions/config.secret.json` = GHL PIT,
+  pipeline/stage map, calendars, chef roster, hook URLs, salt, passcode hash, notify secret, VAPID keys). Passcode/salt/notify secret in hub
+  `_credentials/NI_TODAY_APP.md`. Deploy from `dashboard/simple`: `npx netlify deploy --prod --dir=public --functions=netlify/functions --site=27c28d65-...`
+  (Netlify PAT from hub `_credentials/GHL.md`, absolute path; never `--dir=.`).
+- Browser -> `/api/*` only (header `X-NI-Key` = sha256(salt+passcode)); GHL never reached from the browser. `GET /api/today[?fresh=1]`
+  (snapshot cached 120 s in memory + Netlify Blobs `ni-cache`): clients = pipeline t6tPDiRCfcKiVr7vUkxW opportunities not lost/abandoned
+  (stage -> new/signed/menu/consult/waitlist/assigned), chef = opportunity field a92gzVh8Ukz7gkvRKf03 (GET /opportunities/{id}, cached by
+  updatedAt), calls = `GET /calendars/events?userId=FXhRBT40lYMaDBbHEEmJ` (weekly wtbOuayfIZ6DycweJDSE / event vj3iEVtjT9BNAnlUhKcW),
+  summaries/PDF links from the contact fields above, events = WEBSITE EVENT INQUIRY notes. `GET /api/contact/{id}` (intake text by stored
+  note id, else newest note that STARTS with `=== INTAKE FORM DATA ===`), `POST /api/assign` (-> 6116697 hook + field backstop),
+  `POST /api/summary` (-> 6561132 route F), `POST /api/subscribe` (Blobs `ni-push`), `POST /api/notify {secret,title,body,url}` (web-push to
+  every subscription, called by Make), `POST /api/unlock`.
+- Contract + inspection: `VALIDATION_CONTRACT_ni-today-app.md`. Part A of the 2026-10-09 Services Agreement (SignWell b4160562...).

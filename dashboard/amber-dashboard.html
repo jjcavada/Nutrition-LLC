@@ -1,0 +1,343 @@
+<title>Amber's Kitchen Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen "day desk" for a personal-chef business. Header + five vitals, then two rows of three panels:
+   what needs Amber / calls / events, then client journey / chefs / notes. Nutrition Intuition brand tokens. */
+:root{
+  --bg:#FBF8F1; --surface:#FFFFFF; --sunk:#F5EFE3; --line:#E6DDC8; --line-soft:#EFE8D8;
+  --fg:#2E352A; --heading:#3E4736; --muted:#6B7363; --faint:#959C8A;
+  --weekly:#5F8F3A; --weekly-bg:#E7F0DB; --event:#B5552F; --event-bg:#F7E3D8;
+  --warn:#A8700F; --warn-bg:#FBEFD6; --good:#4F7F33; --good-bg:#E4EFD8; --crit:#A24E2B; --crit-bg:#F6E1D6;
+  --accent:#3E4736; --accent-fg:#FBF8F1; --focus:rgba(127,165,87,.45);
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --text:"Figtree", ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --r:14px; --r-sm:9px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#161A13; --surface:#1E241A; --sunk:#252C20; --line:#343C2C; --line-soft:#2B3224;
+  --fg:#ECE7DA; --heading:#F3EEE2; --muted:#A6AD9A; --faint:#7D8571;
+  --weekly:#A7CF7E; --weekly-bg:#2C3A21; --event:#EE9671; --event-bg:#3D2A20;
+  --warn:#E8B95A; --warn-bg:#3A301B; --good:#A7CF7E; --good-bg:#2C3A21; --crit:#EE9671; --crit-bg:#3D2A20;
+  --accent:#DCE8C8; --accent-fg:#1A1F16; --focus:rgba(167,207,126,.45); color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#161A13; --surface:#1E241A; --sunk:#252C20; --line:#343C2C; --line-soft:#2B3224;
+  --fg:#ECE7DA; --heading:#F3EEE2; --muted:#A6AD9A; --faint:#7D8571;
+  --weekly:#A7CF7E; --weekly-bg:#2C3A21; --event:#EE9671; --event-bg:#3D2A20;
+  --warn:#E8B95A; --warn-bg:#3A301B; --good:#A7CF7E; --good-bg:#2C3A21; --crit:#EE9671; --crit-bg:#3D2A20;
+  --accent:#DCE8C8; --accent-fg:#1A1F16; --focus:rgba(167,207,126,.45); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 14px/1.5 var(--text);margin:0;-webkit-font-smoothing:antialiased}
+.desk{max-width:1440px;margin:0 auto;padding-block:20px 36px;padding-inline:clamp(16px,2.4vw,32px);display:grid;gap:16px}
+h1,h2{font-family:var(--display);font-weight:400;color:var(--heading);margin:0;text-wrap:balance}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.top h1{font-size:clamp(26px,3vw,34px);line-height:1.1;letter-spacing:-.01em}
+.top h1 em{font-style:italic;color:var(--weekly)}
+.top .sub{color:var(--muted);margin-top:4px}
+.preview{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:var(--sunk);border:1px solid var(--line);padding:6px 12px;border-radius:999px}
+.preview i{width:7px;height:7px;border-radius:50%;background:var(--warn);display:inline-block}
+
+/* vitals */
+.vitals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vital{background:var(--surface);padding:14px 18px;display:grid;gap:2px;min-width:0}
+.vital .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.vital .v{font-family:var(--display);font-size:30px;line-height:1.15;color:var(--heading)}
+.vital .d{font-size:12.5px;color:var(--muted)}
+.vital.warn .v{color:var(--warn)}
+.vital.warn .d{color:var(--warn)}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px 14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel.attn{background:var(--sunk)}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ph h2{font-size:20px}
+.ph .meta{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.list{list-style:none;margin:0;padding:0;display:grid}
+.list>li{display:grid;gap:2px;padding:10px 0;border-top:1px solid var(--line-soft);min-width:0}
+.list>li:first-child{border-top:0;padding-top:2px}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.grow{flex:1;min-width:0}
+.name{font-weight:600;color:var(--heading)}
+.small{font-size:12.5px;color:var(--muted)}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill.weekly{background:var(--weekly-bg);color:var(--weekly)}
+.pill.event{background:var(--event-bg);color:var(--event)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.crit{background:var(--crit-bg);color:var(--crit)}
+.pill.plain{background:var(--sunk);color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.weekly{background:var(--weekly)} .dot.event{background:var(--event)}
+
+/* needs you */
+.todo{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:start}
+.sev{width:9px;height:9px;border-radius:50%;margin-top:6px}
+.sev.crit{background:var(--crit)} .sev.warn{background:var(--warn)} .sev.info{background:var(--faint)}
+.act{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--heading)}
+.act:hover{border-color:var(--weekly)}
+
+/* calls */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.day{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:10px 0 2px;border-top:1px solid var(--line-soft)}
+.day:first-child{border-top:0;padding-top:0}
+.call{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:7px 0}
+.call .t{font-weight:600;color:var(--heading);font-size:13px}
+.call.today .t{color:var(--weekly)}
+
+/* events */
+.ev{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:start}
+.cal{border:1px solid var(--line);border-radius:var(--r-sm);text-align:center;padding:4px 0 5px;background:var(--bg)}
+.cal b{display:block;font-family:var(--display);font-weight:500;font-size:20px;line-height:1.1;color:var(--heading)}
+.cal span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--event);font-weight:700}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+
+/* journey */
+.stages{display:grid;gap:7px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:4px 10px;align-items:center}
+.stage .lbl{font-size:13px;display:flex;gap:6px;align-items:center;min-width:0}
+.stage .n{text-align:right;font-weight:700;color:var(--heading)}
+.bar{grid-column:1 / -1;height:6px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--weekly);border-radius:99px}
+.stage.hot .bar i{background:var(--warn)}
+.stage.hot .n{color:var(--warn)}
+.month{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px solid var(--line-soft);padding-top:12px;margin-top:auto}
+.month div{display:grid}
+.month b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--heading)}
+
+/* chefs */
+.wait{background:var(--warn-bg);border-radius:var(--r-sm);padding:10px 12px;display:grid;gap:6px}
+.wait .h{font-weight:700;color:var(--warn);font-size:12.5px;letter-spacing:.02em}
+.wait ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.wait li{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.chefs{width:100%;border-collapse:collapse;font-size:13px}
+.chefs th{text-align:left;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:0 0 6px}
+.chefs td{padding:6px 0;border-top:1px solid var(--line-soft);vertical-align:middle}
+.chefs td.c{text-align:center;width:56px}
+.chefs td.s{text-align:right}
+.tablewrap{overflow-x:auto}
+
+/* notes */
+.note .when{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.note q{quotes:none;color:var(--fg)}
+
+/* wishlist */
+.wish{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:18px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr);gap:16px 28px;align-items:start}
+.wish h2{font-size:22px}
+.wish p{margin:6px 0 0;color:var(--muted);max-width:52ch}
+.ideas{display:flex;flex-wrap:wrap;gap:8px}
+.idea{position:relative}
+.idea input{position:absolute;opacity:0;width:1px;height:1px}
+.idea span{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:13px;cursor:pointer;background:var(--bg)}
+.idea input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.idea input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
+.wishform{display:grid;gap:10px}
+.wishform textarea{width:100%;min-height:62px;resize:vertical;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font:inherit;background:var(--bg);color:var(--fg)}
+.wishrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:0;border-radius:999px;padding:9px 18px;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accent-fg)}
+.foot{font-size:12.5px;color:var(--faint);text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-fg);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);max-width:calc(100% - 32px)}
+
+@media (max-width:1180px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .vitals{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media (max-width:720px){ .grid{grid-template-columns:minmax(0,1fr)} .vitals{grid-template-columns:repeat(2,minmax(0,1fr))} .wish{grid-template-columns:minmax(0,1fr)} .vital .v{font-size:26px} }
+@media (prefers-reduced-motion:no-preference){ .act,.chip,.idea span{transition:background-color .15s,border-color .15s,color .15s} }
+</style>
+
+<main class="desk">
+  <header class="top">
+    <div>
+      <h1>Good morning, <em>Amber.</em></h1>
+      <div class="sub">Friday, October 2 &middot; Scottsdale, Paradise Valley and Phoenix</div>
+    </div>
+    <span class="preview"><i></i>Preview with sample clients. Your live numbers plug in here.</span>
+  </header>
+
+  <section class="vitals" aria-label="Your business today">
+    <div class="vital"><span class="k">Weekly clients</span><span class="v num">18</span><span class="d">+2 since September</span></div>
+    <div class="vital"><span class="k">Calls this week</span><span class="v num">6</span><span class="d">4 weekly &middot; 2 event</span></div>
+    <div class="vital"><span class="k">Events, next 30 days</span><span class="v num">3</span><span class="d">48 guests in total</span></div>
+    <div class="vital warn"><span class="k">Waiting for a chef</span><span class="v num">3</span><span class="d">Longest wait: 9 days</span></div>
+    <div class="vital warn"><span class="k">Agreements out</span><span class="v num">2</span><span class="d">Not signed yet</span></div>
+  </section>
+
+  <div class="grid">
+    <!-- 1. Needs you -->
+    <section class="panel attn" aria-labelledby="h-need">
+      <div class="ph"><h2 id="h-need">Needs you today</h2><span class="meta">5 items</span></div>
+      <ul class="list">
+        <li class="todo"><span class="sev crit"></span><div><div class="name">Bennett family has waited 9 days for a chef</div><div class="small">Scottsdale &middot; gluten-free &middot; 2 visits a week</div></div><button class="act" data-msg="In the live version this opens the Bennett family with chefs who are free on their days.">Assign</button></li>
+        <li class="todo"><span class="sev warn"></span><div><div class="name">Megan Hall hasn't signed her agreement</div><div class="small">Sent 4 days ago</div></div><button class="act" data-msg="In the live version this resends the signing link from your email.">Resend</button></li>
+        <li class="todo"><span class="sev warn"></span><div><div class="name">Patel baby shower agreement is a draft</div><div class="small">Planning call was yesterday &middot; Oct 17, 24 guests</div></div><button class="act" data-msg="In the live version this opens the draft so you can send it.">Open</button></li>
+        <li class="todo"><span class="sev info"></span><div><div class="name">Lauren Kim sent an intake, no call yet</div><div class="small">2 days ago &middot; family of 3, nut allergy</div></div><button class="act" data-msg="In the live version this sends Lauren your weekly call link.">Send link</button></li>
+        <li class="todo"><span class="sev info"></span><div><div class="name">Brooks family invoice is 6 days overdue</div><div class="small">Invoice 1042 &middot; QuickBooks</div></div><button class="act" data-msg="In the live version this opens the invoice in QuickBooks.">View</button></li>
+      </ul>
+    </section>
+
+    <!-- 2. Calls -->
+    <section class="panel" aria-labelledby="h-calls">
+      <div class="ph"><h2 id="h-calls">Calls this week</h2>
+        <div class="chips" role="group" aria-label="Filter calls">
+          <button class="chip" id="f-all" data-f="all" aria-pressed="true">All</button>
+          <button class="chip" id="f-weekly" data-f="weekly" aria-pressed="false">Weekly</button>
+          <button class="chip" id="f-event" data-f="event" aria-pressed="false">Event</button>
+        </div>
+      </div>
+      <div id="calls">
+        <div class="day">Today</div>
+        <div class="call today" data-type="event"><span class="t num">11:00 AM</span><div class="grow"><div class="row"><span class="name trunc">Rachel Torres</span><span class="pill event">Event call</span></div><div class="small">Wellness retreat weekend, Jan 30 to 31, about 8 guests</div></div></div>
+        <div class="call today" data-type="weekly"><span class="t num">2:00 PM</span><div class="grow"><div class="row"><span class="name trunc">Megan Hall</span><span class="pill weekly">Weekly service</span></div><div class="small">Family of 4, gluten-free, wants 2 visits a week</div></div></div>
+        <div class="day">Monday</div>
+        <div class="call" data-type="weekly"><span class="t num">12:30 PM</span><div class="grow"><div class="row"><span class="name trunc">Dana Whitfield</span><span class="pill weekly">Weekly service</span></div><div class="small">Postpartum meals, dairy-free</div></div></div>
+        <div class="day">Wednesday</div>
+        <div class="call" data-type="weekly"><span class="t num">1:30 PM</span><div class="grow"><div class="row"><span class="name trunc">Olivia Grant</span><span class="pill weekly">Weekly service</span></div><div class="small">Intake done &middot; high-protein, training for a marathon</div></div></div>
+        <div class="call" data-type="weekly"><span class="t num">2:00 PM</span><div class="grow"><div class="row"><span class="name trunc">Priya Shah</span><span class="pill weekly">Weekly service</span></div><div class="small">Signed &middot; first cook the week of Oct 19</div></div></div>
+        <div class="day">Friday</div>
+        <div class="call" data-type="event"><span class="t num">12:00 PM</span><div class="grow"><div class="row"><span class="name trunc">Lauren Brooks</span><span class="pill event">Event call</span></div><div class="small">40th birthday dinner, 12 guests, Paradise Valley</div></div></div>
+      </div>
+    </section>
+
+    <!-- 3. Events -->
+    <section class="panel" aria-labelledby="h-events">
+      <div class="ph"><h2 id="h-events">Upcoming events</h2><span class="meta">Next 30 days</span></div>
+      <ul class="list">
+        <li class="ev"><div class="cal"><span>Oct</span><b class="num">10</b></div><div class="grow"><div class="name">Intimate dinner, Whitmore home</div><div class="small">10 guests &middot; Paradise Valley &middot; Chef Josh Hebert</div><div class="tags"><span class="pill good">Agreement signed</span><span class="pill good">Deposit paid</span></div></div></li>
+        <li class="ev"><div class="cal"><span>Oct</span><b class="num">17</b></div><div class="grow"><div class="name">Patel baby shower</div><div class="small">24 guests &middot; Scottsdale &middot; No chef yet</div><div class="tags"><span class="pill warn">Agreement draft</span><span class="pill crit">Needs a chef</span></div></div></li>
+        <li class="ev"><div class="cal"><span>Oct</span><b class="num">31</b></div><div class="grow"><div class="name">Halloween dinner party, Reyes home</div><div class="small">14 guests &middot; Phoenix &middot; Chef Ziggy Bristol</div><div class="tags"><span class="pill good">Agreement signed</span><span class="pill plain">Menu sent</span></div></div></li>
+      </ul>
+    </section>
+
+    <!-- 4. Client journey -->
+    <section class="panel" aria-labelledby="h-journey">
+      <div class="ph"><h2 id="h-journey">Client journey</h2><span class="meta">Weekly clients</span></div>
+      <div class="stages" id="stages"></div>
+      <div class="month">
+        <div><span class="small">New leads in Sept</span><b class="num">9</b></div>
+        <div><span class="small">Became clients</span><b class="num">4</b></div>
+        <div><span class="small">Invoiced in Sept</span><b class="num">$14,850</b></div>
+      </div>
+    </section>
+
+    <!-- 5. Chefs -->
+    <section class="panel" aria-labelledby="h-chefs">
+      <div class="ph"><h2 id="h-chefs">Chefs</h2><span class="meta">17 on the team</span></div>
+      <div class="wait">
+        <span class="h">Waiting for a chef</span>
+        <ul>
+          <li><span>Bennett family &middot; Scottsdale</span><span class="num">9 days</span></li>
+          <li><span>Morales &middot; Phoenix</span><span class="num">5 days</span></li>
+          <li><span>Carter &middot; Paradise Valley</span><span class="num">2 days</span></li>
+        </ul>
+        <span class="small">Closest match: Nina Anthony is free Tuesdays and Thursdays near Scottsdale.</span>
+      </div>
+      <div class="tablewrap">
+        <table class="chefs">
+          <thead><tr><th scope="col">Chef</th><th scope="col" class="c">Clients</th><th scope="col" class="s">This week</th></tr></thead>
+          <tbody>
+            <tr><td>Hannah Arneson</td><td class="c num">3</td><td class="s"><span class="pill plain">Full</span></td></tr>
+            <tr><td>Matt Dewey</td><td class="c num">3</td><td class="s"><span class="pill plain">Full</span></td></tr>
+            <tr><td>Josh Hebert</td><td class="c num">2</td><td class="s"><span class="pill event">Event Oct 10</span></td></tr>
+            <tr><td>Nina Anthony</td><td class="c num">2</td><td class="s"><span class="pill good">Open Tue, Thu</span></td></tr>
+            <tr><td>Christian Salem</td><td class="c num">2</td><td class="s"><span class="pill good">Open Fri</span></td></tr>
+            <tr><td>Vi Nguyen</td><td class="c num">1</td><td class="s"><span class="pill good">Open 3 days</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. Notes -->
+    <section class="panel" aria-labelledby="h-notes">
+      <div class="ph"><h2 id="h-notes">Latest notes</h2><span class="meta">From your CRM</span></div>
+      <ul class="list">
+        <li class="note"><div class="row"><span class="when">9:42 AM</span><span class="pill weekly">Intake</span></div><div><span class="name">Lauren Kim</span> &middot; family of 3, nut allergy, loves Mediterranean</div></li>
+        <li class="note"><div class="row"><span class="when">8:15 AM</span><span class="pill good">Signed</span></div><div><span class="name">Priya Shah</span> signed her weekly agreement</div></li>
+        <li class="note"><div class="row"><span class="when">Yesterday</span><span class="pill event">Event inquiry</span></div><div><span class="name">Rachel Torres</span> &middot; wellness retreat, lunch and dinner both days</div></li>
+        <li class="note"><div class="row"><span class="when">Yesterday</span><span class="pill plain">Chef note</span></div><div><span class="name">Hannah Arneson:</span> <q>The Bakers loved the salmon. Swap quinoa for rice next week.</q></div></li>
+        <li class="note"><div class="row"><span class="when">Sep 30</span><span class="pill plain">Call booked</span></div><div><span class="name">Megan Hall</span> &middot; weekly service call, today at 2:00 PM</div></li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="wish" aria-labelledby="h-wish">
+    <div>
+      <h2 id="h-wish">Make it yours</h2>
+      <p>This is a starting point. Tick anything you would want on your own dashboard, add your own ideas, then copy your list and text it to Jay.</p>
+    </div>
+    <form class="wishform" id="wishform">
+      <div class="ideas" role="group" aria-label="Dashboard ideas">
+        <label class="idea"><input type="checkbox" id="w1" value="Grocery spend per client"><span>Grocery spend per client</span></label>
+        <label class="idea"><input type="checkbox" id="w2" value="Chef hours and pay"><span>Chef hours and pay</span></label>
+        <label class="idea"><input type="checkbox" id="w3" value="Client birthdays and anniversaries"><span>Client birthdays and anniversaries</span></label>
+        <label class="idea"><input type="checkbox" id="w4" value="Allergies at a glance"><span>Allergies at a glance</span></label>
+        <label class="idea"><input type="checkbox" id="w5" value="Reviews and referrals"><span>Reviews and referrals</span></label>
+        <label class="idea"><input type="checkbox" id="w6" value="Monthly revenue"><span>Monthly revenue</span></label>
+        <label class="idea"><input type="checkbox" id="w7" value="Menus sent this week"><span>Menus sent this week</span></label>
+        <label class="idea"><input type="checkbox" id="w8" value="Open it on my phone"><span>Open it on my phone</span></label>
+      </div>
+      <label class="small" for="wnote">Anything else you would love to see?</label>
+      <textarea id="wnote" placeholder="For example: which chefs are free next week"></textarea>
+      <div class="wishrow"><button class="btn" type="submit">Copy my list</button><span class="small" id="wishstate" aria-live="polite"></span></div>
+    </form>
+  </section>
+
+  <p class="foot">Sample clients for the preview. The live version reads your calendars, contacts and notes, SignWell and QuickBooks.</p>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+  // client journey (sample counts on Amber's real pipeline stages)
+  var stages = [["New lead",4],["Agreement signed",2],["15-item menu",3],["Consultation",2],["Waitlist, needs a chef",3,1],["Meet and greet",1],["Shopping list sent",1],["Active",18]];
+  var max = Math.max.apply(null, stages.map(function(s){return s[1];}));
+  document.getElementById('stages').innerHTML = stages.map(function(s){
+    return '<div class="stage'+(s[2]?' hot':'')+'"><span class="lbl">'+s[0]+'</span><span class="n num">'+s[1]+'</span><span class="bar"><i style="width:'+Math.max(4,Math.round(s[1]/max*100))+'%"></i></span></div>';
+  }).join('');
+
+  // toast for preview actions
+  var toast = document.getElementById('toast'), tt;
+  function say(m){ toast.textContent = m; toast.hidden = false; clearTimeout(tt); tt = setTimeout(function(){ toast.hidden = true; }, 3200); }
+  document.querySelectorAll('.act').forEach(function(b){ b.addEventListener('click', function(){ say(b.dataset.msg); }); });
+
+  // call filter
+  var chips = document.querySelectorAll('.chip');
+  function filter(f){
+    chips.forEach(function(c){ c.setAttribute('aria-pressed', String(c.dataset.f === f)); });
+    var calls = document.querySelectorAll('#calls .call');
+    calls.forEach(function(c){ c.hidden = !(f === 'all' || c.dataset.type === f); });
+    document.querySelectorAll('#calls .day').forEach(function(d){
+      var n = d.nextElementSibling, any = false;
+      while (n && !n.classList.contains('day')) { if (!n.hidden) any = true; n = n.nextElementSibling; }
+      d.hidden = !any;
+    });
+    try { localStorage.setItem('ni-desk-filter', f); } catch(e) {}
+  }
+  chips.forEach(function(c){ c.addEventListener('click', function(){ filter(c.dataset.f); }); });
+  try { var saved = localStorage.getItem('ni-desk-filter'); if (saved) filter(saved); } catch(e) {}
+
+  // wishlist: copy as a text message
+  var form = document.getElementById('wishform'), state = document.getElementById('wishstate'), note = document.getElementById('wnote');
+  try { var d = JSON.parse(localStorage.getItem('ni-desk-wish') || '{}'); (d.p||[]).forEach(function(id){ var el = document.getElementById(id); if (el) el.checked = true; }); if (d.n) note.value = d.n; } catch(e) {}
+  function keep(){ try { localStorage.setItem('ni-desk-wish', JSON.stringify({ p: Array.prototype.map.call(form.querySelectorAll('input:checked'), function(i){return i.id;}), n: note.value })); } catch(e) {} }
+  form.addEventListener('change', keep); note.addEventListener('input', keep);
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var picks = Array.prototype.map.call(form.querySelectorAll('input:checked'), function(i){ return '- ' + i.value; });
+    var text = 'My dashboard wishlist:\n' + (picks.length ? picks.join('\n') : '- (nothing ticked yet)') + (note.value.trim() ? '\n\nAlso: ' + note.value.trim() : '');
+    function fallback(){ note.value = text; note.focus(); note.select(); state.textContent = 'Your list is in the box above. Copy it and text it to Jay.'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ state.textContent = 'Copied. Paste it in a text to Jay.'; say('Copied your list'); }, fallback);
+    } else { fallback(); }
+  });
+})();
+</script>

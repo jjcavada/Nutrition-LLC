@@ -355,10 +355,6 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
         <div class="sh"><h2 id="h-pipe">Where everyone is</h2><span class="aux">Tap a step</span></div>
         <div id="pipeline"></div>
       </section>
-      <section aria-labelledby="h-events">
-        <div class="sh"><h2 id="h-events">Event inquiries</h2><span class="aux">Tap for details</span></div>
-        <ul id="events"></ul>
-      </section>
     </div>
     <div>
       <section aria-labelledby="h-wait">
@@ -622,8 +618,8 @@ function renderCalls(){
   }).join(', ') : (todays.length ? '' : 'Nothing else booked this week.');
 }
 function renderEvents(){
-  var list = DATA ? DATA.events : [];
-  $('#events').innerHTML = list.length ? list.map(function(e){
+  var list = DATA ? DATA.events : [], box = $('#events'); if (!box) return;
+  box.innerHTML = list.length ? list.map(function(e){
     var facts = e.facts.map(function(f){ return [f[0], esc(f[1])]; });
     facts.push(['Phone', esc(nicePhone(e.phone))]); if (e.call) facts.unshift(['Planning call', esc(e.call)]);
     return '<li class="acc" data-acc><button class="row" aria-expanded="false"><span class="when">' + esc(e.whenLabel) + '</span><span style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="who">' + esc(e.who) + '</span>' + ICON.chev + '</span><span class="what">' + esc(e.facts.slice(0, 2).map(function(f){ return f[1]; }).join(' · ') || 'Event inquiry from the website') + '</span></button>' +
@@ -635,11 +631,7 @@ function renderEvents(){
 var chefsAll = false;
 function renderHomeChefs(){
   var box = $('#homechefs'); if (!box || !DATA) return;
-  var wl = waitingList(), top3 = wl.slice(0, 3);
-  box.innerHTML = '<div class="waitbox"><h4>Waiting for a chef</h4>' +
-    (top3.length ? top3.map(function(w){ return '<button class="wline" data-client="' + esc(w.id) + '"><span>' + esc(w.name) + (w.area ? ' <span class="muted">· ' + esc(w.area) + '</span>' : '') + '</span><span class="days">' + (w.waitingDays || 0) + ' days</span></button>'; }).join('') : '<p class="none" style="margin:0">Everyone has a chef.</p>') +
-    (wl.length ? '<button class="btn ghost-b" data-openfull="waiting" style="margin-top:12px;width:100%">' + (wl.length > 3 ? 'See all ' + wl.length + ' waiting and assign a chef' : 'Assign a chef') + '</button>' : '') + '</div>' +
-    '<div class="thead"><span>Chef · ' + DATA.chefs.length + ' on the team</span><span>Clients</span></div><ul id="homechefslist"></ul>';
+  box.innerHTML = '<div class="thead"><span>Chef · ' + DATA.chefs.length + ' on the team</span><span>Clients</span></div><ul id="homechefslist"></ul>';
   renderChefList($('#homechefslist'), true);
 }
 function renderChefs(){

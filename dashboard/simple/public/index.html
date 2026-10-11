@@ -145,10 +145,11 @@ li:last-child>.row{border-bottom:0}
 .chef:not(.open) .cl{margin-right:.32em}
 .cmeta,.csub{display:none}
 .chef.open .chef-body{display:grid;gap:0;padding-top:6px}
-.chef.open .cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:baseline;padding:10px 0 10px 14px;border-left:2px solid var(--weekly-bg);margin:0;text-align:left;width:100%}
-.chef.open .cn{color:var(--head);font-weight:600}
-.chef.open .cmeta{display:block;text-align:right;font-size:13.5px;color:var(--soft);white-space:nowrap}
-.chef.open .csub{display:block;grid-column:1 / -1;font-size:13.5px;color:var(--soft)}
+.chef.open .cl{display:block;padding:10px 0 10px 14px;border-left:2px solid var(--weekly-bg);margin:0;text-align:left;width:100%;line-height:1.45}
+.chef.open .cn{display:block;color:var(--head);font-weight:600;font-size:15.5px}
+.chef.open .cmeta{display:block;text-align:left;font-size:13.5px;color:var(--soft);white-space:normal;margin-top:1px}
+.chef.open .csub{display:block;font-size:13.5px;color:var(--soft);margin-top:1px}
+.chef.open .cl .alg{margin-top:6px}
 .morechefs{margin-top:12px;font-weight:600;font-size:14px;color:var(--weekly)}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--tile);border-radius:12px;padding:4px;margin:4px 0 12px}
 .seg button{border-radius:9px;padding:9px 10px;font-weight:600;font-size:14.5px;color:var(--soft);text-align:center;transition:background-color .2s,color .2s}

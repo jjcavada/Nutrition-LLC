@@ -195,6 +195,25 @@ async function buildSnapshot() {
   { const rank = { new: 0, signed: 1, menu: 2, consult: 3, waitlist: 4, assigned: 5 }; const best = {};
     clients.forEach((c) => { const b = best[c.id]; const rc = rank[c.stage] || 0, rb = b ? (rank[b.stage] || 0) : -1; if (!b || rc > rb || (rc === rb && (c.createdAt || '') > (b.createdAt || ''))) best[c.id] = c; });
     clients.length = 0; Object.values(best).forEach((c) => clients.push(c)); }
+  // past clients and leads: every GHL contact that has an intake (note id / PDF / summary / tag) but no live opportunity (lost, abandoned, never in the pipeline)
+  { const have = new Set(clients.map((c) => c.id));
+    contacts.forEach((c) => {
+      if (have.has(c.id)) return;
+      const f = c.customFields || []; const name = c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ');
+      if (!name || /^zztest/i.test(name)) return;
+      const hasIntake = cf(f, cfg.fields.intakeNoteId) || cf(f, cfg.fields.intakePdf) || cf(f, cfg.fields.summary) || (c.tags || []).includes('intake_received');
+      if (!hasIntake) return;
+      const sum = parseSummary(cf(f, cfg.fields.summary));
+      clients.push({ id: c.id, oppId: '', stageChangedAt: '', intakeNoteId: cf(f, cfg.fields.intakeNoteId) || '', name, first: firstName(name), phone: c.phone || '', email: c.email || '',
+        stage: 'past', status: 'past', chef: '', hasChef: false, isNew: false, waiting: false, waitingDays: 0,
+        since: c.dateAdded ? monthDay(new Date(c.dateAdded)) + ', ' + new Date(c.dateAdded).getFullYear() : '', createdAt: c.dateAdded || '',
+        area: c.city || (sum && sum.area) || '', household: sum ? sum.household || '' : '', allergies: sum && Array.isArray(sum.allergies) ? sum.allergies : [],
+        diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
+        from: (sum && sum.from) || fromTags(c.tags, c.dateAdded), tags: c.tags || [],
+        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder),
+        signedDoc: cf(f, cfg.fields.signedDoc), hasSummary: !!(sum && sum.summary) });
+    });
+    clients.sort((x, y) => x.name.localeCompare(y.name)); }
   const weekAgo = Date.now() - 7 * 86400000;
   const newItems = [];
   clients.forEach((c) => {
@@ -230,7 +249,7 @@ async function buildSnapshot() {
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
   });
   return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames /* the test chef is accepted by POST /api/assign but never offered in Amber's dropdown */,
-    counts: { active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
+    counts: { total: clients.length, past: clients.filter((c) => c.stage === 'past').length, active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
 }
 async function getSnapshot(fresh) {
   const s = store('ni-cache');

@@ -311,7 +311,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
   <div class="new" id="new" aria-label="New"></div>
 
   <div class="nums">
-    <button class="tile" data-full="clients"><b class="num" id="t-clients">&nbsp;</b><span>clients with a chef</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="tile" data-full="clients"><b class="num" id="t-clients">&nbsp;</b><span>clients in GHL</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
     <button class="tile wait" data-full="waiting"><b class="num" id="t-waiting">&nbsp;</b><span>waiting for a chef</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
     <button class="tile" data-full="calls"><b class="num" id="t-calls">&nbsp;</b><span>calls this week</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
   </div>
@@ -330,8 +330,8 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
     </div>
     <div>
       <section aria-labelledby="h-wait">
-        <div class="sh"><h2 id="h-wait">Waiting for a chef</h2><button class="aux" data-openfull="waiting" data-tab="chefs">See all chefs</button></div>
-        <div id="waiting"></div>
+        <div class="sh"><h2 id="h-wait">Chefs</h2><button class="aux" data-openfull="waiting">Assign a chef</button></div>
+        <div id="homechefs"></div>
       </section>
     </div>
   </div>
@@ -465,6 +465,7 @@ function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' 
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
 function stageLabel(c){
   if (c.isNew) return 'Intake received, agreement not signed yet';
+  if (c.stage === 'past') return 'Past client or lead, not in the pipeline';
   if (c.chef) return 'With ' + c.chef;
   return {signed:'Agreement signed, waiting for a chef', menu:'Menu built, waiting for a chef', consult:'Consultation scheduled, waiting for a chef', waitlist:'Waiting for a chef', assigned:'Chef assigned'}[c.stage] || 'Waiting for a chef';
 }
@@ -503,7 +504,7 @@ $('#toastundo').addEventListener('click', function(){ var u = toastUndo; $('#toa
 /* ---------------- renderers ---------------- */
 function renderTiles(){
   if (!DATA) return;
-  $('#t-clients').textContent = active().length;
+  $('#t-clients').textContent = clients().length;
   $('#t-waiting').textContent = waitingList().length;
   $('#t-calls').textContent = DATA.counts.calls;
 }
@@ -551,9 +552,21 @@ function renderEvents(){
   }).join('') : '<li><p class="none">No event inquiries right now.</p></li>';
 }
 var chefsAll = false;
+function renderHomeChefs(){
+  var box = $('#homechefs'); if (!box || !DATA) return;
+  var wl = waitingList(), top3 = wl.slice(0, 3);
+  box.innerHTML = '<div class="waitbox"><h4>Waiting for a chef</h4>' +
+    (top3.length ? top3.map(function(w){ return '<button class="wline" data-client="' + esc(w.id) + '"><span>' + esc(w.name) + (w.area ? ' <span class="muted">· ' + esc(w.area) + '</span>' : '') + '</span><span class="days">' + (w.waitingDays || 0) + ' days</span></button>'; }).join('') : '<p class="none" style="margin:0">Everyone has a chef.</p>') +
+    (wl.length ? '<button class="btn ghost-b" data-openfull="waiting" style="margin-top:12px;width:100%">' + (wl.length > 3 ? 'See all ' + wl.length + ' waiting and assign a chef' : 'Assign a chef') + '</button>' : '') + '</div>' +
+    '<div class="thead"><span>Chef · ' + DATA.chefs.length + ' on the team</span><span>Clients</span></div><ul id="homechefslist"></ul>';
+  renderChefList($('#homechefslist'), true);
+}
 function renderChefs(){
   var box = $('.full #fchefs'); if (!box || !DATA) return;
-  var onChefsScreen = !!$('.full[data-kind="clients"]');
+  renderChefList(box, false);
+}
+function renderChefList(box, showAll){
+  var onChefsScreen = showAll;
   var by = {}; DATA.chefs.forEach(function(ch){ by[ch.name] = ch.clients.map(findClient).filter(Boolean); });
   var names = Object.keys(by).sort(function(x, y){ return (by[y] || []).length - (by[x] || []).length || x.localeCompare(y); });
   var openNow = $$('.chef.open', box).map(function(li){ return li.dataset.chef; });
@@ -580,7 +593,7 @@ function renderWaiting(){
   if (!DATA) { $('#waiting').innerHTML = '<p class="skel">Loading…</p>'; return; }
   var list = waitingList();
   var html = list.length ? list.map(waitRow).join('') : '<p class="none">Everyone has a chef.</p>';
-  $('#waiting').innerHTML = html;
+  var hw = $('#waiting'); if (hw) hw.innerHTML = html;
   var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
   var tn = $('#tabwaitn'); if (tn) tn.textContent = list.length;
 }
@@ -605,7 +618,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderHomeChefs(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- sheets ---------------- */
 var sheets = [];
@@ -655,7 +668,7 @@ function personSheet(c, extra){
     expectHTML(sum, c) +
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
     factsHTML(facts) + restrictionsHTML(c) + notesHTML(c) + docsHTML(c) +
-    (c.phone ? '<div class="acts"><a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a></div>' : '') +
+    ((c.phone || c.email) ? '<div class="acts">' + (c.phone ? '<a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a>' : '') + (c.email ? '<a class="btn ghost-b" href="mailto:' + esc(c.email) + '">Email</a>' : '') + '</div>' : '') +
     '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>';
 }
 function withDetails(c, cb){
@@ -766,14 +779,13 @@ function clientRow(c){
 function fullHTML(kind){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
   if (kind === 'clients') {
-    var withChef = active(), wl = waitingList(), top3 = wl.slice(0, 3), team = DATA ? DATA.chefs.length : 0;
-    return '<div class="full-h"><div><h3>Chefs</h3><p>' + team + ' on the team · ' + withChef.length + ' clients with a chef</p></div>' + x + '</div>' +
-      '<div class="waitbox"><h4>Waiting for a chef</h4>' +
-        (top3.length ? top3.map(function(w){ return '<button class="wline" data-client="' + esc(w.id) + '"><span>' + esc(w.name) + (w.area ? ' <span class="muted">· ' + esc(w.area) + '</span>' : '') + '</span><span class="days">' + (w.waitingDays || 0) + ' days</span></button>'; }).join('') : '<p class="none" style="margin:0">Everyone has a chef.</p>') +
-        (wl.length ? '<button class="btn ghost-b" data-openfull="waiting" style="margin-top:12px;width:100%">' + (wl.length > 3 ? 'See all ' + wl.length + ' waiting and assign a chef' : 'Assign a chef') + '</button>' : '') +
-      '</div>' +
-      '<input class="search" id="csearch" type="search" placeholder="Search a chef or a client" aria-label="Search chefs and clients">' +
-      '<div class="thead"><span>Chef</span><span>Clients</span></div><ul id="fchefs"></ul>';
+    var all = clients(), withChef = all.filter(function(c){ return c.hasChef && !c.isNew && c.stage !== 'past'; }), noChef = all.filter(function(c){ return !c.hasChef && !c.isNew && c.stage !== 'past'; }), newer = all.filter(function(c){ return c.isNew; }), past = all.filter(function(c){ return c.stage === 'past'; });
+    return '<div class="full-h"><div><h3>Clients</h3><p>' + all.length + ' in GHL · ' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet · ' + past.length + ' past</p></div>' + x + '</div>' +
+      '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
+      '<div class="day-h">With a chef</div><ul class="full-list">' + (withChef.length ? withChef.map(clientRow).join('') : '<li><p class="none">No one yet.</p></li>') + '</ul>' +
+      '<div class="day-h">Waiting for a chef</div><ul class="full-list">' + (noChef.length ? noChef.map(clientRow).join('') : '<li><p class="none">No one waiting.</p></li>') + '</ul>' +
+      '<div class="day-h">Intake received, not signed yet</div><ul class="full-list">' + (newer.length ? newer.map(clientRow).join('') : '<li><p class="none">Nobody pending.</p></li>') + '</ul>' +
+      '<div class="day-h">Past clients and leads (not in the pipeline)</div><ul class="full-list">' + (past.length ? past.map(clientRow).join('') : '<li><p class="none">None.</p></li>') + '</ul>';
   }
   if (kind === 'waiting') {
     return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +

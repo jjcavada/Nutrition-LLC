@@ -248,7 +248,7 @@ async function buildSnapshot() {
   clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
   });
-  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames /* the test chef is accepted by POST /api/assign but never offered in Amber's dropdown */,
+  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames, testChef: cfg.testChef || '' /* shown as the last dropdown entry 'Test' while Jay is testing; remove testChef from config.secret.json to hide it */,
     counts: { total: clients.length, past: clients.filter((c) => c.stage === 'past').length, active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
 }
 async function getSnapshot(fresh) {

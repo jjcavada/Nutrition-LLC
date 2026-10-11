@@ -72,7 +72,23 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .date{font-size:14px;color:var(--soft)}
 .bell{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair);color:var(--head);position:relative}
 .bell svg{width:18px;height:18px}
-.bell.on::after{content:"";position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--weekly)}
+.bell.on::after{content:"";position:absolute;bottom:7px;right:9px;width:6px;height:6px;border-radius:50%;background:var(--weekly)}
+.bell .cnt{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;border-radius:10px;background:#D66048;color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid var(--bg,#1b2017)}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);margin:14px 0 6px}
+.toggle .fine{display:block;margin-top:2px}
+.sw{position:relative;width:48px;height:28px;border-radius:14px;background:rgba(255,255,255,.14);flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle input{position:absolute;opacity:0;width:0;height:0}
+.toggle input:checked + .sw{background:#7C8C3E}
+.toggle input:checked + .sw::after{transform:translateX(20px)}
+.nlist{list-style:none;margin:0;padding:0}
+.nlist li{border-bottom:1px solid var(--hair)}
+.nlist button{width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:11px 0;cursor:pointer;display:grid;gap:3px}
+.nlist .nt{font-weight:600;color:var(--head)}
+.nlist .nb{color:var(--soft);font-size:13.5px}
+.nlist .nw{font-size:12px;opacity:.6}
+.nlist .tag{display:inline-block;margin-right:6px}
+.wtags{margin-top:2px}
 h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:18px 0 0;text-wrap:balance}
 h1 em{font-style:italic;color:var(--weekly)}
 .sync{margin-top:10px;font-size:13.5px;color:var(--faint);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -301,7 +317,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
     <span class="mark">nutrition<br>intuition</span>
     <div class="top-r">
       <span class="date" id="date"></span>
-      <button class="bell" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+      <button class="bell" id="bell" aria-label="Notifications"><span class="cnt" id="bellcnt" hidden></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
     </div>
   </header>
 
@@ -458,7 +474,7 @@ function active(){ return clients().filter(function(c){ return c.hasChef && !c.i
 function waitingList(){ return clients().filter(function(c){ return c.waiting; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0); }); }
 function findClient(id){ return clients().filter(function(c){ return c.id === id; })[0] || null; }
 function chefNames(){ return DATA ? DATA.chefs.map(function(c){ return c.name; }) : []; }
-function chefOptions(){ return '<option value="">Choose a chef</option>' + (DATA ? DATA.chefOptions : []).map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join(''); }
+function chefOptions(){ return '<option value="">Choose a chef</option>' + (DATA ? DATA.chefOptions : []).map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('') + (DATA && DATA.testChef ? '<option value="' + esc(DATA.testChef) + '">Test (sends the intake and menu to Jay)</option>' : ''); }
 function tel(p){ return 'tel:' + String(p || '').replace(/[^\d+]/g, ''); }
 function sms(p){ return 'sms:' + String(p || '').replace(/[^\d+]/g, ''); }
 function nicePhone(p){ var d = String(p || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d.length === 10 ? '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6) : (p || ''); }
@@ -523,7 +539,6 @@ function renderNew(){
   $('#new').innerHTML = items.map(function(n){
     return '<button class="new-item" data-new="' + esc(n.id) + '"><span class="tag">New</span><span class="t">' + esc(n.who) + '</span><span class="w">' + esc(whenShort(n.when)) + '</span><span class="s">' + esc(n.line) + '</span></button>';
   }).join('');
-  setBadge(items.length);
 }
 function whenShort(iso){ try { var d = new Date(iso), now = new Date(); var same = d.toDateString() === now.toDateString(); return new Intl.DateTimeFormat('en-US', same ? {hour:'numeric', minute:'2-digit', timeZone:'America/Phoenix'} : {month:'short', day:'numeric', timeZone:'America/Phoenix'}).format(d); } catch(e){ return ''; } }
 function callRow(c){
@@ -587,7 +602,7 @@ function renderChefList(box, showAll){
 function waitRow(w){
   var p = pending[w.id];
   return '<div class="wrow" data-wait="' + esc(w.id) + '"><div class="wtop"><button class="who rowbtn" data-client="' + esc(w.id) + '" style="flex:1">' + esc(w.name) + (w.area ? ' <span style="color:var(--soft);font-size:14px;font-weight:400">· ' + esc(w.area) + '</span>' : '') + '</button><span class="days">' + (w.waitingDays != null ? w.waitingDays + ' days' : '') + '</span></div>' +
-    '<div class="wsub">' + esc([w.household, w.diet, w.wants ? 'wants ' + w.wants : stageLabel(w)].filter(Boolean).join(' · ')) + ' ' + algs(w.allergies) + '</div>' +
+    '<div class="wsub">' + esc([w.household, w.diet, w.wants ? 'wants ' + w.wants : stageLabel(w)].filter(Boolean).join(' · ')) + '</div>' + (w.allergies && w.allergies.length ? '<div class="wtags">' + algs(w.allergies) + '</div>' : '') +
     (p ? '<div class="sending">Sending to ' + esc(p.chef) + '…</div>' : '<div><select aria-label="Choose a chef for ' + esc(w.name) + '" data-assign="' + esc(w.id) + '">' + chefOptions() + '</select></div>') + '</div>';
 }
 function renderWaiting(){
@@ -619,7 +634,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderHomeChefs(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderHomeChefs(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- sheets ---------------- */
 var sheets = [];
@@ -912,26 +927,52 @@ function installSteps(){
     '<ol class="steps"><li><span>Open this page in <b>Safari</b>.</span></li><li><span>Tap the <b>Share</b> button (the square with the arrow).</span></li><li><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>' :
     '<ol class="steps"><li><span>Open the browser menu (the three dots).</span></li><li><span>Tap <b>Install app</b> or <b>Add to Home screen</b>.</span></li><li><span>Open <b>Nutrition Intuition</b> from your Home Screen and tap the bell to turn on notifications.</span></li></ol>';
 }
+var readNotif = store.get('readNotif', []);
+function notifItems(){
+  if (!DATA) return [];
+  var items = (DATA.alerts || []).map(function(a){ return {id: a.id, kind: 'alert', title: a.title, body: a.body, when: a.when, contactId: a.contactId || ''}; })
+    .concat((DATA.newItems || []).map(function(n){ return {id: n.id, kind: n.kind, title: n.who, body: n.line, when: n.when, contactId: n.contactId || ''}; }));
+  return items.sort(function(x, y){ return (y.when || '').localeCompare(x.when || ''); });
+}
+function renderBell(){
+  var c = $('#bellcnt'); if (!c) return;
+  var n = notifItems().filter(function(i){ return readNotif.indexOf(i.id) < 0; }).length;
+  c.hidden = !n; c.textContent = n > 9 ? '9+' : n; setBadge(n);
+}
+function notifListHTML(){
+  var items = notifItems();
+  if (!items.length) return '<div class="day-h">Recent</div><p class="none">Nothing in the last 7 days.</p>';
+  return '<div class="day-h">Recent</div><ul class="nlist">' + items.map(function(i){
+    var tag = i.kind === 'alert' ? '<span class="tag warn">Needs attention</span>' : '<span class="tag">' + (i.kind === 'signed' ? 'Signed' : 'New') + '</span>';
+    return '<li><button data-notif="' + esc(i.contactId) + '"><span class="nt">' + tag + esc(i.title) + '</span><span class="nb">' + esc(i.body || '') + '</span><span class="nw">' + esc(whenShort(i.when)) + '</span></button></li>';
+  }).join('') + '</ul>';
+}
 function openNotify(){
   var granted = canPush && Notification.permission === 'granted', body;
+  readNotif = notifItems().map(function(i){ return i.id; }); store.set('readNotif', readNotif.slice(-100)); renderBell();
   if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add Nutrition Intuition to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
   else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open Nutrition Intuition from your Home Screen (iOS 16.4 or newer).</p>';
-  else body = '<h3>Notifications</h3><p class="sub">Get a notification when a new intake comes in and when a client signs their agreement.</p>' +
-    '<div class="acts"><button class="btn" data-push>' + (granted ? 'Send me a test notification' : 'Turn on notifications') + '</button></div><p class="fine" id="pushmsg">' + (granted ? 'Notifications are on.' : 'Your phone will ask you to allow them.') + '</p>';
-  var sh = openSheet(body), b = sh.el.querySelector('[data-push]');
-  if (b) b.addEventListener('click', function(){
+  else body = '<h3>Notifications</h3>' +
+    '<label class="toggle"><span><b>Phone notifications</b><span class="fine">A push when a new intake comes in, a client signs, or something needs attention.</span></span><input type="checkbox" id="pushtoggle"' + (granted ? ' checked' : '') + '><span class="sw"></span></label>' +
+    '<p class="fine" id="pushmsg">' + (granted ? 'On for this phone.' : 'Off. Flip the switch and your phone will ask you to allow them.') + '</p>';
+  body += notifListHTML();
+  var sh = openSheet(body), b = sh.el.querySelector('#pushtoggle');
+  sh.el.addEventListener('click', function(e){ var t = e.target.closest('[data-notif]'); if (!t) return; var id = t.dataset.notif; if (id && findClient(id)) openPerson(id, 'From your notifications'); else toast('That person is not in the client list.'); });
+  if (b && granted) navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(s){ if (!s) { b.checked = false; sh.el.querySelector('#pushmsg').textContent = 'Off on this phone. Flip the switch to turn them on.'; } }).catch(function(){});
+  if (b) b.addEventListener('change', function(){
     var msg = sh.el.querySelector('#pushmsg');
+    if (!b.checked) { navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(s){ if (s) return s.unsubscribe(); }).then(function(){ $('#bell').classList.remove('on'); msg.textContent = 'Off on this phone.'; }).catch(function(){ msg.textContent = 'Could not turn them off. Try again.'; }); return; }
     Notification.requestPermission().then(function(p){
-      if (p !== 'granted') { msg.textContent = 'Notifications are off. Turn them on in Settings, Notifications, Nutrition Intuition.'; return; }
+      if (p !== 'granted') { b.checked = false; msg.textContent = 'Your phone blocked them. Turn them on in Settings, Notifications, Nutrition Intuition.'; return; }
       $('#bell').classList.add('on'); msg.textContent = 'Setting up…';
       return navigator.serviceWorker.ready.then(function(reg){
         return reg.pushManager.getSubscription().then(function(s){ return s || reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToU8(VAPID_PUBLIC)}); });
       }).then(function(sub){
         return api('subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({subscription:sub, test:true})});
       }).then(function(r){
-        msg.textContent = r.ok ? 'Done. A test notification arrives in a few seconds.' : 'Could not finish. Try again in a minute.';
+        msg.textContent = r.ok ? 'On. A test notification arrives in a few seconds.' : 'Could not finish. Try again in a minute.';
       });
-    }).catch(function(){ msg.textContent = 'Something went wrong turning on notifications. Try again.'; });
+    }).catch(function(){ b.checked = false; msg.textContent = 'Something went wrong turning on notifications. Try again.'; });
   });
 }
 $('#bell').addEventListener('click', openNotify);

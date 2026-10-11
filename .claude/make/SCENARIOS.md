@@ -87,6 +87,17 @@ Google Form Submit → Apps Script POST to webhook
 
 ---
 
+#### Phase 1 incident 2026-10-09/10 and hardening 2026-10-11 (binding)
+- SignWell answered **401 Unauthorized** to module 5 for Sara Wordingham (2026-10-09 20:57Z) and Aaron Carpenter (2026-10-10 14:04Z) while
+  the same key worked at 19:45Z and again on 10-11 (live draft 201). Module 5's handler was alert + **Commit**, so each run stopped there:
+  welcome email sent, contact + opportunity created, but NO agreement, NO intake note, NO Drive records (the intake answers only lived in the
+  Make execution input). Recovered on 2026-10-11 by `scenarios_replay` of both executions (welcome email routed to Jay for the replay,
+  duplicate opportunities from module 4 deleted by API). Both now have agreements (ada5ac54..., f2355e2e...), notes, folders, summaries.
+- **Hardened:** module 5 onerror is now alert + **Resume** (a SignWell failure never again aborts the note / tags / Drive steps); module 10's
+  `to` goes to Jay instead of the client when no document was created; the note's SIGNWELL block says "NOT CREATED ... send by hand".
+  Rule: a side step (e-sign, email) must never Commit-abort the record-keeping steps that follow it.
+- Replay caveat: a replay re-runs module 4 and creates a second opportunity; delete the newer one afterwards.
+
 ### Phase 2: Agreement Signed + QB Setup
 | Field | Value |
 |-------|-------|

@@ -89,6 +89,17 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .nlist .nw{font-size:12px;opacity:.6}
 .nlist .tag{display:inline-block;margin-right:6px}
 .wtags{margin-top:2px}
+.pipe{list-style:none;margin:0;padding:0}
+.pipe li{border-bottom:1px solid var(--hair)}
+.pipe li:last-child{border-bottom:0}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:1px 12px;align-items:center;width:100%;background:none;border:0;color:inherit;font:inherit;padding:11px 0;text-align:left;cursor:pointer}
+.prow .pn{font-weight:600;color:var(--head)}
+.prow .pc{grid-row:span 2;font-family:var(--display);font-weight:300;font-size:28px;line-height:1;color:var(--head);min-width:34px;text-align:right}
+.prow .pchev{grid-row:span 2;display:flex;opacity:.55}
+.prow .ps{grid-column:1;color:var(--soft);font-size:13.5px}
+.prow .ps.hot{color:#F2A08E}
+.crow .right .status{margin:0}
+.crow .wtags{display:block;margin-top:4px}
 h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:18px 0 0;text-wrap:balance}
 h1 em{font-style:italic;color:var(--weekly)}
 .sync{margin-top:10px;font-size:13.5px;color:var(--faint);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -340,6 +351,10 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
         <ul id="today"></ul>
         <p class="later" id="later"></p>
       </section>
+      <section aria-labelledby="h-pipe">
+        <div class="sh"><h2 id="h-pipe">Where everyone is</h2><span class="aux">Tap a step</span></div>
+        <div id="pipeline"></div>
+      </section>
       <section aria-labelledby="h-events">
         <div class="sh"><h2 id="h-events">Event inquiries</h2><span class="aux">Tap for details</span></div>
         <ul id="events"></ul>
@@ -480,6 +495,56 @@ function sms(p){ return 'sms:' + String(p || '').replace(/[^\d+]/g, ''); }
 function nicePhone(p){ var d = String(p || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d.length === 10 ? '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6) : (p || ''); }
 function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' + esc(x) + '</span>'; }).join(''); }
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
+var PHASES = [
+  {key:'new', name:'Intake received, not signed', next:'They need to sign the agreement. If it has been a few days, text or email them from their card.', stuck:3},
+  {key:'signed', name:'Signed, menu being built', next:'The 15 item menu is built automatically within minutes of signing. Anyone here for more than a day means the menu did not come through.', stuck:1},
+  {key:'menu', name:'Menu built, invite sent', next:'They got the consultation booking link automatically. Once they book, the card moves on.', stuck:5},
+  {key:'consult', name:'Consultation', next:'Hold the consultation, then pick a chef.', stuck:14},
+  {key:'waiting', name:'Waiting for a chef', next:'Pick a chef and their intake and menu go out to that chef.', stuck:7},
+  {key:'chef', name:'With a chef', next:'Cooking. Grouped by chef.', stuck:0}
+];
+function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu' || c.stage === 'consult') return c.stage; return 'waiting'; }
+function phaseClients(key){ return clients().filter(function(c){ return phaseOf(c) === key; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0) || a.name.localeCompare(b.name); }); }
+function stuckText(p, n){
+  if (p.key === 'new') return n + (n === 1 ? ' has' : ' have') + ' not signed after ' + p.stuck + ' days';
+  if (p.key === 'signed') return n + ' still without a menu after a day';
+  if (p.key === 'menu') return n + ' with no call booked after ' + p.stuck + ' days';
+  if (p.key === 'consult') return n + ' here more than two weeks';
+  if (p.key === 'waiting') return n + ' waiting more than a week';
+  return '';
+}
+function renderPipeline(){
+  var box = $('#pipeline'); if (!box || !DATA) return;
+  box.innerHTML = '<ul class="pipe">' + PHASES.map(function(p){
+    var list = phaseClients(p.key), stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub;
+    if (!list.length) sub = 'Nobody here right now';
+    else if (p.key === 'consult') { var booked = list.filter(function(c){ return c.nextCall; }).length; sub = booked + ' with a call booked · ' + (list.length - booked) + ' not booked yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
+    else if (p.key === 'chef') { var names = {}; list.forEach(function(c){ names[c.chef] = 1; }); sub = 'across ' + Object.keys(names).length + (Object.keys(names).length === 1 ? ' chef' : ' chefs'); }
+    else sub = stuck ? stuckText(p, stuck) : 'All moving along';
+    return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc">' + list.length + '</span><span class="pchev">' + ICON.chev + '</span><span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span></button></li>';
+  }).join('') + '</ul>';
+}
+function stageRow(c, p){
+  var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;
+  var info = c.nextCall ? 'Call ' + c.nextCall.label : (p.key === 'consult' ? 'No call booked yet' : p.key === 'chef' ? 'With ' + c.chef : (c.wants ? 'wants ' + c.wants : ''));
+  return '<li class="crow"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + '</span><span class="right">' + (stuck ? '<span class="status warn">' + esc(here) + '</span>' : esc(here)) + ICON.chev + '</span>' +
+    '<span class="what">' + esc([info, c.household, c.area].filter(Boolean).join(' · ')) + (c.allergies && c.allergies.length ? '<span class="wtags">' + algs(c.allergies) + '</span>' : '') + '</span></button></li>';
+}
+function stageHTML(key, x){
+  var p = PHASES.filter(function(q){ return q.key === key; })[0] || PHASES[0], list = phaseClients(p.key);
+  var head = '<div class="full-h"><div><h3>' + esc(p.name) + '</h3><p>' + list.length + (list.length === 1 ? ' client' : ' clients') + ' · ' + esc(p.next) + '</p></div>' + x + '</div>';
+  function ul(arr, empty){ return '<ul class="full-list">' + (arr.length ? arr.map(function(c){ return stageRow(c, p); }).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul>'; }
+  if (!list.length) return head + '<p class="none">Nobody here right now.</p>';
+  if (p.key === 'consult') {
+    var b = list.filter(function(c){ return c.nextCall; }).sort(function(x1, y1){ return x1.nextCall.when.localeCompare(y1.nextCall.when); }), nb = list.filter(function(c){ return !c.nextCall; });
+    return head + '<div class="day-h">Call booked</div>' + ul(b, 'No calls booked.') + '<div class="day-h">No call booked yet</div>' + ul(nb, 'Everyone has booked.');
+  }
+  if (p.key === 'chef') {
+    var by = {}; list.forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
+    return head + Object.keys(by).sort().map(function(n){ return '<div class="day-h">' + esc(n) + ' · ' + by[n].length + '</div>' + ul(by[n], ''); }).join('');
+  }
+  return head + ul(list, '');
+}
 function stageLabel(c){
   if (c.isNew) return 'Intake received, agreement not signed yet';
   if (c.stage === 'past') return 'Past client or lead, not in the pipeline';
@@ -634,7 +699,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderHomeChefs(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- sheets ---------------- */
 var sheets = [];
@@ -792,8 +857,9 @@ function clientRow(c){
   var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
   return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c)) + ' ' + algs(c.allergies) + '</span></button></li>';
 }
-function fullHTML(kind){
+function fullHTML(kind, arg){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
+  if (kind === 'stage') return stageHTML(arg, x);
   if (kind === 'clients') {
     var all = clients(), withChef = all.filter(function(c){ return c.hasChef && !c.isNew && c.stage !== 'past'; }), noChef = all.filter(function(c){ return !c.hasChef && !c.isNew && c.stage !== 'past'; }), newer = all.filter(function(c){ return c.isNew; }), past = all.filter(function(c){ return c.stage === 'past'; });
     return '<div class="full-h"><div><h3>Clients</h3><p>' + all.length + ' in GHL · ' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet · ' + past.length + ' past</p></div>' + x + '</div>' +
@@ -824,11 +890,11 @@ function showTab(ov, tab){
   if (!RM) (chefs ? c : w).animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:280, easing:'ease-out'});
 }
 function clipFor(r){ return 'inset(' + r.top + 'px ' + (window.innerWidth - r.right) + 'px ' + (window.innerHeight - r.bottom) + 'px ' + r.left + 'px round 16px)'; }
-function openFull(kind, tile, tab){
+function openFull(kind, tile, tab, arg){
   if ($('.full') || !DATA) return;
   var r = tile.getBoundingClientRect();
   var ov = document.createElement('div'); ov.className = 'full'; ov.dataset.kind = kind; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
-  ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
+  ov.innerHTML = '<div class="full-in">' + fullHTML(kind, arg) + '</div>';
   document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
   if (kind === 'waiting') { renderWaiting(); renderChefs(); if (tab) showTab(ov, tab); }
   if (kind === 'clients') renderChefs();
@@ -984,6 +1050,7 @@ document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-closefull]'))) return closeFull();
   if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
+  if ((t = e.target.closest('[data-openstage]'))) return openFull('stage', t, null, t.dataset.openstage);
   if ((t = e.target.closest('.seg [data-tab]'))) return showTab(t.closest('.full'), t.dataset.tab);
   if ((t = e.target.closest('[data-openfull]'))) { var k = t.dataset.openfull, tb = t.dataset.tab; if ($('.full')) { closeFull(); setTimeout(function(){ openFull(k, $('.tile[data-full="' + k + '"]'), tb); }, 420); return; } return openFull(k, $('.tile[data-full="' + k + '"]'), tb); }
   if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }

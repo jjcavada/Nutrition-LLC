@@ -157,7 +157,8 @@ function parseInquiry(body) { // "WEBSITE EVENT INQUIRY" notes: Label: value lin
 /* ---------- snapshot ---------- */
 async function buildSnapshot() {
   const now = new Date(), today = dayKey(now);
-  const [contacts, opps, events] = await Promise.all([listContacts(), listOpps(), eventsBetween(new Date(now.getTime() - 6 * 3600000), new Date(now.getTime() + 8 * 86400000))]);
+  const [contacts, opps, events, farEvents] = await Promise.all([listContacts(), listOpps(), eventsBetween(new Date(now.getTime() - 6 * 3600000), new Date(now.getTime() + 8 * 86400000)),
+    eventsBetween(new Date(now.getTime() + 8 * 86400000), new Date(now.getTime() + 90 * 86400000)).catch(() => [])]); // farEvents: only for each client's next booked call (pipeline screen)
   const byId = {}; contacts.forEach((c) => { byId[c.id] = c; });
   const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned');
   const chefs = await pool(live, 6, oppChef);
@@ -181,6 +182,9 @@ async function buildSnapshot() {
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
   const byContact = {}; clients.forEach((c) => { byContact[c.id] = c; });
+  { // next booked call per client (any calendar), used by the "Where everyone is" screen to split Consultation into call booked / not yet
+    const next = {}; events.concat(farEvents).forEach((e) => { if (!e.contactId || new Date(e.startTime).getTime() < now.getTime() - 2 * 3600000) return; if (!next[e.contactId] || e.startTime < next[e.contactId].startTime) next[e.contactId] = e; });
+    clients.forEach((c) => { const e = next[c.id]; const d = e ? new Date(e.startTime) : null; c.nextCall = d ? { when: d.toISOString(), label: dayLabel(d, today) + ' at ' + timeOf(d) } : null; }); }
 
   const calls = events.map((e) => {
     const d = new Date(e.startTime); const c = byContact[e.contactId] || null; const raw = byId[e.contactId] || {};
@@ -247,6 +251,9 @@ async function buildSnapshot() {
   try { const as = store('ni-cache'); const raw = as ? await as.get('alerts') : null; (raw ? JSON.parse(raw) : []).forEach((a) => { if (Date.now() - new Date(a.when).getTime() < 7 * 86400000) alerts.push(Object.assign({ kind: 'make' }, a)); }); } catch (e) {}
   clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
+    // signed (Phase 2 tagged them) since the Drive automation went live on 2026-10-09, 30+ min ago, and still no signed PDF in Drive: the Phase 2 -> Drive hop failed or never fired.
+    // Clients onboarded before 2026-10-09 are excluded on purpose (12 known contracts are missing from Drive and need a manual lookup, not an alert).
+    if (!c.isNew && c.stage !== 'past' && (c.tags || []).includes('agreement_signed') && !c.contractPdf && c.createdAt >= '2026-10-09' && c.stageChangedAt && Date.now() - new Date(c.stageChangedAt).getTime() > 30 * 60000) alerts.push({ id: 'contract-missing:' + c.id, kind: 'check', when: c.stageChangedAt, title: 'Signed contract not in Drive for ' + c.name, body: 'They signed, but the signed PDF never reached their Google Drive folder. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
   });
   return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames, testChef: cfg.testChef || '' /* shown as the last dropdown entry 'Test' while Jay is testing; remove testChef from config.secret.json to hide it */,
     counts: { total: clients.length, past: clients.filter((c) => c.stage === 'past').length, active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };

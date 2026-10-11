@@ -945,3 +945,37 @@ All automation steps running (QB customer, menu, consultation invite).
   `POST /api/summary` (-> 6561132 route F), `POST /api/subscribe` (Blobs `ni-push`), `POST /api/notify {secret,title,body,url}` (web-push to
   every subscription, called by Make), `POST /api/unlock`.
 - Contract + inspection: `VALIDATION_CONTRACT_ni-today-app.md`. Part A of the 2026-10-09 Services Agreement (SignWell b4160562...).
+
+## 2026-10-11/12 — every Make problem shows in the NI Today app (all phases) + "Where everyone is" pipeline screen
+- **Why:** Jay: "I thought any error would show in the app from all phases?" Until now only Phase 1 (modules 120/121) posted to the app.
+- **What:** every error handler and every in-route STOP email in 4082106 Phase 1, 4071952 Phase 2, 4082143 Phase 3, 4212046 Phase 4,
+  6116697 Chef Assigned and 6248370 Website forms now has an `http:ActionSendData` right after the email to Jay:
+  `POST https://ni-today.netlify.app/api/notify {secret, kind:"alert", title, body, url:"/?open=<contactId>", contactId}`,
+  `handleErrors:false`, human title/body only (no `error.message` in the app body: quotes would break the JSON; the email has the details).
+  The app stores `kind=alert` for 7 days, shows it in the "Needs attention" strip and the bell, and pushes it.
+- **Handlers that did not exist before (GR-002 gaps, now closed):** Phase 2 modules 2, 3, 4 (email + alert + Commit) and 10, 6, 7
+  (email + alert + Resume; modules 6/7 now use `{{3.id}}` so a Resume on 10/6 cannot blank the contact id); Phase 3 modules 9, 10, 3
+  (Commit) and 4, 5, 6, 7, 8 (Resume; the module-6 email carries `{{3.result}}` so a menu that failed to save is not lost); Phase 4
+  modules 7, 2, 4 (Commit) and 3, 5, 6 (Resume). Alerts also appended after the WRONG-CONTACT stop emails (Phase 2 module 21,
+  Phase 4 module 21), the Phase 2 QB real-error route (101) and the Chef Assigned "no menu" route (after module 13).
+- **Drive scenario 6561132 is NOT patched per module** (43 handlers). The app checks outcomes instead: `intake-missing` (new lead, 20 min,
+  nothing saved) and NEW `contract-missing` (opportunity created on/after 2026-10-09, tag `agreement_signed`, no Contract PDF, stage
+  change older than 30 min). Outcome checks also catch "hook never fired" and "scenario deactivated".
+- **How it was pushed:** the Make MCP endpoint in `.mcp.json` answers plain JSON-RPC over HTTP, so `scratchpad/alerts/mcp.py`
+  fetched every blueprint to disk, `patch_make.py` patched them (unique ids, alert sibling for every email-to-Jay handler, no forward
+  `{{N.` references inside handlers, no em dashes), `push_make.py` sent them back and re-read each (active, valid, module counts).
+  Nothing was retyped by hand. Windows caveat: `curl -d <70 KB>` dies with "filename too long"; post the body from a file.
+- **Proof:** POST to the Chef Assigned hook with the ZZTEST contact and a bogus `opportunityId` makes module 4 fail; the alert
+  "Chef not sent anything for ZZTEST Alert Probe" was in the app 2 s later (builder) and the inspector's own probe too. Contract:
+  `ventures/Nutrition-Intuition/VALIDATION_CONTRACT_make-app-alerts.md`.
+- **Pipeline screen (Jay 2026-10-12):** home section "Where everyone is" = six steps with counts and a one-line health note
+  (Intake received not signed / Signed, menu being built / Menu built, invite sent / Consultation (call booked vs not yet) / Waiting for
+  a chef / With a chef (grouped by chef)); tap a step for the stacked client rows with "N days here" (amber when past the step's
+  threshold: 3 / 1 / 5 / 14 / 7 days) and allergy tags. Steps come from the app's stage keys (`config.secret.json` maps GHL stage ids:
+  New Lead -> new, Agreement Signed + QB Customer Created -> signed, 15 Item Menu -> menu, "Waitlist (Consult In-progress)" -> consult,
+  GHL "Chef Assigned" stage -> waitlist) plus the Assigned Chef field (hasChef wins). `nextCall` per client = the next calendar event
+  within 90 days (second `eventsBetween` call in the snapshot). "Powered by Netlify" badge switched off via `PATCH /sites/{id}
+  {built_with_badge_enabled:false}`.
+- **Known, not fixed yet (GR-069 shape):** Phase 3 module 10 takes `last(9.body.notes)` as the intake text (GHL returns notes newest
+  first, so this is the OLDEST note). Safe for brand-new contacts, wrong for anyone who had a note before their intake (e.g. a website
+  general inquiry). Fix = read the Intake Note ID field (a01ozxZ8Jb3P2QXEo9Jx) or filter notes for `=== INTAKE FORM DATA ===` newest.

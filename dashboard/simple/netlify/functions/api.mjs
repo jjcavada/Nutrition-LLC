@@ -253,7 +253,8 @@ async function buildSnapshot() {
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
     // signed (Phase 2 tagged them) since the Drive automation went live on 2026-10-09, 30+ min ago, and still no signed PDF in Drive: the Phase 2 -> Drive hop failed or never fired.
     // Clients onboarded before 2026-10-09 are excluded on purpose (12 known contracts are missing from Drive and need a manual lookup, not an alert).
-    if (!c.isNew && c.stage !== 'past' && (c.tags || []).includes('agreement_signed') && !c.contractPdf && c.createdAt >= '2026-10-09' && c.stageChangedAt && Date.now() - new Date(c.stageChangedAt).getTime() > 30 * 60000) alerts.push({ id: 'contract-missing:' + c.id, kind: 'check', when: c.stageChangedAt, title: 'Signed contract not in Drive for ' + c.name, body: 'They signed, but the signed PDF never reached their Google Drive folder. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
+    const DRIVE_LIVE = '2026-10-09T14:00:00Z'; // Client Records -> Drive (6561132) went live; signings before it were backfilled by hand (12 known gaps, never alerted)
+    if (!c.isNew && c.stage !== 'past' && !c.contractPdf && c.stageChangedAt && c.stageChangedAt >= DRIVE_LIVE && (c.createdAt >= DRIVE_LIVE || ['signed', 'menu', 'consult'].includes(c.stage)) && Date.now() - new Date(c.stageChangedAt).getTime() > 30 * 60000) alerts.push({ id: 'contract-missing:' + c.id, kind: 'check', when: c.stageChangedAt, title: 'Signed contract not in Drive for ' + c.name, body: 'They signed, but the signed PDF never reached their Google Drive folder. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
   });
   return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames, testChef: cfg.testChef || '' /* shown as the last dropdown entry 'Test' while Jay is testing; remove testChef from config.secret.json to hide it */,
     counts: { total: clients.length, past: clients.filter((c) => c.stage === 'past').length, active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
@@ -327,6 +328,14 @@ export default async (req) => {
     if (!authed) return json({ ok: false, error: 'locked' }, 401);
 
     if (route === 'today' && req.method === 'GET') return json(await getSnapshot(url.searchParams.get('fresh') === '1'));
+    if (route === 'alerts/clear' && req.method === 'POST') { // test clean-up: drop stored Make alerts whose title or body contains `match`
+      const b = await req.json().catch(() => ({})); const match = String(b.match || '').toLowerCase(); if (match.length < 3) return json({ ok: false, error: 'match too short' }, 400);
+      const as = strongStore('ni-cache'); let list = []; try { const raw = await as.get('alerts'); list = raw ? JSON.parse(raw) : []; } catch (e) { list = []; }
+      const keep = list.filter((x) => ((x.title || '') + ' ' + (x.body || '')).toLowerCase().indexOf(match) < 0);
+      try { await as.set('alerts', JSON.stringify(keep)); } catch (e) { return json({ ok: false }, 500); }
+      mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); } catch (e) {} }
+      return json({ ok: true, removed: list.length - keep.length, left: keep.length });
+    }
     if (route.startsWith('contact/') && req.method === 'GET') {
       const id = route.split('/')[1]; if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return json({ ok: false }, 400);
       const [d, notes] = await Promise.all([ghl('/contacts/' + id), notesOf(id)]);

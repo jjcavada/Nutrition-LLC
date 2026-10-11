@@ -89,15 +89,19 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .nlist .nw{font-size:12px;opacity:.6}
 .nlist .tag{display:inline-block;margin-right:6px}
 .wtags{margin-top:2px}
+.journey{background:var(--tile);border-radius:18px;padding:6px 18px 16px}
 .pipe{list-style:none;margin:0;padding:0}
-.pipe li{border-bottom:1px solid var(--hair)}
-.pipe li:last-child{border-bottom:0}
-.prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:1px 12px;align-items:center;width:100%;background:none;border:0;color:inherit;font:inherit;padding:11px 0;text-align:left;cursor:pointer}
-.prow .pn{font-weight:600;color:var(--head)}
-.prow .pc{grid-row:span 2;font-family:var(--display);font-weight:300;font-size:28px;line-height:1;color:var(--head);min-width:34px;text-align:right}
-.prow .pchev{grid-row:span 2;display:flex;opacity:.55}
-.prow .ps{grid-column:1;color:var(--soft);font-size:13.5px}
-.prow .ps.hot{color:#F2A08E}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;align-items:baseline;width:100%;background:none;border:0;color:inherit;font:inherit;padding:13px 0 0;text-align:left;cursor:pointer}
+.prow .pn{font-size:17px;color:var(--head)}
+.prow .pc{font-weight:700;font-size:19px;color:var(--head)}
+.prow .pc.hot,.prow .ps.hot{color:#D9B45A}
+.prow .jbar{grid-column:1 / -1;height:8px;border-radius:4px;background:rgba(255,255,255,.07);margin-top:9px;overflow:hidden}
+.prow .jbar i{display:block;height:100%;border-radius:4px;background:#A3B55D;transition:width .5s var(--ease)}
+.prow .jbar i.hot{background:#D9B45A}
+.prow .ps{grid-column:1 / -1;color:var(--soft);font-size:13px;margin-top:5px}
+.jfoot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;border-top:1px solid var(--hair);margin-top:16px;padding-top:14px}
+.jfoot span{display:block;color:var(--soft);font-size:13.5px;line-height:1.3}
+.jfoot b{display:block;font-family:var(--display);font-weight:300;font-size:30px;line-height:1.1;color:var(--head);margin-top:6px}
 .crow .right .status{margin:0}
 .crow .wtags{display:block;margin-top:4px}
 h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:18px 0 0;text-wrap:balance}
@@ -352,7 +356,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
         <p class="later" id="later"></p>
       </section>
       <section aria-labelledby="h-pipe">
-        <div class="sh"><h2 id="h-pipe">Where everyone is</h2><span class="aux">Tap a step</span></div>
+        <div class="sh"><h2 id="h-pipe">Client journey</h2><span class="aux">Tap a step</span></div>
         <div id="pipeline"></div>
       </section>
     </div>
@@ -492,12 +496,12 @@ function nicePhone(p){ var d = String(p || '').replace(/\D/g, ''); if (d.length 
 function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' + esc(x) + '</span>'; }).join(''); }
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
 var PHASES = [
-  {key:'new', name:'Intake received, not signed', next:'They need to sign the agreement. If it has been a few days, text or email them from their card.', stuck:3},
-  {key:'signed', name:'Signed, menu being built', next:'The 15 item menu is built automatically within minutes of signing. Anyone here for more than a day means the menu did not come through.', stuck:1},
-  {key:'menu', name:'Menu built, invite sent', next:'They got the consultation booking link automatically. Once they book, the card moves on.', stuck:5},
+  {key:'new', name:'New lead, not signed', next:'They need to sign the agreement. If it has been a few days, text or email them from their card.', stuck:3},
+  {key:'signed', name:'Agreement signed', next:'The 15 item menu is built automatically within minutes of signing. Anyone here for more than a day means the menu did not come through.', stuck:1},
+  {key:'menu', name:'15-item menu', next:'They got the consultation booking link automatically. Once they book, the card moves on.', stuck:5},
   {key:'consult', name:'Consultation', next:'Hold the consultation, then pick a chef.', stuck:14},
-  {key:'waiting', name:'Waiting for a chef', next:'Pick a chef and their intake and menu go out to that chef.', stuck:7},
-  {key:'chef', name:'With a chef', next:'Cooking. Grouped by chef.', stuck:0}
+  {key:'waiting', name:'Waitlist, needs a chef', next:'Pick a chef and their intake and menu go out to that chef.', stuck:7},
+  {key:'chef', name:'Active, with a chef', next:'Cooking. Grouped by chef.', stuck:0}
 ];
 function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu' || c.stage === 'consult') return c.stage; return 'waiting'; }
 function phaseClients(key){ return clients().filter(function(c){ return phaseOf(c) === key; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0) || a.name.localeCompare(b.name); }); }
@@ -511,14 +515,17 @@ function stuckText(p, n){
 }
 function renderPipeline(){
   var box = $('#pipeline'); if (!box || !DATA) return;
-  box.innerHTML = '<ul class="pipe">' + PHASES.map(function(p){
-    var list = phaseClients(p.key), stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub;
-    if (!list.length) sub = 'Nobody here right now';
-    else if (p.key === 'consult') { var booked = list.filter(function(c){ return c.nextCall; }).length; sub = booked + ' with a call booked · ' + (list.length - booked) + ' not booked yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
-    else if (p.key === 'chef') { var names = {}; list.forEach(function(c){ names[c.chef] = 1; }); sub = 'across ' + Object.keys(names).length + (Object.keys(names).length === 1 ? ' chef' : ' chefs'); }
-    else sub = stuck ? stuckText(p, stuck) : 'All moving along';
-    return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc">' + list.length + '</span><span class="pchev">' + ICON.chev + '</span><span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span></button></li>';
-  }).join('') + '</ul>';
+  var rows = PHASES.map(function(p){ return {p: p, list: phaseClients(p.key)}; }), max = Math.max(1, Math.max.apply(null, rows.map(function(r){ return r.list.length; })));
+  var monthStart = DATA.today.slice(0, 7), monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(monthStart.slice(5, 7), 10) - 1];
+  var leads = clients().filter(function(c){ return c.stage !== 'past' && (c.createdAt || '').slice(0, 7) === monthStart; }), became = leads.filter(function(c){ return !c.isNew; }), booked = clients().filter(function(c){ return c.nextCall; });
+  box.innerHTML = '<div class="journey"><ul class="pipe">' + rows.map(function(r){
+    var p = r.p, list = r.list, stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub = '';
+    if (p.key === 'consult' && list.length) { var b = list.filter(function(c){ return c.nextCall; }).length; sub = b + ' with a call booked · ' + (list.length - b) + ' not booked yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
+    else if (stuck) sub = stuckText(p, stuck);
+    var hot = stuck > 0 || (p.key === 'waiting' && list.length > 0);
+    return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc' + (hot ? ' hot' : '') + '">' + list.length + '</span><span class="jbar"><i' + (hot ? ' class="hot"' : '') + ' style="width:' + Math.round(list.length / max * 100) + '%"></i></span>' + (sub ? '<span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span>' : '') + '</button></li>';
+  }).join('') + '</ul>' +
+    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div></div>';
 }
 function stageRow(c, p){
   var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;

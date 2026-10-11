@@ -497,18 +497,16 @@ function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' 
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
 var PHASES = [
   {key:'new', name:'New lead, not signed', next:'They need to sign the agreement. If it has been a few days, text or email them from their card.', stuck:3},
-  {key:'signed', name:'Agreement signed', next:'The 15 item menu is built automatically within minutes of signing. Anyone here for more than a day means the menu did not come through.', stuck:1},
-  {key:'menu', name:'15-item menu', next:'They got the consultation booking link automatically. Once they book, the card moves on.', stuck:5},
+  {key:'signed', name:'Agreement signed', next:'The 15 item menu and the consultation invite go out automatically within minutes of signing. Anyone here for more than a day means that automation did not finish.', stuck:1},
   {key:'consult', name:'Consultation', next:'Hold the consultation, then pick a chef.', stuck:14},
   {key:'waiting', name:'Waitlist, needs a chef', next:'Pick a chef and their intake and menu go out to that chef.', stuck:7},
-  {key:'chef', name:'Active, with a chef', next:'Cooking. Grouped by chef.', stuck:0}
+  {key:'chef', name:'Chef assigned', next:'The chef got the intake and the 15 item menu automatically. Grouped by chef.', stuck:0}
 ];
-function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu' || c.stage === 'consult') return c.stage; return 'waiting'; }
+function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu') return 'signed'; if (c.stage === 'consult') return 'consult'; return 'waiting'; }
 function phaseClients(key){ return clients().filter(function(c){ return phaseOf(c) === key; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0) || a.name.localeCompare(b.name); }); }
 function stuckText(p, n){
   if (p.key === 'new') return n + (n === 1 ? ' has' : ' have') + ' not signed after ' + p.stuck + ' days';
-  if (p.key === 'signed') return n + ' still without a menu after a day';
-  if (p.key === 'menu') return n + ' with no call booked after ' + p.stuck + ' days';
+  if (p.key === 'signed') return n + ' stuck here more than a day';
   if (p.key === 'consult') return n + ' here more than two weeks';
   if (p.key === 'waiting') return n + ' waiting more than a week';
   return '';

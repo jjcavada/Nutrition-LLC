@@ -991,3 +991,8 @@ All automation steps running (QB customer, menu, consultation invite).
   Agreement signed / 15-item menu / Consultation / Waitlist, needs a chef / Active, with a chef, each with a proportional bar (amber when
   stuck or waitlist) and a one-line note only when something needs attention; footer New leads in <month> (opportunities created this
   month) / Became clients (of those, signed) / Calls booked ahead. Event inquiries section and the waiting box under Chefs removed.
+- **Phase 3 GR-069 fix (2026-10-11 16:37Z):** module 10 took `get(last(9.body.notes); "body")` = the OLDEST note (GHL returns notes newest
+  first). Proven on ZZTEST with a throw-away webhook scenario (deleted): old pick = the 2026-09-08 intake, new pick = the 2026-09-25 intake.
+  Now Feeder 430 + Aggregator 431 (value / isIntake = contains "INTAKE FORM DATA" / dateAdded) sit after module 9 and module 10 reads
+  `{{ifempty(get(map(sort(431.array; "desc"; "dateAdded"); "value"; "isIntake"; "YES"); 1); get(last(9.body.notes); "body"))}}`
+  (same pattern as 6116697 modules 7/10/11). Flow: 1, 2, 9, 430, 431, 10, 3, 4, 5, 6, 7, 8, 11; active, valid, 40 modules.

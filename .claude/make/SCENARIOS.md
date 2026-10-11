@@ -97,6 +97,10 @@ Google Form Submit → Apps Script POST to webhook
   `to` goes to Jay instead of the client when no document was created; the note's SIGNWELL block says "NOT CREATED ... send by hand".
   Rule: a side step (e-sign, email) must never Commit-abort the record-keeping steps that follow it.
 - Replay caveat: a replay re-runs module 4 and creates a second opportunity; delete the newer one afterwards.
+- **App alerts (2026-10-11):** modules 120 (after the SignWell alert email) and 121 (after the Drive alert email) POST
+  `https://ni-today.netlify.app/api/notify` with `kind: "alert"`; the app keeps alerts 7 days (Blobs `ni-cache` key `alerts`) and shows them
+  as a red "Needs attention" strip above New (tap opens the client, long-press dismisses on that phone). The app also raises its own alert
+  when a new lead is 20+ min old with no intake note / summary / PDF ("Onboarding stopped halfway"), independent of Make.
 
 ### Phase 2: Agreement Signed + QB Setup
 | Field | Value |
@@ -919,6 +923,10 @@ All automation steps running (QB customer, menu, consultation invite).
 - **Backfill DONE 2026-10-09:** 45 live clients -> folder + intake PDF + row (+ summary), 31 contracts via the Phase 2 note's `Document ID` (34 fired; 3 ids are 404 in SignWell = deleted documents: Amanda Graff,
   ashley walker, Jennifer Walters, each raised the module 40 ERROR email); 9 more signed clients have no document id in GHL at all (listed
   in hub memory `ni-drive-records.md`). Those 12 contracts are not in Drive and need a manual lookup. Zero failed/warning runs (alerts + Commit by design).
+- **2026-10-11:** second backfill pass over EVERY GHL contact with an intake note (lost, abandoned, never-pipeline): 14 more folders
+  (sydney shapiro, ana parker, meghan j markham, eddie gomez, adam luber, amber conrad, allon rauer, connie marolt, lacey homa, jonathan levine,
+  michelle o'connor, misty pile, sandrine belegou, sheena haan) + 4 contracts. GHL holds 72 contacts; Amber's own count of 77-81 includes people
+  who were never in GHL (her old Google Form folder), those cannot be automated without that folder being shared.
 - Pending: send Amber the folder + sheet links, optionally file event
   agreements (6191114) the same way. Ops: ~13 per new intake + 13 per signing.
 

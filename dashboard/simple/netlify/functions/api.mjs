@@ -169,7 +169,7 @@ async function buildSnapshot() {
     const sum = parseSummary(cf(f, cfg.fields.summary));
     const name = o.name || c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ');
     return {
-      id: o.contactId, oppId: o.id, stageChangedAt: o.lastStageChangeAt || '', name, first: firstName(name), phone: c.phone || '', email: c.email || '',
+      id: o.contactId, oppId: o.id, stageChangedAt: o.lastStageChangeAt || '', intakeNoteId: cf(c.customFields, cfg.fields.intakeNoteId) || '', name, first: firstName(name), phone: c.phone || '', email: c.email || '',
       stage, status: o.status, chef, hasChef: !!chef, isNew: stage === 'new',
       waiting: stage !== 'new' && !chef, waitingDays: daysSince(o.lastStageChangeAt || o.createdAt),
       since: o.createdAt ? monthDay(new Date(o.createdAt)) + ', ' + new Date(o.createdAt).getFullYear() : '', createdAt: o.createdAt || '',
@@ -224,7 +224,12 @@ async function buildSnapshot() {
   const chefList = chefNames.map((n) => ({ name: n, clients: clients.filter((c) => c.chef === n).map((c) => c.id) }));
   const unknownChefs = [...new Set(clients.map((c) => c.chef).filter((n) => n && !chefNames.includes(n)))];
   unknownChefs.forEach((n) => chefList.push({ name: n, clients: clients.filter((c) => c.chef === n).map((c) => c.id) }));
-  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), calls, newItems, clients, chefs: chefList, chefOptions: chefNames /* the test chef is accepted by POST /api/assign but never offered in Amber's dropdown */,
+  const alerts = [];
+  try { const as = store('ni-cache'); const raw = as ? await as.get('alerts') : null; (raw ? JSON.parse(raw) : []).forEach((a) => { if (Date.now() - new Date(a.when).getTime() < 7 * 86400000) alerts.push(Object.assign({ kind: 'make' }, a)); }); } catch (e) {}
+  clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
+    if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
+  });
+  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames /* the test chef is accepted by POST /api/assign but never offered in Amber's dropdown */,
     counts: { active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
 }
 async function getSnapshot(fresh) {
@@ -284,6 +289,11 @@ export default async (req) => {
       for (const bl of list.blobs || []) {
         const sub = await s.get(bl.key, { type: 'json' }).catch(() => null); if (!sub) continue;
         try { await webpush.sendNotification(sub, payload, { TTL: 3600 }); sent++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) { await s.delete(bl.key).catch(() => {}); dead++; } }
+      }
+      if (b.kind === 'alert') { // a Make error handler reporting a problem: keep it so the app shows "Needs attention" even if no phone got the push
+        try { const as = strongStore('ni-cache'); let list = []; try { const raw = await as.get('alerts'); list = raw ? JSON.parse(raw) : []; } catch (e) { list = []; }
+          list.unshift({ id: 'a' + Date.now(), when: new Date().toISOString(), title: String(b.title || 'Needs attention').slice(0, 80), body: String(b.body || '').slice(0, 300), url: typeof b.url === 'string' && b.url.startsWith('/') ? b.url : '/', contactId: /^[A-Za-z0-9]{10,40}$/.test(String(b.contactId || '')) ? b.contactId : '' });
+          await as.set('alerts', JSON.stringify(list.slice(0, 30))); } catch (e) {}
       }
       mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); } catch (e) {} }
       return json({ ok: true, sent, dead });

@@ -271,6 +271,17 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
   .facts,.pad-l{padding-left:0}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+.waitbox{background:rgba(201,164,74,.10);border:1px solid rgba(201,164,74,.28);border-radius:16px;padding:16px 16px 14px;margin:0 0 18px}
+.waitbox h4{margin:0 0 10px;font-size:15px;font-weight:600;color:#D9B45A}
+.wline{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;background:none;border:0;color:inherit;font:inherit;padding:7px 0;text-align:left;cursor:pointer}
+.wline .days{opacity:.8;white-space:nowrap}
+.wline .muted{opacity:.6}
+.thead{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.6;padding:6px 2px;border-bottom:1px solid rgba(255,255,255,.08);margin-top:4px}
+.chef-head .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.07);margin-left:auto;white-space:nowrap}
+.chef-head .chip.open{background:rgba(120,170,90,.22);color:#B9DB9F}
+.chef.empty .chef-head{display:flex;align-items:center;gap:10px}
+.tag.warn{background:rgba(214,96,72,.22);color:#F2A08E}
+.alert-item{border-color:rgba(214,96,72,.4)}
 </style>
 </head>
 <body>
@@ -296,6 +307,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
   <h1 id="hello">Good morning, <em>Amber.</em></h1>
   <div class="sync" id="sync"></div>
 
+  <div class="new" id="alerts" aria-label="Needs attention"></div>
   <div class="new" id="new" aria-label="New"></div>
 
   <div class="nums">
@@ -495,6 +507,15 @@ function renderTiles(){
   $('#t-waiting').textContent = waitingList().length;
   $('#t-calls').textContent = DATA.counts.calls;
 }
+var readAlerts = store.get('readAlerts', []);
+function renderAlerts(){
+  var box = $('#alerts'); if (!box) return;
+  var items = (DATA && DATA.alerts ? DATA.alerts : []).filter(function(a){ return readAlerts.indexOf(a.id) < 0; });
+  box.innerHTML = items.map(function(a){
+    return '<button class="new-item alert-item" data-alert="' + esc(a.id) + '" data-contact="' + esc(a.contactId || '') + '"><span class="tag warn">Needs attention</span><span class="t">' + esc(a.title) + '</span><span class="w">' + esc(whenShort(a.when)) + '</span><span class="s">' + esc(a.body) + '</span><span class="s" style="opacity:.6">Tap to open · long-press to dismiss</span></button>';
+  }).join('');
+}
+(function(){ var timer; document.addEventListener('pointerdown', function(e){ var t = e.target.closest('[data-alert]'); if (!t) return; timer = setTimeout(function(){ readAlerts.push(t.dataset.alert); store.set('readAlerts', readAlerts.slice(-50)); renderAlerts(); toast('Dismissed on this phone.'); }, 650); }); ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ document.addEventListener(ev, function(){ clearTimeout(timer); }); }); })();
 function renderNew(){
   var items = (DATA ? DATA.newItems : []).filter(function(n){ return readNew.indexOf(n.id) < 0; });
   $('#new').innerHTML = items.map(function(n){
@@ -531,21 +552,22 @@ function renderEvents(){
 }
 var chefsAll = false;
 function renderChefs(){
-  var box = $('.full[data-kind="waiting"] #fchefs'); if (!box || !DATA) return;
+  var box = $('.full #fchefs'); if (!box || !DATA) return;
+  var onChefsScreen = !!$('.full[data-kind="clients"]');
   var by = {}; DATA.chefs.forEach(function(ch){ by[ch.name] = ch.clients.map(findClient).filter(Boolean); });
   var names = Object.keys(by).sort(function(x, y){ return (by[y] || []).length - (by[x] || []).length || x.localeCompare(y); });
   var openNow = $$('.chef.open', box).map(function(li){ return li.dataset.chef; });
-  var shown = chefsAll ? names : names.slice(0, 10);
+  var shown = (chefsAll || onChefsScreen) ? names : names.slice(0, 10);
   box.innerHTML = shown.map(function(n){
     var list = by[n] || [], isOpen = openNow.indexOf(n) >= 0;
-    if (!list.length) return '<li class="chef empty" data-chef="' + esc(n) + '"><div class="chef-head"><span class="who">' + esc(n) + '<span class="free">No clients yet</span></span><span class="n num">0</span></div></li>';
-    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + esc(n) + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(n) + '</span><span class="n num">' + list.length + '</span>' + ICON.chev + '</button>' +
+    if (!list.length) return '<li class="chef empty" data-chef="' + esc(n) + '"><div class="chef-head"><span class="who">' + esc(n) + '</span><span class="n num">0</span><span class="chip open">Open</span></div></li>';
+    return '<li class="chef' + (isOpen ? ' open' : '') + '" data-chef="' + esc(n) + '"><button class="chef-head" aria-expanded="' + isOpen + '"><span class="who">' + esc(n) + '</span><span class="n num">' + list.length + '</span><span class="chip">' + list.length + (list.length === 1 ? ' client' : ' clients') + '</span>' + ICON.chev + '</button>' +
       '<div class="chef-body">' + list.map(function(c){
         return '<button class="cl" data-client="' + esc(c.id) + '"><span class="cn">' + esc(c.name) + '</span><span class="cmeta">' + esc(c.wants || ('since ' + c.since)) + '</span><span class="csub">' + esc([c.household, c.area].filter(Boolean).join(' · ')) + ' ' + algs(c.allergies) + '</span></button>';
       }).join('') + '</div></li>';
   }).join('');
-  var more = $('.full[data-kind="waiting"] #morechefs');
-  var sum = $('.full[data-kind="waiting"] #chefsum'); if (sum) sum.textContent = names.length + ' chefs · ' + active().length + ' clients with a chef · ' + names.filter(function(n){ return !by[n].length; }).length + ' with no clients yet';
+  var more = $('.full #morechefs');
+  var sum = $('.full #chefsum'); if (sum) sum.textContent = names.length + ' chefs · ' + active().length + ' clients with a chef · ' + names.filter(function(n){ return !by[n].length; }).length + ' with no clients yet';
   if (more) { more.hidden = names.length <= 10; more.textContent = chefsAll ? 'Show fewer chefs' : 'Show all ' + names.length + ' chefs'; }
 }
 function waitRow(w){
@@ -583,7 +605,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderNew(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- sheets ---------------- */
 var sheets = [];
@@ -663,6 +685,7 @@ function openNew(id){
 }
 document.addEventListener('click', function(e){
   var t;
+  if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
   if ((t = e.target.closest('[data-intake]'))) {
     var c = findClient(t.dataset.intake), box = $('#rawbox', t.closest('.sheet')); if (!c || !box) return;
     if (box.innerHTML) { box.innerHTML = ''; t.textContent = 'Read the full intake'; return; }
@@ -743,12 +766,14 @@ function clientRow(c){
 function fullHTML(kind){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
   if (kind === 'clients') {
-    var withChef = active(), noChef = clients().filter(function(c){ return !c.hasChef && !c.isNew; }), newer = clients().filter(function(c){ return c.isNew; });
-    return '<div class="full-h"><div><h3>Clients</h3><p>' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet</p></div>' + x + '</div>' +
-      '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
-      '<div class="day-h">With a chef</div><ul class="full-list">' + (withChef.length ? withChef.map(clientRow).join('') : '<li><p class="none">No one yet.</p></li>') + '</ul>' +
-      '<div class="day-h">Waiting for a chef</div><ul class="full-list">' + (noChef.length ? noChef.map(clientRow).join('') : '<li><p class="none">No one waiting.</p></li>') + '</ul>' +
-      '<div class="day-h">Intake received, not signed yet</div><ul class="full-list">' + (newer.length ? newer.map(clientRow).join('') : '<li><p class="none">Nobody pending.</p></li>') + '</ul>';
+    var withChef = active(), wl = waitingList(), top3 = wl.slice(0, 3), team = DATA ? DATA.chefs.length : 0;
+    return '<div class="full-h"><div><h3>Chefs</h3><p>' + team + ' on the team · ' + withChef.length + ' clients with a chef</p></div>' + x + '</div>' +
+      '<div class="waitbox"><h4>Waiting for a chef</h4>' +
+        (top3.length ? top3.map(function(w){ return '<button class="wline" data-client="' + esc(w.id) + '"><span>' + esc(w.name) + (w.area ? ' <span class="muted">· ' + esc(w.area) + '</span>' : '') + '</span><span class="days">' + (w.waitingDays || 0) + ' days</span></button>'; }).join('') : '<p class="none" style="margin:0">Everyone has a chef.</p>') +
+        (wl.length ? '<button class="btn ghost-b" data-openfull="waiting" style="margin-top:12px;width:100%">' + (wl.length > 3 ? 'See all ' + wl.length + ' waiting and assign a chef' : 'Assign a chef') + '</button>' : '') +
+      '</div>' +
+      '<input class="search" id="csearch" type="search" placeholder="Search a chef or a client" aria-label="Search chefs and clients">' +
+      '<div class="thead"><span>Chef</span><span>Clients</span></div><ul id="fchefs"></ul>';
   }
   if (kind === 'waiting') {
     return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +
@@ -778,12 +803,13 @@ function openFull(kind, tile, tab){
   ov.innerHTML = '<div class="full-in">' + fullHTML(kind) + '</div>';
   document.body.appendChild(ov); document.body.classList.add('locked'); ov._tile = tile;
   if (kind === 'waiting') { renderWaiting(); renderChefs(); if (tab) showTab(ov, tab); }
+  if (kind === 'clients') renderChefs();
   if (!RM) {
     ov.animate([{clipPath:clipFor(r), backgroundColor:getComputedStyle(tile).backgroundColor},{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor}], {duration:520, easing:EASE});
     ov.querySelector('.full-in').animate([{opacity:0, transform:'translateY(18px)'},{opacity:1, transform:'none'}], {duration:360, delay:200, easing:'ease-out', fill:'backwards'});
   }
   var s = $('#csearch', ov);
-  if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); });
+  if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); $$('.chef', ov).forEach(function(li){ var hit = !q || li.textContent.toLowerCase().indexOf(q) >= 0; li.hidden = !hit; if (q && hit && !li.classList.contains('empty')) li.classList.add('open'); }); });
   setTimeout(function(){ var b = ov.querySelector('[data-closefull]'); if (b) try { b.focus({preventScroll:true}); } catch(e) {} }, 60);
 }
 function closeFull(){
@@ -905,7 +931,7 @@ document.addEventListener('click', function(e){
   if ((t = e.target.closest('[data-closefull]'))) return closeFull();
   if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
   if ((t = e.target.closest('.seg [data-tab]'))) return showTab(t.closest('.full'), t.dataset.tab);
-  if ((t = e.target.closest('[data-openfull]'))) return openFull(t.dataset.openfull, $('.tile[data-full="' + t.dataset.openfull + '"]'), t.dataset.tab);
+  if ((t = e.target.closest('[data-openfull]'))) { var k = t.dataset.openfull, tb = t.dataset.tab; if ($('.full')) { closeFull(); setTimeout(function(){ openFull(k, $('.tile[data-full="' + k + '"]'), tb); }, 420); return; } return openFull(k, $('.tile[data-full="' + k + '"]'), tb); }
   if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }
   if ((t = e.target.closest('[data-new]'))) return openNew(t.dataset.new);
   if ((t = e.target.closest('[data-call]'))) return openPrep(t.dataset.call);

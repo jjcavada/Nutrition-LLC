@@ -979,3 +979,15 @@ All automation steps running (QB customer, menu, consultation invite).
 - **Known, not fixed yet (GR-069 shape):** Phase 3 module 10 takes `last(9.body.notes)` as the intake text (GHL returns notes newest
   first, so this is the OLDEST note). Safe for brand-new contacts, wrong for anyone who had a note before their intake (e.g. a website
   general inquiry). Fix = read the Intake Note ID field (a01ozxZ8Jb3P2QXEo9Jx) or filter notes for `=== INTAKE FORM DATA ===` newest.
+- **Round 2 (inspector findings, 2026-10-11 16:27Z):** (1) the app's `contract-missing` check keyed on tag `agreement_signed`, which
+  **Phase 4 module 5 (`highlevel:updateAContact`, tags) wiped 1-2 min after signing: that module REPLACES the contact's whole tag set.**
+  Module 5 is now `highlevel:universal` `POST /contacts/{{7.id}}/tags {"tags":["consultation_invited"]}` (adds). Same pattern in Phase 2
+  module 6 (replaces `intake_received,new_lead` with `agreement_signed,qb_customer_created`), left as is. The app check now keys on the
+  stage change instead (card left New, stage change on/after the Drive go-live 2026-10-09T14:00Z, lead post go-live or card in an
+  automated post-signing stage signed/menu/consult, 30 min grace). (2) Phase 3 module 400's email named the RETIRED Phase 3 hook
+  `1g70olupjruo1arv416lpk1uwycim00w` (old scenario 4076893, still in the table at the top of this file); the live hook is
+  `lejbvz32owjvmxel8sksf9cgdevsfbo9` (hook 1856074). Fixed. (3) App: `POST /api/alerts/clear {match}` (X-NI-Key) removes stored Make
+  alerts whose title/body contain the text (test clean-up). (4) Home: "Client journey" card (Jay's mock): rows New lead not signed /
+  Agreement signed / 15-item menu / Consultation / Waitlist, needs a chef / Active, with a chef, each with a proportional bar (amber when
+  stuck or waitlist) and a one-line note only when something needs attention; footer New leads in <month> (opportunities created this
+  month) / Became clients (of those, signed) / Calls booked ahead. Event inquiries section and the waiting box under Chefs removed.

@@ -590,7 +590,7 @@ function waitRow(w){
     (p ? '<div class="sending">Sending to ' + esc(p.chef) + '…</div>' : '<div><select aria-label="Choose a chef for ' + esc(w.name) + '" data-assign="' + esc(w.id) + '">' + chefOptions() + '</select></div>') + '</div>';
 }
 function renderWaiting(){
-  if (!DATA) { $('#waiting').innerHTML = '<p class="skel">Loading…</p>'; return; }
+  if (!DATA) { var hw0 = $('#waiting'); if (hw0) hw0.innerHTML = '<p class="skel">Loading…</p>'; return; }
   var list = waitingList();
   var html = list.length ? list.map(waitRow).join('') : '<p class="none">Everyone has a chef.</p>';
   var hw = $('#waiting'); if (hw) hw.innerHTML = html;

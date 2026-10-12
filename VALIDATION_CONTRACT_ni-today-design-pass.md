@@ -77,3 +77,17 @@ note ids from `Date.now()` could collide on a scripted double submit; focus fell
   sticky, one X inside, label "Felicia Gorcyca", after a 600 px scroll the header top == sheet top and the X visible; real X tap
   closed it; same for Aaron's sheet in dark mode (badge computed rgb(200,74,50)). Screenshots light + dark sent to Jay.
 - Inspector round 3 (fresh context, sonnet): pending, appended below when it lands.
+
+### Jay's 2026-10-12/13 requests (patches 18-20, sw v15-v17, deployed and builder-verified at 375 px)
+- Day/night toggle beside the logo: `data-theme` override on `:root` (system scheme until the first tap), remembered in
+  localStorage, applied before first paint by an inline head script, moon/sun icon with aria-label + aria-pressed, theme-color
+  meta follows; header fits 375 px with a short date ("Mon, Oct 12"); round header buttons 44 px. Proven: tap -> dark, paper
+  #171B14, stored, persists after reload, label flips.
+- Client journey card like mock 1: serif title inside the card with the "Tap a step" aux, footer labels above numbers; an old h2
+  rule upper-cased the titles (fixed with `text-transform:none`).
+- "Calls this week" card like mock 2: serif title, All / Weekly / Event pills (44 px, remembered), grouped by day, time column
+  green for today, pill badges "Weekly service" / "Event call", one-line description; replaces Today's calls + Later this week.
+  Real data had no calls this week, so the empty state showed ("No calls booked this week.").
+- Notifications: the New cards left the home screen (Needs attention stays); the bell list keeps a green NEW pill per item that
+  flips to a grey "Viewed" on tap and decrements the count (opening the sheet no longer marks everything read); "Mark all viewed".
+  Proven: 4 -> 3 on one tap, pill grey, client sheet opens on top, Mark all -> 0, persisted after reload.

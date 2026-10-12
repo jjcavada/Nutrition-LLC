@@ -82,3 +82,20 @@ Method: pulled the LIVE blueprints (Phase 9 4446319, 6116697), rebuilt a throw-a
 - **Writes this round:** one ZZTEST alert (cleared), one email to Jay. Nothing else.
 - **Pending:** a fresh-context read-only smoke test (sonnet, fixtures only) across the app routes, Make health, data store and GHL
   options; its report is appended below when it lands.
+
+### Smoke test (fresh-context sonnet agent, read-only + fixtures, 2026-10-12 12:28-15:19 UTC)
+- 20 of 22 checks PASS: app auth (401 without key, 401 wrong code), snapshot (59 clients: new 6 / consult 8 / waitlist 30 / past 15;
+  18 chefOptions incl. Angelica, no test/ZZTEST entries), contact route, assign guard (fake chef -> 400 before any Make call; no
+  6116697 execution after the call), notify + alerts/clear (401 / 400 short match / removed 0 / removed 1), all 9 scenarios active
+  with 46/46 successful runs in 48 h, data store 18 lowercase keys = chefOptions, GHL field 19 options, pipeline stages, new-chef
+  page 200 with the form, app shell + `nitoday-v13` + manifest, no Netlify badge.
+- The 2 FAILs are not defects: (11) the shell calls routes through an `api()` helper, so the literal `/api/alerts/clear` the brief
+  expected is absent by design; (10b) the chef profile Google Form answers 302 -> Google sign-in for anonymous visitors (file-upload
+  field), so a chef needs a Google account to open it. Amber's 13 chefs managed in September; tell a new chef in advance if needed.
+- Concern checked by the builder: "Aaron Carpenter's agreement never sent" is FALSE. His intake note from the 2026-10-11 05:34Z replay
+  carries SignWell document f2355e2e-44fd-4b9e-9d12-d4c56a259e89 + signing link + STATUS "agreement sent", same pattern as Felicia
+  and Sara. The 10-10 13:59Z run was the original 401 failure, already replayed.
+- Noted, no action: handled errors show as green "success" in Make (the email + app alert is the real signal); a cleared test alert can
+  linger up to 120 s on another warm function instance (in-app Dismiss is client-side, unaffected); 6248559 sends to whatever `to`
+  the payload carries (hook URL is the secret, same as every Make hook here).
+- Writes by the agent: one "ZZTEST smoke check" alert (cleared), one rejected assign (never reached Make). Nothing else.

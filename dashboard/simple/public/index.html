@@ -968,7 +968,7 @@ function openTrends(){
   var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
   var table = '<table class="ttable"><thead><tr><th>Month</th><th class="n">New leads</th><th class="n">Became clients</th><th class="n">Rate</th></tr></thead><tbody>' +
     rows.slice().reverse().map(function(r){ return '<tr><td>' + esc(r.axis) + '</td><td class="n">' + r.leads + '</td><td class="n">' + r.clients + '</td><td class="n">' + (r.leads ? Math.round(100 * r.clients / r.leads) + '%' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
-  var sh = openSheet('<h3>By month</h3><p class="sub">New leads each month, and how many of them became clients (signed the agreement). Last 12 months: ' + plural(y12, 'lead') + ', ' + c12 + ' became clients.</p>' +
+  var sh = openSheet('<h3>By month</h3><p class="sub">New leads each month, and how many of them became clients (their card moved past New lead, in GoHighLevel). Last 12 months: ' + plural(y12, 'lead') + ', ' + c12 + ' became clients.</p>' +
     '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
     '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' + table);
   bindChart(sh.el, rows);
@@ -986,7 +986,7 @@ function renderMonth(){
   var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
   box.innerHTML = '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
     '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' +
-    '<p class="fine" style="margin:0 0 var(--s2)">Last 12 months: ' + plural(y12, 'new lead') + ', ' + c12 + ' became clients.</p>' +
+    '<p class="fine" style="margin:0 0 var(--s2)">Last 12 months: ' + plural(y12, 'new lead') + ', ' + c12 + ' became clients (card moved past New lead).</p>' +
     '<button type="button" class="link jlink" data-trends>See the numbers by month</button>';
   bindChart(box, rows);
 }

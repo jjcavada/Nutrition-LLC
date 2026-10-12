@@ -163,6 +163,8 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .clegend .lsw{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
 .clegend .lsw.lead{background:var(--ch-tint);border:1px solid var(--bar)}
 .clegend .lsw.cli{background:var(--bar)}
+.month .chart{margin-top:var(--s2)}
+.month .ccap{margin-bottom:var(--s2)}
 .ccap{min-height:22px;margin:0 0 var(--s3);color:var(--ink);font-size:var(--fs-14);font-variant-numeric:tabular-nums}
 .ttable{width:100%;border-collapse:collapse;font-size:var(--fs-14)}
 .ttable th{text-align:left;color:var(--faint);font-weight:600;font-size:var(--fs-12);letter-spacing:.08em;text-transform:uppercase;padding:8px 0;border-bottom:1px solid var(--hair)}
@@ -437,9 +439,11 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
       </section>
     </div>
     <div>
-      <section aria-labelledby="h-wait">
-        <div class="sh"><h2 id="h-wait">Chefs</h2><button class="aux" data-openfull="waiting">Assign a chef</button></div>
-        <div id="homechefs"></div>
+      <section aria-labelledby="h-month">
+        <div class="journey month">
+          <div class="jhead"><h2 id="h-month" class="ct">By month</h2><span class="hint">Tap a month</span></div>
+          <div id="monthcard"></div>
+        </div>
       </section>
     </div>
   </div>
@@ -607,7 +611,7 @@ function renderPipeline(){
     var hot = stuck > 0 || (p.key === 'waiting' && list.length > 0);
     return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc' + (hot ? ' hot' : '') + '">' + list.length + '</span><span class="jbar"><i' + (hot ? ' class="hot"' : '') + ' style="transform:scaleX(' + (list.length / max).toFixed(3) + ')"></i></span>' + (sub ? '<span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span>' : '') + '</button></li>';
   }).join('') + '</ul>' +
-    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div><button type="button" class="link jlink" data-trends>See the last 12 months</button></div>';
+    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div></div>';
 }
 function stageRow(c, p){
   var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;
@@ -773,7 +777,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderCalls(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderMonth(); renderCalls(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- day / night ---------------- */
 var themeQ = window.matchMedia('(prefers-color-scheme: dark)');
@@ -966,11 +970,25 @@ function openTrends(){
     rows.slice().reverse().map(function(r){ return '<tr><td>' + esc(r.axis) + '</td><td class="n">' + r.leads + '</td><td class="n">' + r.clients + '</td><td class="n">' + (r.leads ? Math.round(100 * r.clients / r.leads) + '%' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
   var sh = openSheet('<h3>By month</h3><p class="sub">New leads each month, and how many of them became clients (signed the agreement). Last 12 months: ' + plural(y12, 'lead') + ', ' + c12 + ' became clients.</p>' +
     '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
-    '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap" id="ccap">Tap a month for its numbers.</p>' + table);
-  function show(i){ var r = rows[i]; if (!r) return; $$('.hit', sh.el).forEach(function(h){ h.classList.toggle('on', +h.dataset.m === i); }); $('#ccap', sh.el).textContent = r.full + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients' + (r.leads ? ' (' + Math.round(100 * r.clients / r.leads) + '%)' : ''); }
-  sh.el.addEventListener('click', function(e){ var h = e.target.closest('.hit'); if (h) show(+h.dataset.m); });
-  sh.el.addEventListener('pointerover', function(e){ var h = e.target.closest('.hit'); if (h && e.pointerType === 'mouse') show(+h.dataset.m); });
-  show(rows.length - 1);
+    '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' + table);
+  bindChart(sh.el, rows);
+}
+function bindChart(root, rows){
+  function show(i){ rows = root._chartRows || rows; var r = rows[i], cap = root.querySelector('.ccap'); if (!r || !cap) return; $$('.hit', root).forEach(function(h){ h.classList.toggle('on', +h.dataset.m === i); }); cap.textContent = r.full + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients' + (r.leads ? ' (' + Math.round(100 * r.clients / r.leads) + '%)' : ''); }
+  if (!root._chartBound) { root._chartBound = true;
+    root.addEventListener('click', function(e){ var h = e.target.closest('.hit'); if (h) show(+h.dataset.m); });
+    root.addEventListener('pointerover', function(e){ var h = e.target.closest('.hit'); if (h && e.pointerType === 'mouse') show(+h.dataset.m); }); }
+  root._chartRows = rows; show(rows.length - 1);
+}
+function renderMonth(){
+  var box = $('#monthcard'); if (!box) return;
+  if (!DATA) { box.innerHTML = lastErr ? '<p class="none">Could not load the months. Check the connection, then tap Retry above.</p>' : '<div class="skrow"></div><div class="skrow short"></div><div class="skrow"></div>'; return; }
+  var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
+  box.innerHTML = '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
+    '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' +
+    '<p class="fine" style="margin:0 0 var(--s2)">Last 12 months: ' + plural(y12, 'new lead') + ', ' + c12 + ' became clients.</p>' +
+    '<button type="button" class="link jlink" data-trends>See the numbers by month</button>';
+  bindChart(box, rows);
 }
 
 /* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */

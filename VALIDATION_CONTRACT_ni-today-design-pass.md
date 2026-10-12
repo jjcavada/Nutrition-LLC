@@ -139,3 +139,8 @@ unlocked, key intact), a short press on the header left it open, a real X tap cl
 - Builder verification at 375 px light + dark: 12 lead bars, 8 client bars, caption "October 2026: 10 new leads, 5 became clients
   (50%)", tap on a column updates the caption, table 12 rows. Found and fixed: the legend swatch class collided with the push switch
   (`.sw`), axis labels collided at 12 columns.
+
+### 2026-10-13, patch 27 (sw v24): home layout
+- Jay: the home Chefs section duplicated the Waiting-for-a-chef screen. It is replaced by the "By month" card (legend, chart, caption,
+  "See the numbers by month" link to the full table sheet) beside Calls this week and Client journey. The waiting screen, the chef
+  list inside it and the "28 waiting for a chef" tile are unchanged. The journey footer link was removed (the card sits beside it).

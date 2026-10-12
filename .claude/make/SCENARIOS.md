@@ -1067,3 +1067,8 @@ All automation steps running (QB customer, menu, consultation invite).
 - **Proof:** ZZTEST fixture with 20 s index waits: positive move + tag + note; negative -> no move + alert + email. Contract
   `VALIDATION_CONTRACT_phase-card-lookup.md`. Lessons: Make filters do not match an empty `first()` against "" or `notexist`, branch
   on `length(map(...))`; wait 20 s after a GHL status change before any search-based automation reads it.
+- **Round 2 (2026-10-13):** the same bug lived in **Phase 3 (4082143)** module 4 (moved the newest card to 15 Item Menu) and in
+  **Chef Assigned (6116697)** module 3 (fed `ifempty(2.opportunityId; 3.id)`; the Google Sheet path sends no opportunityId). Both now
+  use the http search by contact + open-card variables (432 / 520); Phase 3 has router 433 [no-card alert | 5 | 6,7,8,11]. Phase 4
+  restructured so the invite, tag and note still go out when the card is missing (router 31 route 3, OR filter: no card, or card at
+  15 Item Menu). Search modules throw on non-2xx. Contract `VALIDATION_CONTRACT_phase-card-lookup.md` round 2.

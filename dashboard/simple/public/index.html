@@ -837,6 +837,7 @@ function confirmAssign(cid, chef, sel){
         var ch = DATA.chefs.filter(function(c){ return c.name === chef; })[0]; if (ch) { if (ch.clients.indexOf(cid) < 0) ch.clients.push(cid); } else DATA.chefs.push({name:chef, clients:[cid]});
         saveSnap(DATA); renderAll(); toast('Sent. ' + first + ' has ' + w.name + '’s intake and menu.');
       } else if (x.d && x.d.reason === 'no-menu') { renderWaiting(); toast('No menu built yet for ' + w.name + '. Nothing was sent.', null, 6000); }
+      else if (x.d && x.d.reason === 'not-sent') { renderWaiting(); toast('Nothing was sent to ' + first + '. See Needs attention on the home screen.', null, 7000); }
       else { renderWaiting(); toast('Could not send. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); }
     }).catch(function(e){ delete pending[cid]; renderWaiting(); if (e.message !== 'locked') toast('Could not send. Check your connection.'); });
   });

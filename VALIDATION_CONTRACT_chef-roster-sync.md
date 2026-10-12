@@ -28,8 +28,14 @@ GHL Assigned Chef options, Make 6116697 chef switch, NI Today `config.secret.jso
 | R-6 | No real client or real chef record was touched by any probe. | GHL diff |
 | R-7 (MED) | Docs: SCENARIOS.md (Phase 9 + 6116697 + roster), LEARNINGS, memory; Apps Script `setup()` note (it would overwrite the validation with the static CHEFS list; do not run it again). | read |
 
-## Part 2: build evidence
-(builder)
+## Part 2: build evidence (2026-10-12 11:50-12:05 UTC)
+- Build script: session scratch `alerts/patch_make4.py` (tail generator shared by Phase 9 and the probe; `--probe`, `--probe-fire`, `--phase9`, `--chef`), pushed with `push_make.py`; originals `4446319.orig.json`, `6116697.live.json`.
+- Phase 9 live: modules 1-11 unchanged, tail 20-27 + 15 handler modules, active, valid (51 modules). 6116697 live: order 1,2,3,4,5,500,501,6,7,10,11,12; 9 references rewired to `501.chefEmail`; active, valid (50 modules).
+- Probe runs (fixtures only): run 1 exposed two defects before the real scenario was touched: datastore:AddRecord needs the fields under `data` (record came back empty) and the GHL options PUT through the Make connection is `[401] not authorized for this scope` (moved to http with the PIT). Run 3: `tag=201 ds=zztest chef probe opts=20 put=200 sheet=200`; run 4 (same name) left the option count at 20 (R-3).
+- R-4: with ZZTEST tagged, `/api/today` listed 19 chefOptions; the app filters `zztest` names, so the extra entry was the tag on ZZTEST before cleanup... (see the follow-up note in Part 3 / SCENARIOS if it differs).
+- R-5: 6116697 hook with chefName "ZZTEST Chef Probe" answered `sent` at 12:01Z and wrote the MENU + INTAKE SENT note on ZZTEST (email to jjcavada1+e2e). Reverted (opp chef cleared).
+- R-6: only ZZTEST (W4UfXxOmRlkMBUwZkg0f) and Angelica's contractor contact (tag `chef`, intended) were written.
+- Sheet dropdown after the Angelica rebuild (Chrome): Angelica Ortiz present, ZZTEST Chef Probe absent, JJ Cavada (test) present.
 
 ## Part 3: inspector report (fresh context; fixtures ONLY: contact W4UfXxOmRlkMBUwZkg0f, chef name "ZZTEST Chef Probe", test chef "JJ Cavada (test)"; every other record read-only; never fire Phase 9, never assign to a real client)
 (inspector)

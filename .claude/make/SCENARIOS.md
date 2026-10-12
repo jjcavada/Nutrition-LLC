@@ -1011,3 +1011,28 @@ All automation steps running (QB customer, menu, consultation invite).
   later (or tag `chef`). The app reads the roster from GHL, Make 6116697 looks the email up from the GHL contact instead of a switch,
   and the sheet validation is rebuilt from GHL (Apps Script time trigger or a Make scenario). Then "adding a chef" = Amber's new-chef
   form only, nothing else to touch.
+
+## Chef roster sync — LIVE 2026-10-12 (Amber: "add the chef both in excel and in this app when she sends the packet link")
+- **Source of truth now:** a chef = a GHL contact tagged `chef` (name, for the app and the GHL dropdown) + a record in the Make data store
+  **NI chefs (name -> email)** id **170882** (data structure 533091: name, email, phone, contactId, added; key = lowercase name). Seeded with
+  the 18 current chefs + "JJ Cavada (test)" from `config.secret.json`. Angelica Ortiz's contact bP5MDAHK1t0cTcv14E5J is tagged.
+- **Phase 9 (4446319) tail, modules 20-27 after the note:** 20 SetVariables (chefName = capitalize(trim(first)) capitalize(trim(last)), separators) -> 21 POST
+  `/contacts/{id}/tags {"tags":["chef"]}` -> 22 datastore:AddRecord (fields under `data`, overwrite) -> 23 GET the Assigned Chef field ->
+  24 `opts = if(contains(options; name); options; add(options; name))` -> 25 `optionsCsv`/`sheetCsv` (join with a `","` separator kept in a
+  variable; Make has no escapes inside expression strings) -> 26 **http PUT** `/locations/{loc}/customFields/a92gzVh8Ukz7gkvRKf03` with the
+  PIT (the Make GHL connection 7303129 answers `[401] The token is not authorized for this scope` on this PUT) -> 27 google-sheets:makeAPICall
+  POST `spreadsheets/1168iYxhn.../:batchUpdate` setDataValidation ONE_OF_LIST on sheet 1238423127 E2:E1000 = options minus `tbd` plus the
+  test chef (Amber's Sheets connection 11563807; she has edit rights). Every step: email + app alert + Resume (the packet never blocks).
+- **6116697 (menu + intake to the chef):** after module 5, **500 datastore:GetRecord** (key = lower(trim(chefName)), onerror Resume) ->
+  **501 SetVariables chefEmail = ifempty(5.chefEmail; 500.email)**; the 9 later references now read `501.chefEmail`. Unknown name ->
+  empty -> the existing "A real chef is assigned" filter stops as before.
+- **NI Today:** `chefNames` = config list UNION every GHL contact tagged `chef` (ZZTEST excluded); `POST /api/assign` validates against
+  that live roster. No deploy needed for a new chef.
+- **Proof (fixtures only):** throw-away webhook scenario with the identical tail, fired for ZZTEST + "ZZTEST Chef Probe": tag 201, data
+  store record, options PUT 200 (19 -> 20, second run stays 20), sheet 200; sheet dropdown read in Chrome. 6116697 fired with chefName
+  "ZZTEST Chef Probe" (present only in the data store) answered `sent` and wrote the MENU + INTAKE SENT note on ZZTEST. Cleanup: tag,
+  option, data store record and ZZTEST opp chef removed; the tail re-run for Angelica rebuilt the sheet list without the probe.
+- **Do not run the Apps Script `setup()` again:** it would overwrite the column-E validation with the static `CHEFS` array. The repo file
+  `chef-assignment-sheet/AppsScript.gs` keeps the list only as documentation now.
+- **To remove the test chef later:** delete the data store record `jj cavada (test)`, drop `"JJ Cavada (test)"` from module 25's
+  `sheetCsv` expression, remove `testChef` from `config.secret.json`, and re-run the tail once (or edit the sheet validation by hand).

@@ -164,7 +164,10 @@ async function buildSnapshot() {
   const chefs = await pool(live, 6, oppChef);
   // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
   const ghlChefs = contacts.filter((c) => (c.tags || []).includes('chef') && !/^zztest/i.test(c.contactName || c.firstName || '')).map((c) => (c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim()).filter(Boolean);
-  const chefNames = [...new Set(cfg.chefs.map((c) => c[0]).concat(ghlChefs))].sort((a, b) => a.localeCompare(b));
+  const titleCase = (n) => /[A-Z]/.test(n) ? n : n.replace(/\w/g, (ch) => ch.toUpperCase()); // "angelica ortiz" typed in lowercase on the packet form
+  const chefNames = []; const seen = new Set();
+  cfg.chefs.map((c) => c[0]).concat(ghlChefs.map(titleCase)).forEach((n) => { const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); chefNames.push(n); } });
+  chefNames.sort((a, b) => a.localeCompare(b));
   const clients = live.map((o, i) => {
     const c = byId[o.contactId] || o.contact || {}; const f = c.customFields || [];
     const stage = cfg.stages[o.pipelineStageId] || 'waitlist';

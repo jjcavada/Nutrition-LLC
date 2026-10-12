@@ -40,6 +40,15 @@ per-row menu for notes instead of gesture-only (W7-W9, U11), self-hosted fonts (
   timer fallback (sheet 420 ms, full 600 ms).
 - Commits (Nutrition repo): 7ab61d9 (pass 1), b6fa794 (fallback).
 
+### Pass 2 (visible, 2026-10-12 12:20 UTC, commit 9713081), built with the design brain's scale discipline (ui-ux-pro-max: Hero 36-42 / H2 28-32 / body 16 / label 12; "Minimalism and Swiss" card system; brand palette and Fraunces + Figtree kept on purpose)
+- Tokens: `--fs-12..28`, `--s1..s7` (4/8/12/16/24/32/48), `--r-sm/md/lg` (10/16/24), `--shadow` (light only), `--dur-fast/dur/dur-slow`; dark `--hair` lifted to `#343C2E`.
+- Header: eyebrow date (12 px, 600, .12 em caps), greeting rhythm on the scale, sync line 13 px.
+- Cards: New cards and the journey card now sit on `--raise` with a hairline and the light-mode shadow; docs and the expect box on `--r-md`.
+- Chefs: initials avatar (`.av`, 36 px) per row, serif count right-aligned, outline "Open" pill for chefs without clients, open-row indent aligned to the avatar gutter.
+- Controls: inputs, search, segmented control and Add are pills; one `.btn` (600 weight, 46 px); selects on `--r-sm`.
+- Rhythm: sections 32 px apart, headers 8 px below, rows 14 px, day headers on the scale.
+- Proof: screenshots at 375 px light and dark sent to Jay (home, journey + chefs, chef list); 18 avatars rendered; no console errors on load.
+
 ## Part 3: inspector report (fresh context; default FAIL)
 
 (appended by the inspector)

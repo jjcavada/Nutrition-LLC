@@ -160,7 +160,7 @@ async function buildSnapshot() {
   const [contacts, opps, events, farEvents] = await Promise.all([listContacts(), listOpps(), eventsBetween(new Date(now.getTime() - 6 * 3600000), new Date(now.getTime() + 8 * 86400000)),
     eventsBetween(new Date(now.getTime() + 8 * 86400000), new Date(now.getTime() + 90 * 86400000)).catch(() => [])]); // farEvents: only for each client's next booked call (pipeline screen)
   const byId = {}; contacts.forEach((c) => { byId[c.id] = c; });
-  const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned');
+  const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned' && !/^zztest/i.test(o.name || (byId[o.contactId] || {}).contactName || '')); // test fixtures never reach Amber's view
   const chefs = await pool(live, 6, oppChef);
   // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
   const ghlChefs = contacts.filter((c) => (c.tags || []).includes('chef') && !/^zztest/i.test(c.contactName || c.firstName || '')).map((c) => (c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim()).filter(Boolean);
@@ -170,7 +170,8 @@ async function buildSnapshot() {
   chefNames.sort((a, b) => a.localeCompare(b));
   const clients = live.map((o, i) => {
     const c = byId[o.contactId] || o.contact || {}; const f = c.customFields || [];
-    const stage = cfg.stages[o.pipelineStageId] || 'waitlist';
+    let stage = cfg.stages[o.pipelineStageId] || 'waitlist';
+    if (o.status === 'won' && stage === 'new') stage = 'waitlist'; // marked Won at New Lead (Rupa Shah): a client without a signing record, waiting for a chef, not an unsigned lead
     const chef = chefs[i] && chefs[i] !== 'tbd' ? chefs[i] : '';
     const sum = parseSummary(cf(f, cfg.fields.summary));
     const name = o.name || c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ');
@@ -183,7 +184,7 @@ async function buildSnapshot() {
       diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
       from: (sum && sum.from) || fromTags(c.tags, c.dateAdded), tags: c.tags || [],
       intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder),
-      signedDoc: cf(f, cfg.fields.signedDoc), hasSummary: !!(sum && sum.summary),
+      signedDoc: cf(f, cfg.fields.signedDoc), signedAt: cf(f, cfg.fields.signedOn) || '', hasSummary: !!(sum && sum.summary),
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
   const byContact = {}; clients.forEach((c) => { byContact[c.id] = c; });
@@ -220,7 +221,7 @@ async function buildSnapshot() {
         diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
         from: (sum && sum.from) || fromTags(c.tags, c.dateAdded), tags: c.tags || [],
         intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder),
-        signedDoc: cf(f, cfg.fields.signedDoc), hasSummary: !!(sum && sum.summary), archived: cf(f, cfg.fields.archived) || '' });
+        signedDoc: cf(f, cfg.fields.signedDoc), signedAt: cf(f, cfg.fields.signedOn) || '', hasSummary: !!(sum && sum.summary), archived: cf(f, cfg.fields.archived) || '' });
     });
     clients.sort((x, y) => x.name.localeCompare(y.name)); }
   const weekAgo = Date.now() - 7 * 86400000;
@@ -354,7 +355,7 @@ export default async (req) => {
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
         intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
-        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '', consult });
+        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '', signedOn: cf(f, cfg.fields.signedOn) || '', consult });
     }
     if (route === 'assign' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));

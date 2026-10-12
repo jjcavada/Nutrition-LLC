@@ -156,13 +156,16 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .chart text.v{fill:var(--head);font-size:12px}
 .chart .lead{fill:var(--ch-tint);stroke:var(--bar);stroke-width:1}
 .chart .cli{fill:var(--bar)}
-.chart .hit{fill:transparent;cursor:pointer}
-.chart .hit:hover,.chart .hit.on{fill:var(--press)}
+.chart .chit{fill:transparent;cursor:pointer}
+.chart .chit:hover,.chart .chit.on{fill:var(--press)}
 .clegend{display:flex;gap:var(--s4);font-size:var(--fs-13);color:var(--soft);margin:0 0 var(--s2)}
 .clegend span{display:inline-flex;align-items:center;gap:6px}
 .clegend .lsw{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
 .clegend .lsw.lead{background:var(--ch-tint);border:1px solid var(--bar)}
 .clegend .lsw.cli{background:var(--bar)}
+.cgroup{margin:var(--s4) 0 0}
+.cgroup .jhead{margin-bottom:var(--s1)}
+.cgroup .jhead .hint{font-family:var(--display);font-weight:300;font-size:var(--fs-22);color:var(--head)}
 .month .chart{margin-top:var(--s2)}
 .month .ccap{margin-bottom:var(--s2)}
 .ccap{min-height:22px;margin:0 0 var(--s3);color:var(--ink);font-size:var(--fs-14);font-variant-numeric:tabular-nums}
@@ -611,7 +614,7 @@ function renderPipeline(){
     var hot = stuck > 0 || (p.key === 'waiting' && list.length > 0);
     return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc' + (hot ? ' hot' : '') + '">' + list.length + '</span><span class="jbar"><i' + (hot ? ' class="hot"' : '') + ' style="transform:scaleX(' + (list.length / max).toFixed(3) + ')"></i></span>' + (sub ? '<span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span>' : '') + '</button></li>';
   }).join('') + '</ul>' +
-    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div></div>';
+    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Signed in ' + monthName + '</span><b>' + (function(){ var ms = monthStats(); return ms.length ? ms[ms.length - 1].clients : 0; })() + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div></div>';
 }
 function stageRow(c, p){
   var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;
@@ -945,48 +948,49 @@ function monthStats(){
   var now = new Date(), out = [], map = {};
   for (var i = 11; i >= 0; i--) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1); var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     var o = {key:k, label: d.toLocaleString('en-US', {month:'short'}), axis: d.toLocaleString('en-US', {month:'short'}) + (d.getMonth() === 0 || i === 11 ? ' ' + String(d.getFullYear()).slice(2) : ''), full: d.toLocaleString('en-US', {month:'long', year:'numeric'}), leads:0, clients:0}; map[k] = o; out.push(o); }
-  clients().forEach(function(c){ var o = map[(c.createdAt || '').slice(0, 7)]; if (!o) return; o.leads++; if (becameClient(c)) o.clients++; });
+  clients().forEach(function(c){ var o = map[(c.createdAt || '').slice(0, 7)]; if (o) o.leads++;
+    var sm = (c.signedAt || '').slice(0, 7); if (sm) { if (map[sm]) map[sm].clients++; } else if (o && becameClient(c)) o.clients++; });
   return out;
 }
 function barPath(x, yTop, w, yBase){ var h = yBase - yTop; if (h <= 0) return ''; var r = Math.min(4, w / 2, h); return 'M' + x + ' ' + yBase + ' V' + (yTop + r) + ' Q' + x + ' ' + yTop + ' ' + (x + r) + ' ' + yTop + ' H' + (x + w - r) + ' Q' + (x + w) + ' ' + yTop + ' ' + (x + w) + ' ' + (yTop + r) + ' V' + yBase + ' Z'; }
 function chartSVG(rows){
-  var W = 340, H = 180, padL = 24, padR = 4, padT = 16, padB = 24, n = rows.length, gw = (W - padL - padR) / n, bw = Math.min(16, gw - 6);
-  var max = Math.max(1, Math.max.apply(null, rows.map(function(r){ return r.leads; }))), step = max <= 5 ? 1 : max <= 10 ? 2 : max <= 20 ? 5 : 10, top = Math.ceil(max / step) * step;
-  var peak = rows.indexOf(rows.slice().sort(function(a, b){ return b.leads - a.leads; })[0]);
+  var W = 340, H = 180, padL = 24, padR = 4, padT = 16, padB = 24, n = rows.length, gw = (W - padL - padR) / n, bw = Math.min(9, (gw - 6) / 2), gap = 2;
+  var max = Math.max(1, Math.max.apply(null, rows.map(function(r){ return Math.max(r.leads, r.clients); }))), step = max <= 5 ? 1 : max <= 10 ? 2 : max <= 20 ? 5 : 10, top = Math.ceil(max / step) * step;
+  var peak = rows.indexOf(rows.slice().sort(function(a, b){ return Math.max(b.leads, b.clients) - Math.max(a.leads, a.clients); })[0]);
   function y(v){ return padT + (H - padT - padB) * (1 - v / top); }
   var o = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="New leads and became clients, by month">';
   for (var g = 0; g <= top; g += step) o += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(g).toFixed(1) + '" y2="' + y(g).toFixed(1) + '"/><text x="' + (padL - 5) + '" y="' + (y(g) + 4).toFixed(1) + '" text-anchor="end">' + g + '</text>';
-  rows.forEach(function(r, i){ var x = padL + i * gw + (gw - bw) / 2, base = H - padB, cx = (x + bw / 2).toFixed(1);
-    o += '<path class="lead" d="' + barPath(x, y(r.leads), bw, base) + '"/>' + (r.clients ? '<path class="cli" d="' + barPath(x, y(r.clients), bw, base) + '"/>' : '');
-    if (r.leads && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(r.leads) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + '</text>';
+  rows.forEach(function(r, i){ var x = padL + i * gw + (gw - 2 * bw - gap) / 2, x2 = x + bw + gap, base = H - padB, cx = (x + bw + gap / 2).toFixed(1);
+    o += (r.leads ? '<path class="lead" d="' + barPath(x, y(r.leads), bw, base) + '"/>' : '') + (r.clients ? '<path class="cli" d="' + barPath(x2, y(r.clients), bw, base) + '"/>' : '');
+    if ((r.leads || r.clients) && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(Math.max(r.leads, r.clients)) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + '/' + r.clients + '</text>';
     if ((n - 1 - i) % 2 === 0) o += '<text x="' + cx + '" y="' + (base + 15) + '" text-anchor="middle">' + esc(r.label) + '</text>';
-    o += '<rect class="hit" data-m="' + i + '" x="' + (padL + i * gw).toFixed(1) + '" y="' + padT + '" width="' + gw.toFixed(1) + '" height="' + (H - padT - padB) + '" rx="6"><title>' + esc(r.full) + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients</title></rect>'; });
+    o += '<rect class="chit" data-m="' + i + '" x="' + (padL + i * gw).toFixed(1) + '" y="' + padT + '" width="' + gw.toFixed(1) + '" height="' + (H - padT - padB) + '" rx="6"><title>' + esc(r.full) + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' signed</title></rect>'; });
   return o + '</svg>';
 }
 function openTrends(){
   if (!DATA) return;
   var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
-  var table = '<table class="ttable"><thead><tr><th>Month</th><th class="n">New leads</th><th class="n">Became clients</th><th class="n">Rate</th></tr></thead><tbody>' +
-    rows.slice().reverse().map(function(r){ return '<tr><td>' + esc(r.axis) + '</td><td class="n">' + r.leads + '</td><td class="n">' + r.clients + '</td><td class="n">' + (r.leads ? Math.round(100 * r.clients / r.leads) + '%' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
-  var sh = openSheet('<h3>By month</h3><p class="sub">New leads each month, and how many of them became clients (their card moved past New lead, in GoHighLevel). Last 12 months: ' + plural(y12, 'lead') + ', ' + c12 + ' became clients.</p>' +
-    '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
+  var table = '<table class="ttable"><thead><tr><th>Month</th><th class="n">New leads</th><th class="n">Signed</th></tr></thead><tbody>' +
+    rows.slice().reverse().map(function(r){ return '<tr><td>' + esc(r.axis) + '</td><td class="n">' + r.leads + '</td><td class="n">' + r.clients + '</td></tr>'; }).join('') + '</tbody></table>';
+  var sh = openSheet('<h3>By month</h3><p class="sub">New leads by the month their intake came in, and agreements by the month they were signed. Last 12 months: ' + plural(y12, 'new lead') + ', ' + plural(c12, 'agreement') + ' signed.</p>' +
+    '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Signed</span></div>' +
     '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' + table);
   bindChart(sh.el, rows);
 }
 function bindChart(root, rows){
-  function show(i){ rows = root._chartRows || rows; var r = rows[i], cap = root.querySelector('.ccap'); if (!r || !cap) return; $$('.hit', root).forEach(function(h){ h.classList.toggle('on', +h.dataset.m === i); }); cap.textContent = r.full + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients' + (r.leads ? ' (' + Math.round(100 * r.clients / r.leads) + '%)' : ''); }
+  function show(i){ rows = root._chartRows || rows; var r = rows[i], cap = root.querySelector('.ccap'); if (!r || !cap) return; $$('.chit', root).forEach(function(h){ h.classList.toggle('on', +h.dataset.m === i); }); cap.textContent = r.full + ': ' + plural(r.leads, 'new lead') + ', ' + plural(r.clients, 'agreement') + ' signed'; }
   if (!root._chartBound) { root._chartBound = true;
-    root.addEventListener('click', function(e){ var h = e.target.closest('.hit'); if (h) show(+h.dataset.m); });
-    root.addEventListener('pointerover', function(e){ var h = e.target.closest('.hit'); if (h && e.pointerType === 'mouse') show(+h.dataset.m); }); }
+    root.addEventListener('click', function(e){ var h = e.target.closest('.chit'); if (h) show(+h.dataset.m); });
+    root.addEventListener('pointerover', function(e){ var h = e.target.closest('.chit'); if (h && e.pointerType === 'mouse') show(+h.dataset.m); }); }
   root._chartRows = rows; show(rows.length - 1);
 }
 function renderMonth(){
   var box = $('#monthcard'); if (!box) return;
   if (!DATA) { box.innerHTML = lastErr ? '<p class="none">Could not load the months. Check the connection, then tap Retry above.</p>' : '<div class="skrow"></div><div class="skrow short"></div><div class="skrow"></div>'; return; }
   var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
-  box.innerHTML = '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
+  box.innerHTML = '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Signed</span></div>' +
     '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap">Tap a month for its numbers.</p>' +
-    '<p class="fine" style="margin:0 0 var(--s2)">Last 12 months: ' + plural(y12, 'new lead') + ', ' + c12 + ' became clients (card moved past New lead).</p>' +
+    '<p class="fine" style="margin:0 0 var(--s2)">Last 12 months: ' + plural(y12, 'new lead') + ', ' + plural(c12, 'agreement') + ' signed. Leads by intake month, signings by signing month.</p>' +
     '<button type="button" class="link jlink" data-trends>See the numbers by month</button>';
   bindChart(box, rows);
 }
@@ -1048,6 +1052,9 @@ function toggleChef(li){
 }
 
 /* ---------------- full screens morphing out of a number box ---------------- */
+function cgroup(title, arr, empty){
+  return '<section class="journey cgroup"><div class="jhead"><h2 class="ct">' + esc(title) + '</h2><span class="hint">' + arr.length + '</span></div><ul class="full-list">' + (arr.length ? arr.map(clientRow).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul></section>';
+}
 function clientRow(c){
   var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
   return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc(c.archived ? 'Archived: ' + c.archived : ([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c))) + ' ' + algs(c.allergies) + '</span></button></li>';
@@ -1059,10 +1066,7 @@ function fullHTML(kind, arg){
     var all = clients(), withChef = all.filter(function(c){ return c.hasChef && !c.isNew && c.stage !== 'past'; }), noChef = all.filter(function(c){ return !c.hasChef && !c.isNew && c.stage !== 'past'; }), newer = all.filter(function(c){ return c.isNew; }), past = all.filter(function(c){ return c.stage === 'past'; });
     return '<div class="full-h"><div><h3>Clients</h3><p>' + all.length + ' in GHL · ' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet · ' + past.length + ' past</p></div>' + x + '</div>' +
       '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
-      '<div class="day-h">With a chef</div><ul class="full-list">' + (withChef.length ? withChef.map(clientRow).join('') : '<li><p class="none">No one yet.</p></li>') + '</ul>' +
-      '<div class="day-h">Waiting for a chef</div><ul class="full-list">' + (noChef.length ? noChef.map(clientRow).join('') : '<li><p class="none">No one waiting.</p></li>') + '</ul>' +
-      '<div class="day-h">Intake received, not signed yet</div><ul class="full-list">' + (newer.length ? newer.map(clientRow).join('') : '<li><p class="none">Nobody pending.</p></li>') + '</ul>' +
-      '<div class="day-h">Past clients and leads (not in the pipeline)</div><ul class="full-list">' + (past.length ? past.map(clientRow).join('') : '<li><p class="none">None.</p></li>') + '</ul>';
+      cgroup('With a chef', withChef, 'No one yet.') + cgroup('Waiting for a chef', noChef, 'No one waiting.') + cgroup('Not signed yet', newer, 'Nobody pending.') + cgroup('Past clients and leads', past, 'None.');
   }
   if (kind === 'waiting') {
     return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +

@@ -144,3 +144,18 @@ unlocked, key intact), a short press on the header left it open, a real X tap cl
 - Jay: the home Chefs section duplicated the Waiting-for-a-chef screen. It is replaced by the "By month" card (legend, chart, caption,
   "See the numbers by month" link to the full table sheet) beside Calls this week and Client journey. The waiting screen, the chef
   list inside it and the "28 waiting for a chef" tile are unchanged. The journey footer link was removed (the card sits beside it).
+
+### 2026-10-13, patches 28-29 (sw v25-v26): signing month, client group cards, Won cards, chart targets
+- By month now counts agreements by the month they were SIGNED (new GHL contact field "Signed on (NI Today)" `VIZoPmsdm1UVzQn9gvbO`,
+  YYYY-MM-DD: backfilled for 35 contacts from SignWell completions (document `updated_at` of a Completed document) or the Phase 2
+  note date; Phase 2 module 426 writes it on every new signing). Clients with no signing record (older clients, 37 contacts incl.
+  chefs and unsigned leads) fall back to the month their card moved past New lead. Grouped bars (tint = new leads by intake month,
+  solid = signed by signing month; no longer part-to-whole), table without the rate column, journey footer "Signed in <month>".
+- The chart's tap targets were class `hit`, shared with the alert cards whose CSS sets `width:100%`; on desktop the highlighted
+  column stretched past the card (Jay's screenshot). Renamed to `chit`.
+- Clients screen: the four groups are cards like the home page (serif title + count): With a chef, Waiting for a chef, Not signed
+  yet, Past clients and leads.
+- api.mjs: a card marked Won at New Lead (Rupa Shah: invoiced since June, never moved) counts as waiting for a chef, not as an
+  unsigned lead; ZZTEST test cards are filtered out of the live list too (one showed under Waiting during a fixture test).
+- Live after deploy: 59 clients, 35 with a signing date, 0 ZZTEST, Rupa under Waiting; signed by month Feb 1, Mar 7, Apr 3, May 6,
+  Jul 3, Aug 5 (+4 fallbacks = 9, matching SignWell's 9 August completions), Sep 6, Oct 4.

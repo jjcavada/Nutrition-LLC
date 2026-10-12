@@ -358,6 +358,9 @@ export default async (req) => {
       mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); } catch (e) {} }
       if (r.status === 409 || /no-menu/.test(t)) return json({ ok: false, reason: 'no-menu' }, 409);
       if (!r.ok) return json({ ok: false, reason: 'make ' + r.status }, 502);
+      // Make answers "sent" only on the success path (module 16). An error handler ends with Commit and answers the default "Accepted":
+      // nothing reached the chef, so the chef must NOT be written (2026-10-12: an inspector probe wrote Hannah on an unsigned lead this way).
+      if (!/^sent/i.test(t)) return json({ ok: false, reason: 'not-sent' }, 502);
       // belt and braces: the app writes the Assigned Chef field itself too, so the card moves even if Make's own PUT is skipped (its handler is a silent Resume)
       let fieldOk = false;
       if (oppId) { try { const u = await ghl('/opportunities/' + oppId, { method: 'PUT', body: JSON.stringify({ customFields: [{ id: cfg.chefField, field_value: chef }] }) }); fieldOk = !!(u && (u.opportunity || u.succeded || u.succeeded)); } catch (e) { fieldOk = false; } }

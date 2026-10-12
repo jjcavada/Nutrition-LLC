@@ -52,3 +52,28 @@ per-row menu for notes instead of gesture-only (W7-W9, U11), self-hosted fonts (
 ## Part 3: inspector report (fresh context; default FAIL)
 
 (appended by the inspector)
+
+### Inspector round 2 (fresh context, 2026-10-12 ~15:30 UTC, after pass 2): FAIL
+Report: session scratch `alerts/ui_audit_round2.md`. Items 1-6, 9-11 PASS. FAIL on 7 (Lock pill 40 px high, check-circle hit
+area 42 px), 8 (two real defects) and 12 (reorder gesture not synthesizable). The two defects:
+- (a) the X on every sheet that keeps its header was DEAD on a real click: the header's drag handler called `setPointerCapture`
+  on pointerdown, so the browser retargeted the click to the header and `closest('[data-close]')` never matched. Cancel, Escape,
+  Back, scrim and drag still worked, which is why the builder's own checks (which used `element.click()`) missed it.
+- (b) client sheets lost the sticky header once the details loaded: the callback replaced the whole sheet innerHTML with a
+  header-less version, so the X moved to the top-left and scrolled away.
+Also: full screens had no accessible name; a failed first load left tiles/journey/chefs pulsing forever; dark badge 3.73:1;
+note ids from `Date.now()` could collide on a scripted double submit; focus fell to BODY after Dismiss.
+
+### Builder fixes (patch `alerts/patch_app17.py`, backups `index.before17.html` / `sw.before17.js`, sw cache `nitoday-v14`, deployed 2026-10-12 ~15:45 UTC)
+- Lazy pointer capture: the header ignores pointerdown on the X, captures the pointer only after 6 px of movement, releases it on
+  pointerup; a tap on the X is a plain click again, drag-to-dismiss unchanged.
+- `api.setBody(html)` keeps the `.sheet-h` node (and its listeners) and replaces only the body; `openPerson` uses it; the
+  `aria-labelledby` is re-pointed at the new h3.
+- Full screens get `aria-labelledby` on their first heading; `uid()` for sheet/full ids and note ids; focus moves to the next
+  Dismiss or the bell after dismissing; failed first load shows static bars + "Could not load the client journey / chef list"
+  lines; dark `--badge` #C84A32 (4.69:1 with white); `.x` 44x44, Lock pill 44 px, check hit area 46 px.
+- Builder verification on the live site at 375x812 (built-in browser, trusted clicks via the computer tool): Lock confirm sheet
+  closed on a real X tap (`.sheet` gone, inert false, key intact); Felicia's client sheet after details: header first child,
+  sticky, one X inside, label "Felicia Gorcyca", after a 600 px scroll the header top == sheet top and the X visible; real X tap
+  closed it; same for Aaron's sheet in dark mode (badge computed rgb(200,74,50)). Screenshots light + dark sent to Jay.
+- Inspector round 3 (fresh context, sonnet): pending, appended below when it lands.

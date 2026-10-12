@@ -152,10 +152,11 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .jfoot b{display:block;font-family:var(--display);font-weight:300;font-size:30px;line-height:1.1;color:var(--head);margin:0;font-variant-numeric:tabular-nums}
 .crow .right .status{margin:0}
 .crow .wtags{display:block;margin-top:4px}
+h1:focus{outline:none}
 h1{font-family:var(--display);font-weight:300;font-size:clamp(34px,6vw,52px);line-height:1.05;letter-spacing:-.015em;color:var(--head);margin:var(--s5) 0 0;text-wrap:balance}
 h1 em{font-style:italic;color:var(--weekly)}
 .sync{margin-top:var(--s2);font-size:var(--fs-13);color:var(--faint);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.sync button{color:var(--weekly);font-weight:600}
+.sync button{color:var(--weekly);font-weight:600;min-height:44px;padding:0 var(--s2);margin:-12px 0}
 .sync .err{color:var(--allergy)}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--hair);border-top-color:var(--weekly);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -391,7 +392,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
     </div>
   </header>
 
-  <h1 id="hello">Good morning, <em>Amber.</em></h1>
+  <h1 id="hello" tabindex="-1">Good morning, <em>Amber.</em></h1>
   <div class="sync" id="sync" aria-live="polite"></div>
 
   <div class="new" id="alerts" role="region" aria-label="Needs attention"></div>
@@ -788,7 +789,7 @@ function openSheet(html, onClose){
     if (fromPop !== true && history.state && history.state.ni === 'sheet') { try { history.back(); return; } catch (e) {} }
     api.closed = true;
     sheets = sheets.filter(function(s){ return s !== api; });
-    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full') && $('#lock').hidden) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } if (onClose) onClose(); try { if (opener && opener.focus && document.contains(opener)) opener.focus({preventScroll:true}); } catch (e) {} }
+    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full') && $('#lock').hidden) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } if (onClose) onClose(); try { var fb = (opener && opener.focus && document.contains(opener)) ? opener : ($('.full .x') || $('#hello')); if (fb) fb.focus({preventScroll:true}); } catch (e) {} }
     if (RM) return done();
     scrim.animate([{opacity:1},{opacity:0}], {duration:200, fill:'forwards'});
     var a = sh.animate(desktop ? [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},{opacity:0, transform:'translate(-50%,-46%) scale(.97)'}] : [{transform:'translateY(0)'},{transform:'translateY(100%)'}], {duration:260, easing:'ease-in', fill:'forwards'});
@@ -797,11 +798,13 @@ function openSheet(html, onClose){
   scrim.addEventListener('click', function(){ api.close(); });
   sh.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) api.close(); });
   var hdr = sh.querySelector('.sheet-h');
-  if (hdr && !desktop) { var y0 = null, cap = false;
-    hdr.addEventListener('pointerdown', function(e){ if (e.target.closest('.x')) return; y0 = e.clientY; cap = false; sh.style.transition = 'none'; });
-    hdr.addEventListener('pointermove', function(e){ if (y0 === null) return; var dy = Math.max(0, e.clientY - y0); if (!cap && dy > 6) { cap = true; try { hdr.setPointerCapture(e.pointerId); } catch (x) {} } if (cap) sh.style.transform = 'translateY(' + dy + 'px)'; });
-    var endDrag = function(e){ if (y0 === null) return; var dy = Math.max(0, e.clientY - y0); y0 = null; if (cap) { cap = false; try { hdr.releasePointerCapture(e.pointerId); } catch (x) {} } if (dy > 90) { api.close(); } else { sh.style.transition = 'transform .25s ' + EASE; sh.style.transform = ''; } };
-    hdr.addEventListener('pointerup', endDrag); hdr.addEventListener('pointercancel', endDrag); }
+  if (hdr && !desktop) { var y0 = null, moved = false;
+    var onMove = function(e){ if (y0 === null) return; var dy = Math.max(0, e.clientY - y0); if (!moved && dy > 6) moved = true; if (moved) sh.style.transform = 'translateY(' + dy + 'px)'; };
+    var endDrag = function(e){ if (y0 === null) return; var dy = Math.max(0, e.clientY - y0); y0 = null; moved = false;
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', endDrag); window.removeEventListener('pointercancel', endDrag);
+      if (dy > 90) { api.close(); } else { sh.style.transition = 'transform .25s ' + EASE; sh.style.transform = ''; } };
+    hdr.addEventListener('pointerdown', function(e){ if (e.target.closest('.x')) return; y0 = e.clientY; moved = false; sh.style.transition = 'none';
+      window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', endDrag); window.addEventListener('pointercancel', endDrag); }); }
   sheets.push(api);
   setTimeout(function(){ var x = sh.querySelector('.x'); if (x) try { x.focus({preventScroll:true}); } catch(e) {} }, 50);
   return api;
@@ -841,7 +844,8 @@ function withDetails(c, cb){
 function openPerson(id, sub){
   var c = findClient(id); if (!c) { toast('Not in the client pipeline.'); return; }
   var sh = openSheet(personSheet(c, {sub:sub}));
-  withDetails(c, function(cc, ok){ if (sh.closed) return; sh.setBody(personSheet(cc, {sub:sub})); });
+  function fill(cc, ok){ if (sh.closed) return; sh.setBody(personSheet(cc, {sub:sub}) + (ok ? '' : '<p class="none">Could not load the full details. <button type="button" class="link arch-link" data-retrydetails>Try again</button></p>')); }
+  sh.refill = function(){ withDetails(c, fill); }; sh.refill();
 }
 function openPrep(id){
   var c = DATA.calls.filter(function(x){ return x.id === id; })[0]; if (!c) return;
@@ -858,9 +862,10 @@ function openNew(id){
 document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-cf]'))) { callFilter = t.dataset.cf; store.set('callfilter', callFilter); renderCalls(); return; }
+  if ((t = e.target.closest('[data-retrydetails]'))) { var sr = sheetApiOf(t.closest('.sheet')); if (sr && sr.refill) { t.textContent = 'Loading…'; sr.refill(); } return; }
   if ((t = e.target.closest('[data-archive]'))) { openArchive(t.dataset.archive, t.closest('.sheet')); return; }
   if ((t = e.target.closest('[data-unarchive]'))) { var cu = findClient(t.dataset.unarchive); if (cu) { var shu = sheetApiOf(t.closest('.sheet')); if (shu) shu.close(); unarchive(cu, null); } return; }
-  if ((t = e.target.closest('[data-dismiss]'))) { readAlerts.push(t.dataset.dismiss); store.set('readAlerts', readAlerts.slice(-50)); renderAlerts(); var nx = $('.alert-item .dismiss') || $('#bell'); if (nx) try { nx.focus({preventScroll:true}); } catch (x) {} toast('Dismissed on this phone.'); return; }
+  if ((t = e.target.closest('[data-dismiss]'))) { readAlerts.push(t.dataset.dismiss); store.set('readAlerts', readAlerts.slice(-50)); if (readNotif.indexOf(t.dataset.dismiss) < 0) { readNotif.push(t.dataset.dismiss); store.set('readNotif', readNotif.slice(-100)); } renderAlerts(); renderBell(); var nx = $('.alert-item .dismiss') || $('#bell'); if (nx) try { nx.focus({preventScroll:true}); } catch (x) {} toast('Dismissed on this phone.'); return; }
   if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
   if ((t = e.target.closest('[data-intake]'))) {
     var c = findClient(t.dataset.intake), box = $('#rawbox', t.closest('.sheet')); if (!c || !box) return;
@@ -1022,7 +1027,7 @@ function closeFull(fromPop){
   var ov = $('.full'); if (!ov || ov._closing) return;
   if (fromPop !== true && history.state && history.state.ni === 'full') { try { history.back(); return; } catch (e) {} }
   ov._closing = true;
-  function done(){ ov.remove(); if (!sheets.length) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } renderAll(); try { if (ov._opener && ov._opener.focus && document.contains(ov._opener)) ov._opener.focus({preventScroll:true}); } catch (e) {} }
+  function done(){ ov.remove(); if (!sheets.length) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } renderAll(); try { var fb = (ov._opener && ov._opener.focus && document.contains(ov._opener)) ? ov._opener : $('#hello'); if (fb) fb.focus({preventScroll:true}); } catch (e) {} }
   if (RM) return done();
   var r = ov._tile.getBoundingClientRect();
   ov.querySelector('.full-in').animate([{opacity:1},{opacity:0}], {duration:180, fill:'forwards'});
@@ -1127,7 +1132,7 @@ function notifTag(i, seen){
 function notifListHTML(){
   var items = notifItems(), unread = items.filter(function(i){ return readNotif.indexOf(i.id) < 0; }).length;
   var head = '<div class="day-h nhead"><span>Recent</span>' + (unread ? '<button type="button" class="link" data-allviewed>Mark all viewed</button>' : '') + '</div>';
-  if (!items.length) return head + '<p class="none">Nothing in the last 7 days.</p>';
+  if (!items.length) return head + '<p class="none">' + (DATA ? 'Nothing in the last 7 days.' : (lastErr ? 'Could not load your notifications. Check the connection, then tap Retry on the home screen.' : 'Loading…')) + '</p>';
   return head + '<ul class="nlist">' + items.map(function(i){
     var seen = readNotif.indexOf(i.id) >= 0;
     return '<li><button data-notif="' + esc(i.contactId) + '" data-nid="' + esc(i.id) + '"' + (seen ? ' class="seen"' : '') + '><span class="nt">' + notifTag(i, seen) + esc(i.title) + '</span><span class="nb">' + esc(i.body || '') + '</span><span class="nw">' + esc(whenShort(i.when)) + '</span></button></li>';

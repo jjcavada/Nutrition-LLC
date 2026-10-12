@@ -103,3 +103,25 @@ note ids from `Date.now()` could collide on a scripted double submit; focus fell
   400 without reason, 401 without key, archive -> lost + field + tag + note all ok, double archive 409, undo within seconds ->
   open + field cleared + tag removed + note, double undo 404. UI: Ashley's sheet (read-only, Cancel only) showed the picker with
   the header and X intact, aria-labelledby "Archive Ashley?".
+
+### Inspector round 3 (sheet fixes, fresh context, 2026-10-12/13): PASS on the defects, two residuals
+All round-2 defects confirmed fixed on v14 through v19 (X taps on Lock / notifications / client sheets in light and dark, sticky
+client-sheet header after details and after a 957 px scroll, full-screen names, failed-load states with 0 running animations,
+badge 4.69:1, Dismiss focus, unique note ids, 44 px targets, no console errors, Escape/Back close paths). Residuals: a mouse drag
+whose first move left the 48 px header never ended (touch was fine); the Retry link measured 32x20; a failed `/api/contact` left
+the sheet without details silently; the bell showed "Nothing in the last 7 days" when the data fetch had failed; focus fell to BODY
+when the opener had been re-rendered.
+
+### Inspector round 4 (the five 2026-10-12/13 features, fresh context): PASS
+Theme toggle, journey card, calls card, per-item notifications, archive UI (read-only on Ashley, Cancel only) and the archive API on
+the ZZTEST fixture all PASS with measurements; the one "fail" was the brief expecting 404 where a second undo with the opportunity
+id correctly answers 409. Findings: Dismiss on the home screen did not count as viewed in the bell (fixed below); the "Get the app"
+block sits above the list in a mobile browser tab (installed app skips it); "Weekly service" badges wrap under long names at 375 px
+(cosmetic); manifest colours stay light for the installed-app splash; `renderNew`/`readNew` are dead code (harmless).
+
+### Patch 23 (sw v20, deployed 2026-10-13 ~00:50 UTC after both inspectors finished)
+Drag-to-dismiss listens on `window` after pointerdown (no pointer capture at all); Retry 44 px; failed details show "Could not load
+the full details. Try again" with a working retry; bell shows "Could not load your notifications" when the fetch failed; focus falls
+back to the full screen's X or the greeting (`#hello` tabindex -1) when the opener was re-rendered; Dismiss on home also marks the
+alert viewed in the bell. Builder verification on the live site at 375 px: a mouse drag from the handle closed the Lock sheet (page
+unlocked, key intact), a short press on the header left it open, a real X tap closed it; caches show `nitoday-v20`.

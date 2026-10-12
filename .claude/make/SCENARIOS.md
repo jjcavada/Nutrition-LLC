@@ -996,3 +996,18 @@ All automation steps running (QB customer, menu, consultation invite).
   Now Feeder 430 + Aggregator 431 (value / isIntake = contains "INTAKE FORM DATA" / dateAdded) sit after module 9 and module 10 reads
   `{{ifempty(get(map(sort(431.array; "desc"; "dateAdded"); "value"; "isIntake"; "YES"); 1); get(last(9.body.notes); "body"))}}`
   (same pattern as 6116697 modules 7/10/11). Flow: 1, 2, 9, 430, 431, 10, 3, 4, 5, 6, 7, 8, 11; active, valid, 40 modules.
+
+## Chef roster: adding a chef (2026-10-12, Angelica "Angel" Ortiz)
+- Amber: "I just added a new Chef, Angel. She completed that packet link but she is not in the Google Chef assignment document."
+  The packet link = https://www.nutritionintuitionaz.com/new-chef/ -> Phase 9 (4446319): GHL contact + Contractor Onboarding opp
+  (pipeline rQqTYf93eO5vYm4Uim76), QuickBooks vendor, SignWell contractor agreement, packet email, Checkr. It does NOT add the chef
+  to any assignment roster. Angelica Ortiz: contact bP5MDAHK1t0cTcv14E5J, angelica.m.ortiz@gmail.com, onboarded 2026-10-03.
+- **The roster lives in FOUR places; all four updated for Angelica:** (1) GHL Assigned Chef field options (`PUT
+  /locations/{loc}/customFields/a92gzVh8Ukz7gkvRKf03 {name, options, model}`; 19 options now), (2) Make 6116697 module 5 `switch()`
+  name -> email (pushed by script, active), (3) NI Today `config.secret.json` `chefs` (deployed; dropdown + Chefs table), (4) the Chef
+  Assignment sheet's column-E validation list (Apps Script `CHEFS` in `chef-assignment-sheet/AppsScript.gs`, repo file updated; the
+  LIVE validation rule in the sheet must also be updated, see below).
+- **Next (proposal):** one source of truth = GHL. A chef = a contact in the Contractor Onboarding pipeline at stage Packet Sent or
+  later (or tag `chef`). The app reads the roster from GHL, Make 6116697 looks the email up from the GHL contact instead of a switch,
+  and the sheet validation is rebuilt from GHL (Apps Script time trigger or a Make scenario). Then "adding a chef" = Amber's new-chef
+  form only, nothing else to touch.

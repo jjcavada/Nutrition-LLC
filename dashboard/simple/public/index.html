@@ -125,7 +125,10 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .jhead .hint{font-size:var(--fs-14);color:var(--soft);font-weight:500}
 .segs{display:flex;gap:6px}
 .segs button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hair);color:var(--soft);font-weight:600;font-size:var(--fs-14);background:none;transition:background-color var(--dur),color var(--dur)}
-.segs button[aria-selected="true"]{background:var(--btn);color:var(--btn-fg);border-color:transparent}
+.segs button[aria-selected="true"],.segs button[aria-pressed="true"]{background:var(--btn);color:var(--btn-fg);border-color:transparent}
+.segs.wrap{flex-wrap:wrap;margin:var(--s3) 0}
+.tin{width:100%;min-height:46px;border:1px solid var(--hair);border-radius:999px;padding:0 16px;background:var(--tile);color:var(--ink);font:inherit;font-size:16px;margin:var(--s1) 0 var(--s3)}
+.arch-link{color:var(--soft);font-weight:600;min-height:44px;text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:4px}
 .calls .cday{border-bottom:1px solid var(--hair);padding:0 0 var(--s2)}
 .calls .cday:last-child{border-bottom:0;padding-bottom:0}
 .calls .day-h{margin:var(--s3) 0 0}
@@ -606,7 +609,7 @@ function stageHTML(key, x){
 }
 function stageLabel(c){
   if (c.isNew) return 'Intake received, agreement not signed yet';
-  if (c.stage === 'past') return 'Past client or lead, not in the pipeline';
+  if (c.stage === 'past') return c.archived ? 'Archived: ' + c.archived : 'Past client or lead, not in the pipeline';
   if (c.chef) return 'With ' + c.chef;
   return {signed:'Agreement signed, waiting for a chef', menu:'Menu built, waiting for a chef', consult:'Consultation scheduled, waiting for a chef', waitlist:'Waiting for a chef', assigned:'Chef assigned'}[c.stage] || 'Waiting for a chef';
 }
@@ -819,19 +822,19 @@ function restrictionsHTML(c){
 }
 function personSheet(c, extra){
   var sum = c.summaryObj || null;
-  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
+  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Archived', esc(c.archived)], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
   return '<h3>' + esc(c.name) + '</h3><p class="sub">' + (extra && extra.sub ? extra.sub : esc(stageLabel(c))) + '</p>' +
     expectHTML(sum, c) +
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
     factsHTML(facts) + restrictionsHTML(c) + notesHTML(c) + docsHTML(c) +
     ((c.phone || c.email) ? '<div class="acts">' + (c.phone ? '<a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a>' : '') + (c.email ? '<a class="btn ghost-b" href="mailto:' + esc(c.email) + '">Email</a>' : '') + '</div>' : '') +
-    '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>';
+    '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>' + archiveLinkHTML(c);
 }
 function withDetails(c, cb){
   c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
   api('contact/' + c.id).then(function(r){ return r.json(); }).then(function(d){
     if (d && d.summary) c.summaryObj = d.summary;
-    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
+    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; c.archived = d.archived || c.archived || ''; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
     cb(c, true);
   }).catch(function(){ cb(c, false); });
 }
@@ -855,6 +858,8 @@ function openNew(id){
 document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-cf]'))) { callFilter = t.dataset.cf; store.set('callfilter', callFilter); renderCalls(); return; }
+  if ((t = e.target.closest('[data-archive]'))) { openArchive(t.dataset.archive, t.closest('.sheet')); return; }
+  if ((t = e.target.closest('[data-unarchive]'))) { var cu = findClient(t.dataset.unarchive); if (cu) { var shu = sheetApiOf(t.closest('.sheet')); if (shu) shu.close(); unarchive(cu, null); } return; }
   if ((t = e.target.closest('[data-dismiss]'))) { readAlerts.push(t.dataset.dismiss); store.set('readAlerts', readAlerts.slice(-50)); renderAlerts(); var nx = $('.alert-item .dismiss') || $('#bell'); if (nx) try { nx.focus({preventScroll:true}); } catch (x) {} toast('Dismissed on this phone.'); return; }
   if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
   if ((t = e.target.closest('[data-intake]'))) {
@@ -901,6 +906,47 @@ document.addEventListener('change', function(e){
   confirmAssign(sel.dataset.assign, sel.value, sel);
 });
 
+/* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */
+var ARCHIVE_REASONS = ['Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];
+function archiveLinkHTML(c){
+  if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="link arch-link" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div>' : '';
+  return '<div class="acts"><button class="link arch-link" data-archive="' + esc(c.id) + '">Not continuing? Archive this client</button></div>';
+}
+function sheetApiOf(el){ return sheets.filter(function(s){ return s.el === el; })[0]; }
+function openArchive(id, el){
+  var c = findClient(id), sh = sheetApiOf(el); if (!c || !sh) return;
+  var reason = '';
+  sh.setBody('<h3>Archive ' + esc(c.first || c.name) + '?</h3><p class="sub">' + esc(c.name) + ' leaves the client journey and moves to Past clients with the reason you pick. Nothing is sent to anyone, and you can undo it.</p>' +
+    '<div class="segs wrap" role="group" aria-label="Why">' + ARCHIVE_REASONS.map(function(r){ return '<button type="button" data-reason="' + esc(r) + '" aria-pressed="false">' + esc(r) + '</button>'; }).join('') + '</div>' +
+    '<label class="fine" for="archnote">Anything to remember? (optional)</label><input class="tin" id="archnote" type="text" maxlength="300" autocomplete="off">' +
+    '<div class="acts"><button class="btn" data-doarchive disabled>Archive</button><button class="btn ghost-b" data-close>Cancel</button></div>');
+  var go = sh.el.querySelector('[data-doarchive]');
+  sh.el.addEventListener('click', function(e){
+    var r = e.target.closest('[data-reason]');
+    if (r) { reason = r.dataset.reason; $$('[data-reason]', sh.el).forEach(function(b){ b.setAttribute('aria-pressed', b === r ? 'true' : 'false'); }); go.disabled = false; return; }
+    if (e.target.closest('[data-doarchive]') && reason && !go.disabled) doArchive(c, reason, (sh.el.querySelector('#archnote').value || '').trim(), sh, go);
+  });
+}
+function doArchive(c, reason, note, sh, go){
+  go.disabled = true; go.textContent = 'Archiving…';
+  var before = JSON.parse(JSON.stringify(c));
+  api('archive', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:c.id, oppId:c.oppId || '', reason:reason, note:note})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
+    if (!(x.d && x.d.ok)) { go.disabled = false; go.textContent = 'Archive'; toast('Could not archive. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); return; }
+    c.stage = 'past'; c.status = 'past'; c.oppId = ''; c.chef = ''; c.hasChef = false; c.waiting = false; c.isNew = false; c.nextCall = null; c.archived = x.d.archived || reason; c.lastOppId = x.d.oppId || before.oppId || '';
+    (DATA.chefs || []).forEach(function(ch){ ch.clients = (ch.clients || []).filter(function(id){ return id !== c.id; }); });
+    saveSnap(DATA); sh.close(); renderAll();
+    toast('Archived. ' + c.name + ' moved to Past clients.', function(){ unarchive(c, before); }, 8000);
+  }).catch(function(e){ go.disabled = false; go.textContent = 'Archive'; if (e.message !== 'locked') toast('Could not archive. Check your connection.'); });
+}
+function unarchive(c, before){
+  api('archive', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:c.id, oppId:c.lastOppId || '', undo:true})}).then(function(r){ return r.json(); }).then(function(d){
+    if (!(d && d.ok)) { toast('Could not put them back. ' + (d && d.error ? d.error : 'Try again.'), null, 6000); return; }
+    if (before) { Object.keys(before).forEach(function(k){ c[k] = before[k]; }); }
+    c.archived = ''; saveSnap(DATA); renderAll();
+    toast(c.name + ' is back in the client journey.'); load(true);
+  }).catch(function(e){ if (e.message !== 'locked') toast('Could not put them back. Check your connection.'); });
+}
+
 /* ---------------- accordions ---------------- */
 function toggleChef(li){
   var body = li.querySelector('.chef-body'), names = $$('.cn', body), btn = li.querySelector('.chef-head');
@@ -919,7 +965,7 @@ function toggleChef(li){
 /* ---------------- full screens morphing out of a number box ---------------- */
 function clientRow(c){
   var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
-  return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c)) + ' ' + algs(c.allergies) + '</span></button></li>';
+  return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc(c.archived ? 'Archived: ' + c.archived : ([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c))) + ' ' + algs(c.allergies) + '</span></button></li>';
 }
 function fullHTML(kind, arg){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';

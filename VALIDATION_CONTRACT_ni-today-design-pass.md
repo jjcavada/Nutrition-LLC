@@ -91,3 +91,15 @@ note ids from `Date.now()` could collide on a scripted double submit; focus fell
 - Notifications: the New cards left the home screen (Needs attention stays); the bell list keeps a green NEW pill per item that
   flips to a grey "Viewed" on tap and decrements the count (opening the sheet no longer marks everything read); "Mark all viewed".
   Proven: 4 -> 3 on one tap, pill grey, client sheet opens on top, Mark all -> 0, persisted after reload.
+
+### Archive (not continuing), Jay 2026-10-13 (patches 21-22, sw v18-v19)
+- Client sheet gets "Not continuing? Archive this client" (archived past clients get "Put back in the client journey"); the reason
+  picker replaces the sheet body in place (5 reason pills, optional note, Archive disabled until a reason is picked, Cancel).
+- `POST /api/archive {contactId, oppId, reason, note}`: GHL opportunity status -> lost (native, stage unchanged), contact field
+  "Archived (NI Today)" `jLNG2zJXNM5iKhBvyBic` = "<date>: <reason>. <note>", tag `archived`, visible note; `{undo:true}` reverses
+  all of it. The app passes the opportunity id (direct GET); the search endpoint is only a fallback because it lags by seconds.
+  Writes run one at a time (concurrent writes to one contact failed in round 1). Past rows and the card show "Archived: ...".
+- Proven on ZZTEST (`W4UfXxOmRlkMBUwZkg0f`, opp `Y29qBIG9YAI3hibQLCtg` reopened for the test, then set back to abandoned):
+  400 without reason, 401 without key, archive -> lost + field + tag + note all ok, double archive 409, undo within seconds ->
+  open + field cleared + tag removed + note, double undo 404. UI: Ashley's sheet (read-only, Cancel only) showed the picker with
+  the header and X intact, aria-labelledby "Archive Ashley?".

@@ -220,7 +220,7 @@ async function buildSnapshot() {
         diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
         from: (sum && sum.from) || fromTags(c.tags, c.dateAdded), tags: c.tags || [],
         intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder),
-        signedDoc: cf(f, cfg.fields.signedDoc), hasSummary: !!(sum && sum.summary) });
+        signedDoc: cf(f, cfg.fields.signedDoc), hasSummary: !!(sum && sum.summary), archived: cf(f, cfg.fields.archived) || '' });
     });
     clients.sort((x, y) => x.name.localeCompare(y.name)); }
   const weekAgo = Date.now() - 7 * 86400000;
@@ -349,7 +349,7 @@ export default async (req) => {
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
         intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
-        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc) });
+        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '' });
     }
     if (route === 'assign' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));
@@ -372,6 +372,39 @@ export default async (req) => {
       if (oppId) { try { const u = await ghl('/opportunities/' + oppId, { method: 'PUT', body: JSON.stringify({ customFields: [{ id: cfg.chefField, field_value: chef }] }) }); fieldOk = !!(u && (u.opportunity || u.succeded || u.succeeded)); } catch (e) { fieldOk = false; } }
       if (store('ni-cache')) { try { await store('ni-cache').delete('opp:' + oppId); } catch (e) {} }
       return json({ ok: true, chef, contactId, oppId, fieldOk });
+    }
+    if (route === 'archive' && req.method === 'POST') {
+      // Amber's "not continuing": the live opportunity becomes lost (GHL native, no stage move, nothing is sent), the reason lives in
+      // the "Archived (NI Today)" contact field + a note + tag `archived`; the app then lists the person under Past clients. undo reverses it.
+      const b = await req.json().catch(() => ({})); const contactId = String(b.contactId || ''); const undo = !!b.undo;
+      const reason = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 80); const note = String(b.note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (!/^[A-Za-z0-9]{10,40}$/.test(contactId)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!undo && !reason) return json({ ok: false, error: 'reason required' }, 400);
+      // the opportunity: the app passes the id it knows (direct GET, strongly consistent); the search endpoint lags by seconds, so it is only a fallback
+      const want = undo ? 'lost' : 'open'; let pick = null;
+      const givenOpp = /^[A-Za-z0-9]{10,40}$/.test(String(b.oppId || '')) ? String(b.oppId) : '';
+      if (givenOpp) { try { const g = await ghl('/opportunities/' + givenOpp); const o = g.opportunity || g; if (o && o.id && (o.contactId === contactId || (o.contact && o.contact.id === contactId))) pick = o; } catch (e) {} }
+      if (!pick) {
+        let opps = [];
+        try { const sr = await ghl('/opportunities/search?location_id=' + cfg.ghlLocation + '&contact_id=' + contactId); opps = (sr.opportunities || sr.data || []).filter((o) => !cfg.pipeline || o.pipelineId === cfg.pipeline); }
+        catch (e) { return json({ ok: false, error: 'could not read GoHighLevel' }, 502); }
+        const byNewest = (x, y) => (y.updatedAt || y.lastStatusChangeAt || '').localeCompare(x.updatedAt || x.lastStatusChangeAt || '');
+        pick = opps.filter((o) => o.status === want).sort(byNewest)[0] || null;
+      }
+      if (!pick) return json({ ok: false, error: undo ? 'nothing to put back' : 'not in the client journey' }, 404);
+      if (pick.status !== want) return json({ ok: false, error: undo ? 'not archived' : 'not in the client journey' }, 409);
+      const when = longDate(new Date()); const text = undo ? '' : when + ': ' + reason + (note ? '. ' + note : '');
+      try { await ghl('/opportunities/' + pick.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: undo ? 'open' : 'lost' }) }); }
+      catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); }
+      // one write at a time: GoHighLevel rejects concurrent updates to the same contact
+      const side = {}, JH = { 'Content-Type': 'application/json' };
+      if (cfg.fields.archived) { try { await ghl('/contacts/' + contactId, { method: 'PUT', headers: JH, body: JSON.stringify({ customFields: [{ id: cfg.fields.archived, field_value: text }] }) }); side.field = 'ok'; } catch (e) { side.field = String(e.message).slice(0, 140); } } else side.field = 'no field id';
+      try { await ghl('/contacts/' + contactId + '/tags', { method: undo ? 'DELETE' : 'POST', headers: JH, body: JSON.stringify({ tags: ['archived'] }) }); side.tag = 'ok'; } catch (e) { side.tag = String(e.message).slice(0, 140); }
+      try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: JH, body: JSON.stringify({ userId: cfg.ghlUser, body: undo
+        ? 'ARCHIVE UNDONE (NI Today): back in the client journey. By Amber on ' + when + '.'
+        : 'ARCHIVED (NI Today) by Amber on ' + when + ': ' + reason + (note ? '\n' + note : '') + '\nThe client left the journey (opportunity set to Lost, stage unchanged). Undo from the app, or set the opportunity back to Open in GoHighLevel.' }) }); side.note = 'ok'; } catch (e) { side.note = String(e.message).slice(0, 140); }
+      mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); await store('ni-cache').delete('opp:' + pick.id); } catch (e) {} }
+      return json({ ok: true, oppId: pick.id, status: undo ? 'open' : 'lost', archived: text, side });
     }
     if (route === 'summary' && req.method === 'POST') {
       const b = await req.json().catch(() => ({})); const contactId = String(b.contactId || '');

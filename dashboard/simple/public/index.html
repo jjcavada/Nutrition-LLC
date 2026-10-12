@@ -410,6 +410,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
 var VAPID_PUBLIC = 'BPSc8oUZeU5d-CNPhhi0pQoEDFOE-5tpC0lvKzE2cVujrxYFoztm_Ujf9IBhikqFPGcJKaQYQEJ0CtHxWqWDSz8';
 var SALT = 'fbe1fef5a1e80a111eb105e1c7837c03';
 var RMQ = window.matchMedia('(prefers-reduced-motion: reduce)'), RM = RMQ.matches; try { RMQ.addEventListener('change', function(e){ RM = e.matches; }); } catch (e) {}
+function once(f){ var ran = false; return function(){ if (ran) return; ran = true; f(); }; }
 function plural(n, w){ return n + ' ' + w + (n === 1 ? '' : 's'); }
 function ago(m){ if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; var hh = Math.round(m / 60); if (hh < 24) return plural(hh, 'hour') + ' ago'; return plural(Math.round(hh / 24), 'day') + ' ago'; }
 function listJoin(a){ try { return new Intl.ListFormat('en', {style:'long', type:'conjunction'}).format(a); } catch (e) { return a.join(' and '); } }
@@ -735,7 +736,7 @@ function openSheet(html, onClose){
     if (RM) return done();
     scrim.animate([{opacity:1},{opacity:0}], {duration:200, fill:'forwards'});
     var a = sh.animate(desktop ? [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},{opacity:0, transform:'translate(-50%,-46%) scale(.97)'}] : [{transform:'translateY(0)'},{transform:'translateY(100%)'}], {duration:260, easing:'ease-in', fill:'forwards'});
-    a.onfinish = done;
+    var fin = once(done); a.onfinish = fin; setTimeout(fin, 420);
   }};
   scrim.addEventListener('click', function(){ api.close(); });
   sh.addEventListener('click', function(e){ if (e.target.closest('[data-close]')) api.close(); });
@@ -924,7 +925,7 @@ function closeFull(fromPop){
   var r = ov._tile.getBoundingClientRect();
   ov.querySelector('.full-in').animate([{opacity:1},{opacity:0}], {duration:180, fill:'forwards'});
   var a = ov.animate([{clipPath:'inset(0px 0px 0px 0px round 0px)', backgroundColor:getComputedStyle(document.body).backgroundColor},{clipPath:clipFor(r), backgroundColor:getComputedStyle(ov._tile).backgroundColor}], {duration:440, easing:EASE, fill:'forwards'});
-  a.onfinish = done;
+  var fin = once(done); a.onfinish = fin; setTimeout(fin, 600);
 }
 
 /* ---------------- notes: edit, done, swipe, archive ---------------- */

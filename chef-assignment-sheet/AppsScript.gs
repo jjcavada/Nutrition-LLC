@@ -43,8 +43,7 @@ var CHEFS = [
   'Kiyara Brown',
   'Matthew Dewey',
   'Viana Nyguen',
-  'Angelica Ortiz',       // added 2026-10-12 (Amber: "Angel"), onboarded via the new-chef packet 2026-10-03
-  'JJ Cavada (test)'      // test-only: routes to jjcavada1@gmail.com. Remove once Amber is comfortable.
+  'Angelica Ortiz'        // added 2026-10-12. NOTE: since 2026-10-12 the dropdown is rebuilt by Make Phase 9 from the GHL options; do NOT run setup() again, it would overwrite it.
 ];
 
 // ---------------------------------------------------------------- setup

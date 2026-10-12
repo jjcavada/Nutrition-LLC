@@ -39,3 +39,46 @@ GHL Assigned Chef options, Make 6116697 chef switch, NI Today `config.secret.jso
 
 ## Part 3: inspector report (fresh context; fixtures ONLY: contact W4UfXxOmRlkMBUwZkg0f, chef name "ZZTEST Chef Probe", test chef "JJ Cavada (test)"; every other record read-only; never fire Phase 9, never assign to a real client)
 (inspector)
+
+### Inspector report (fresh context, 2026-10-12 12:05-12:17 UTC)
+Method: pulled the LIVE blueprints (Phase 9 4446319, 6116697), rebuilt a throw-away probe from the LIVE modules 20-27 verbatim (only `{{2.id}}` -> payload contactId; NOT from patch_make4.py, whose tail still has `trim()` without `capitalize()`), fired it for ZZTEST, read GHL / data store / app / the sheet validation (read-only Sheets API through a throw-away scenario).
+
+| # | Verdict | Evidence |
+|---|---|---|
+| R-1 | PASS | Live 4446319 active, valid; top-level ids 1,2,11,3-10 byte-identical to `4446319.orig.json`; tail 20-27 present after the note (20 vars, 21 tag POST, 22 datastore, 23 GET options, 24-25 vars, 26 http PUT, 27 Sheets batchUpdate); handlers (email + app alert + Resume) on 21,22,23,26,27 (20/24/25 have none). 6116697 active, valid, order 1-5,500,501,6,7,10,11,12, 9 refs on `501.chefEmail`. Seed check: all 18 config chefs + test chef match data store emails exactly (0 mismatches). |
+| R-2 | PASS | Probe response `chef=ZZTEST Chef Probe tag=201 ds=zztest chef probe opts=20 put=200 sheet=200`. ZZTEST gained tag `chef`; GHL options 19 -> 20; data store record has name/email/contactId; sheet E2:E3 validation (ONE_OF_LIST) 19 -> 20 entries incl. "ZZTEST Chef Probe", `tbd` absent, "JJ Cavada (test)" present. All removed afterwards (see writes). |
+| R-3 | PASS | 2nd fire: opts=20, probe count 1 in GHL options, 1 in the sheet list, 0 dups. Angelica fired as "angelica " / " ortiz" (lowercase + spaces): chef=Angelica Ortiz, opts=19, no dup (trim+capitalize works, `capitalize("ZZTEST")` keeps "ZZTEST"). |
+| R-4 | PASS (limited) | With ZZTEST tagged `chef`: `/api/today?fresh=1` chefOptions 18, chefs 18, "ZZTEST Chef Probe" absent (app filters `^zztest` by design, api.mjs:166), "Angelica Ortiz" exactly once in both. LIMIT: Angelica is also in config, so the live app never proved the tag-UNION adds a chef missing from config; only the code (api.mjs:165-170) does. |
+| R-5 | PASS (+ deviation) | chefName "ZZTEST Chef Probe" (not in the legacy switch): body `sent`, new "MENU + INTAKE SENT" note at 12:10:44Z naming Chef: ZZTEST Chef Probe / jjcavada1+e2e@gmail.com, opp chef field set (run 15 ops). "Nobody Realchef": body `Accepted`, run 7 ops, NO note, NO chef email, NO app alert, NO error email = silent filter stop at module 6. The contract text (design item 4, R-5) promises the "chef not sent anything" alert; that alert exists only for module ERRORS, not for the empty-email filter. Same as pre-build behavior, but "never a silent stop" is not true. App-driven assign still surfaces it (`Accepted` != /^sent/ -> 502 not-sent); a GHL-driven assign of a name with no data store record gets nothing. |
+| R-6 | PASS | GHL contacts with dateUpdated >= 11:30Z: only Angelica (bP5MD..., tag chef, intended) and ZZTEST. Client-pipeline opps updated in window: only the ZZTEST opp (one real lead, Felicia Gorcyca, 11:34Z, predates the build). Assigned Chef field metadata intact (SINGLE_OPTIONS, same fieldKey/parentId). |
+| R-7 | not graded | docs not read (MED). |
+
+**Findings the assertions did not cover (fix before relying on this):**
+- **F1 HIGH (destructive failure mode):** nothing guards 23 (GET options) -> 24 -> 26 (PUT) -> 27 (sheet). Reproduced up to the PUT with a throw-away copy of 20/23/24/25 whose GET was forced to fail (bogus field id): handler fired, Resume, then `opts_len=0 optionsCsv=[] sheetCsv=[]`. In Phase 9 that makes module 26 send `"options":[""]` and module 27 `values:[{"userEnteredValue":""}]`. Whether GHL/Sheets accept that was NOT tested (would have wiped the shared field), but if they do the Assigned Chef dropdown and the sheet dropdown are emptied by one GHL hiccup. Fix: filter on 26 (`{{length(24.opts)}} > 5`) and on 27 (same).
+- **F2 MED:** tail contactId is `{{2.id}}`. Module 2 (createAContact) errors on an existing email/phone (location `allowDuplicateContact:false`) and its handler is Resume, so `2.id` is empty for a chef who is already a GHL contact or resubmits; module 3 in the same scenario uses `ifempty(11.id; 2.id)`. Reproduced the consequence with `contactId:""`: tag step fails (`tag=` empty, alert "New chef not fully added", Jay email), data store record written with no contactId, options + sheet still updated, so the chef shows in GHL/sheet but NOT in the app roster. Fix: contactId = `{{ifempty(11.id; 2.id)}}`.
+- **F3 MED:** the silent unknown-name stop above (R-5). Either add an alert branch for empty chefEmail or correct the contract/doc wording.
+- **F4 LOW:** datastore:AddRecord has overwrite=true on key lower(name): an applicant named like an existing chef with a different email silently replaces that chef's email (menu + intake with client details would go to the new address).
+
+**Writes made (all reverted):** tag `chef` on ZZTEST (removed); "ZZTEST Chef Probe" in GHL Assigned Chef options (PUT x5 via probe fires + my cleanup; final = the original 19 options); data store 170882 record `zztest chef probe` (deleted; `angelica ortiz` re-upserted with identical values); ZZTEST opp Y29qBIG9YAI3hibQLCtg Assigned Chef set by the 6116697 run (cleared; opp updatedAt moved, status/stage unchanged); ZZTEST note "MENU + INTAKE SENT" Lwdk9toqLM0xmml9Pivo added (left, a note on a fixture) + email to jjcavada1+e2e; Angelica contact re-tagged `chef` (already was); sheet column-E validation rewritten 4x via the probe (final list == the pre-inspection list: 18 chefs + JJ Cavada (test), no probe, no tbd); one app alert from the forced tag failure + one Jay warning email (alert cleared via /api/alerts/clear); 3 throw-away Make scenarios + hooks (deleted).
+**Overall verdict: NOT DONE.** R-1..R-6 pass as written, but F1 (HIGH) is a one-hiccup path to an emptied dropdown and F2/F3 contradict the design text. Re-inspect after the two filters + `ifempty(11.id; 2.id)`.
+
+### Round 2: builder evidence after the inspector (2026-10-12 12:20-12:35 UTC)
+- **F1 fixed:** modules 26 (GHL options PUT) and 27 (sheet dropdown) carry the filter `length(24.opts) > 5`; read back from the live
+  blueprint after the push (4446319: 55 modules, active, valid). Blueprint-verified only; the pass side runs with the next real chef
+  (Phase 9 is never fired for tests: SignWell doc + Checkr). Backstop if it misfires: handler email + app alert on both modules.
+- **F2 fixed:** module 20 `contactId = ifempty(11.id; 2.id)` (same pattern as module 3). Blueprint-verified.
+- **F3 fixed and PROVEN:** 6116697 router 510 live (route 1 = 511 email + 512 app alert, filtered on empty `501.chefEmail` and name
+  not "tbd"; route 2 = the old flow). Hook fired with `chefName:"Nobody Realchef"` on ZZTEST `W4UfXxOmRlkMBUwZkg0f`: body `Accepted`
+  (not `sent`, so the app would answer 502 not-sent), `/api/today` listed the alert "Chef not found: Nobody Realchef", no chef email, no
+  note; alert cleared via `/api/alerts/clear` (removed 1).
+- **F4 accepted** and documented in SCENARIOS.md (same-name re-onboarding replaces the email).
+- **Module 28 (new, profile-form invite):** its URL equals hook 2805116 of scenario 6248559 (`hooks_get`); 6248559 fired with the exact
+  payload shape module 28 sends (to, firstName, formUrl, subject, intro, deadline) with `to` and `cc` = jjcavada1@gmail.com only:
+  `HTTP 200 sent to jjcavada1@gmail.com` at 12:32Z (the invite with the evergreen copy is in Jay's inbox). Module 28's own POST runs
+  with the next real chef; handler 780-782 (email + alert + Resume) covers it.
+- **Test chef retired:** `testChef` out of `config.secret.json`, pair out of 6116697 module 5, data store 170882 = 18 records
+  (`test left: False`), module 25 no longer appends it, sheet dropdown read in Chrome = 18 names incl. Angelica Ortiz and no
+  "JJ Cavada (test)", test rows 3-4 deleted. Generator `patch_make4.py` re-aligned with the live tail (capitalize, filters, ifempty).
+- **Writes this round:** one ZZTEST alert (cleared), one email to Jay. Nothing else.
+- **Pending:** a fresh-context read-only smoke test (sonnet, fixtures only) across the app routes, Make health, data store and GHL
+  options; its report is appended below when it lands.

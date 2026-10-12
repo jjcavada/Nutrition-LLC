@@ -1036,3 +1036,17 @@ All automation steps running (QB customer, menu, consultation invite).
   `chef-assignment-sheet/AppsScript.gs` keeps the list only as documentation now.
 - **To remove the test chef later:** delete the data store record `jj cavada (test)`, drop `"JJ Cavada (test)"` from module 25's
   `sheetCsv` expression, remove `testChef` from `config.secret.json`, and re-run the tail once (or edit the sheet validation by hand).
+- **Round 2 (inspector, 2026-10-12 12:21Z):** (F1) modules 26/27 now carry the filter `length(24.opts) > 5` so a failed options read
+  can never write an empty dropdown; (F2) module 20 contactId = `ifempty(11.id; 2.id)` (an existing contact makes module 2 error +
+  Resume, module 11 finds it); (F3) 6116697 has a router 510 after 501: an unknown chef name (no switch entry, no data store record)
+  now emails Jay + posts "Chef not found: <name>" to the app instead of stopping silently; known names run the old flow (route 2).
+  (F4, accepted) the data store upsert overwrites by lowercase name: a re-onboarded chef with the same name replaces the old email.
+- **Profile form from the packet (Jay/Amber 2026-10-12):** Phase 9 module 28 POSTs the chef-profile invite hook
+  (`oln32bt9xtlvvvxvjxwdja69jgffhpsl`, scenario 6248559) with `to, firstName, formUrl, subject, intro, deadline`, so the new chef gets
+  the Meet-the-Team Google Form from Amber's Gmail right after the packet (email + alert + Resume handler). 6248559's copy made
+  evergreen: "Our website has a Meet the Team page..." and the live URL www.nutritionintuitionaz.com/meet-the-team. The form response
+  still lands as the Apps Script "Chef profile received" email to Jay (cc Amber); publishing the profile on the website stays a Jay +
+  Claude step (`website/content/`), same day.
+- **Test chef retired 2026-10-12:** `testChef` removed from `config.secret.json` (dropdown entry gone), the `"JJ Cavada (test)"` pair
+  removed from 6116697 module 5, data store record deleted, module 25 `sheetCsv` no longer appends it, the sheet dropdown rebuilt and
+  the two "JJ Cavada" test rows deleted from the sheet. ZZTEST client rows stay only in GHL (filtered everywhere).

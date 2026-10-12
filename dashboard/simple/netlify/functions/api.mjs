@@ -174,6 +174,16 @@ async function readList(key) { try { const as = strongStore('ni-cache'); const r
 async function writeList(key, list) { try { const as = strongStore('ni-cache'); if (as) await as.set(key, JSON.stringify(list)); } catch (e) {} }
 async function storeEvent(ev) { const list = (await readList('events')).filter((x) => x.id !== ev.id); list.unshift(ev); await writeList('events', list.slice(0, 60)); } // one entry per kind + record
 async function dropSnapshot() { mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); } catch (e) {} } }
+// Make posts the body as a raw JSON string with the client's name pasted in; a name holding a double quote breaks it. Fall back to
+// a tolerant extraction (each value runs to the next known key or the closing brace) so the push still goes out.
+async function notifyBody(req) {
+  const raw = await req.text().catch(() => '');
+  try { const o = JSON.parse(raw); return o && typeof o === 'object' ? o : {}; } catch (e) {}
+  const o = {}; const KEYS = ['secret', 'kind', 'title', 'body', 'url', 'contactId', 'quiet'];
+  KEYS.forEach((k) => { const m = raw.match(new RegExp('"' + k + '"\\s*:\\s*"([\\s\\S]*?)"\\s*(?:,\\s*"(?:' + KEYS.join('|') + ')"\\s*:|\\}\\s*$)')); if (m) o[k] = m[1]; });
+  if (/"quiet"\s*:\s*true/.test(raw)) o.quiet = true;
+  return o;
+}
 async function nameFromGhl(id) { if (!cleanId(id)) return ''; try { const c = (await ghl('/contacts/' + id)).contact || {}; return c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '); } catch (e) { return ''; } }
 // New bookings on Amber's calendars -> push + bell entry. Known appointment ids live in ni-cache/bookings (strong consistency,
 // conditional write: two scans at the same moment cannot both push). The first ever run only seeds (old bookings are known, not announced).
@@ -369,7 +379,7 @@ export default async (req) => {
       return json({ ok: false }, 401);
     }
     if (route === 'notify' && req.method === 'POST') {
-      const b = await req.json().catch(() => ({}));
+      const b = await notifyBody(req);
       if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
       const kind = EVENT_KINDS.includes(b.kind) ? b.kind : (b.kind === 'alert' ? 'alert' : 'other');
       const quiet = b.quiet === true && /zztest/i.test(String(b.title || '')); // test fixtures can be stored without waking every phone
@@ -384,7 +394,7 @@ export default async (req) => {
     }
     if (!authed) return json({ ok: false, error: 'locked' }, 401);
 
-    if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1'); return json(url.searchParams.get('test') === '1' ? snap : Object.assign({}, snap, { newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')) })); } // test fixtures never reach Amber's bell
+    if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1'); return json(url.searchParams.get('test') === '1' ? snap : Object.assign({}, snap, { newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')), alerts: (snap.alerts || []).filter((a) => !/zztest/i.test((a.title || '') + ' ' + (a.body || ''))) })); } // test fixtures never reach Amber's bell or home card
     if (route === 'scan' && req.method === 'POST') return json(await scanBookings(nameFromGhl));
     if (route === 'alerts/clear' && req.method === 'POST') { // test clean-up: drop stored Make alerts whose title or body contains `match`
       const b = await req.json().catch(() => ({})); const match = String(b.match || '').toLowerCase(); if (match.length < 3) return json({ ok: false, error: 'match too short' }, 400);

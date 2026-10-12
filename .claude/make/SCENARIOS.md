@@ -311,7 +311,7 @@ bell's "signed" entry disappeared the moment the card left Agreement Signed / 15
 
 Rules: each new Make module clones the scenario's own notify module (`handleErrors: false`, error handler = **Ignore**), so a push
 failure can never stop onboarding. `POST /api/notify` stores `kind` intake/signed/invite/booked as bell entries (7 days) and
-`alert` as "Needs attention"; `quiet: true` is honoured only for ZZTEST titles (tests). ZZTEST entries are hidden from the app
+`alert` as "Needs attention"; `quiet: true` is honoured only for ZZTEST titles (tests). A body that is not valid JSON (a client name holding a double quote) is read by a tolerant field extraction instead of being dropped. ZZTEST entries are hidden from the app
 unless `test=1` (localStorage `nitoday:testview` = true for inspector screenshots). The snapshot exposes `lastPush` (when, title,
 sent, dead) and `lastScheduledScan` so delivery and the schedule are observable. The computed backstop for "signed" now keys on
 the "Signed on (NI Today)" field, any stage. Proof 2026-10-13: Phase 4 fixture run -> `invite:` entry 4 s after the hook; ZZTEST

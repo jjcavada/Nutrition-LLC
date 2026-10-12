@@ -162,7 +162,9 @@ async function buildSnapshot() {
   const byId = {}; contacts.forEach((c) => { byId[c.id] = c; });
   const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned');
   const chefs = await pool(live, 6, oppChef);
-  const chefNames = cfg.chefs.map((c) => c[0]);
+  // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
+  const ghlChefs = contacts.filter((c) => (c.tags || []).includes('chef') && !/^zztest/i.test(c.contactName || c.firstName || '')).map((c) => (c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim()).filter(Boolean);
+  const chefNames = [...new Set(cfg.chefs.map((c) => c[0]).concat(ghlChefs))].sort((a, b) => a.localeCompare(b));
   const clients = live.map((o, i) => {
     const c = byId[o.contactId] || o.contact || {}; const f = c.customFields || [];
     const stage = cfg.stages[o.pipelineStageId] || 'waitlist';
@@ -349,8 +351,9 @@ export default async (req) => {
     if (route === 'assign' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));
       const chef = String(b.chef || ''); const contactId = String(b.contactId || '');
-      if (!/^[A-Za-z0-9]{10,40}$/.test(contactId) || !(cfg.chefs.some((c) => c[0] === chef) || chef === cfg.testChef)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!/^[A-Za-z0-9]{10,40}$/.test(contactId)) return json({ ok: false, error: 'bad request' }, 400);
       const snap = await getSnapshot(false); const client = snap.clients.find((c) => c.id === contactId);
+      if (!((snap.chefOptions || []).includes(chef) || chef === cfg.testChef)) return json({ ok: false, error: 'bad request' }, 400);
       const oppId = client ? client.oppId : '';
       // opportunityId is passed explicitly: the Make scenario otherwise takes the contact's FIRST opportunity (listOpportunities limit 1), which can be an old/abandoned one
       const r = await fetch(cfg.assignHook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId, opportunityId: oppId, chefName: chef, clientName: client ? client.name : (b.clientName || ''), source: 'NI Today app' }) });

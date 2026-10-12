@@ -22,7 +22,7 @@ Oct 8, was not in the bell). There was no invite or booking entry at all.
     "<name> booked a consultation" (weekly calendar) or "<name> booked an event planning call" (event calendar) with the slot in
     Phoenix time, stores `booked:<appointmentId>`. First run seeds the known set WITHOUT pushing; bookings added in the last 7 days
     get a bell entry only. Runs inside every snapshot build and from the scheduled function.
-  - `netlify/functions/scan.mjs`: scheduled every 5 minutes (`*/5 * * * *`), runs the scan. `POST /api/scan` (app key) runs it on
+  - `netlify/functions/scan.mjs`: scheduled at 8 am, 3 pm and 8 pm Phoenix time (cron `0 3,15,22 * * *` UTC; was every 5 minutes until Jay asked for three runs a day on 2026-10-13), runs the scan. The scan also runs inside every snapshot build, so an open app catches bookings within its refresh. `POST /api/scan` (app key) runs it on
     demand for tests. `POST /api/alerts/clear {match}` now also drops stored events (test clean-up).
 - **App UI (`public/index.html`, `sw.js` v28):** bell tags New / Signed / Invite sent / Booked / Needs attention; the toggle copy
   names the four moments; tap opens the client; viewed state and count unchanged.

@@ -1050,3 +1050,20 @@ All automation steps running (QB customer, menu, consultation invite).
 - **Test chef retired 2026-10-12:** `testChef` removed from `config.secret.json` (dropdown entry gone), the `"JJ Cavada (test)"` pair
   removed from 6116697 module 5, data store record deleted, module 25 `sheetCsv` no longer appends it, the sheet dropdown rebuilt and
   the two "JJ Cavada" test rows deleted from the sheet. ZZTEST client rows stay only in GHL (filtered everywhere).
+
+### 2026-10-13 — Phase 2 + Phase 4 moved the WRONG client's card (GR-071) — FIXED
+- **Bug (found by Jay in a Phase 4 run):** `highlevel:listOpportunities` with `contactId` + limit 1 returned the NEWEST card in the
+  whole account for any contact (probe: ZZTEST, Katelyn, Fardowsa, bogus id -> all Katelyn's card). Only looked right while the client
+  being processed also had the newest card. Victims repaired: Fardowsa (back to New Lead), Ashley Kaminsky (Oct 1 card made live at
+  Consultation, May card retired), Katelyn Keating (card recreated at Consultation), Ashley Walker (signed tags restored; her SignWell
+  document is deleted so the signed PDF cannot be fetched).
+- **Phase 4 (4212046) now:** 2 = http GET `/opportunities/search?contact_id={{7.id}}` (PIT) -> 30 = SetVariables oppId / pipelineId /
+  pipelineStageId / openCount -> router 31: route 1 (openCount = 0) email Jay + app alert "No pipeline card for <name>"; route 2 = 34
+  direct `GET /opportunities/{{30.oppId}}` (search index lags seconds; Phase 3 sets the stage right before) -> 3 (filter: stage from
+  34 = 15 Item Menu, client pipeline, openCount > 0) -> 4 invite -> 5 tag -> 6 note. Handlers on 2 (404-406) and 34 (340-342).
+- **Phase 2 (4071952) now:** 4 = http search by `{{3.id}}` -> 422 vars -> 15 QuickBooks -> router 423: route 1 alert (openCount = 0),
+  route 2 = 10 (filter openCount > 0 + client pipeline), route 3 = 6 (POST tags, additive; `updateAContact` replaced the tag list),
+  7, 13 (Phase 3 hook), 14 (Drive hook). Not fired for tests (QuickBooks customer).
+- **Proof:** ZZTEST fixture with 20 s index waits: positive move + tag + note; negative -> no move + alert + email. Contract
+  `VALIDATION_CONTRACT_phase-card-lookup.md`. Lessons: Make filters do not match an empty `first()` against "" or `notexist`, branch
+  on `length(map(...))`; wait 20 s after a GHL status change before any search-based automation reads it.

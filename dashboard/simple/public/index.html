@@ -558,13 +558,13 @@ function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' 
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }
 var PHASES = [
   {key:'new', name:'New lead, not signed', next:'They need to sign the agreement. If it has been a few days, text or email them from their card.', stuck:3},
-  {key:'signed', name:'Agreement signed', next:'The 15 item menu and the consultation invite go out automatically within minutes of signing. Anyone here for more than a day means that automation did not finish.', stuck:1},
-  {key:'consult', name:'Consultation', next:'Hold the consultation, then pick a chef.', stuck:14},
+  {key:'consult', name:'Consultation', next:'They signed; the menu and the invite with the booking link went out automatically. Nudge anyone who has not booked a call, then hold it and pick a chef.', stuck:14},
+  {key:'booked', name:'Call booked', next:'The consultation is on the calendar, soonest first. Hold the call, then pick a chef.', stuck:0},
   {key:'waiting', name:'Waitlist, needs a chef', next:'Pick a chef and their intake and menu go out to that chef.', stuck:7},
   {key:'chef', name:'Chef assigned', next:'The chef got the intake and the 15 item menu automatically. Grouped by chef.', stuck:0}
 ];
-function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu') return 'signed'; if (c.stage === 'consult') return 'consult'; return 'waiting'; }
-function phaseClients(key){ return clients().filter(function(c){ return phaseOf(c) === key; }).sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0) || a.name.localeCompare(b.name); }); }
+function phaseOf(c){ if (c.stage === 'past') return ''; if (c.hasChef) return 'chef'; if (c.stage === 'new' || c.isNew) return 'new'; if (c.stage === 'signed' || c.stage === 'menu' || c.stage === 'consult') return c.nextCall ? 'booked' : 'consult'; return 'waiting'; }
+function phaseClients(key){ var l = clients().filter(function(c){ return phaseOf(c) === key; }); if (key === 'booked') return l.sort(function(a, b){ return (a.nextCall.when || '').localeCompare(b.nextCall.when || ''); }); return l.sort(function(a, b){ return (b.waitingDays || 0) - (a.waitingDays || 0) || a.name.localeCompare(b.name); }); }
 function stuckText(p, n){
   if (p.key === 'new') return n + (n === 1 ? ' has' : ' have') + ' not signed after ' + p.stuck + ' days';
   if (p.key === 'signed') return n + ' stuck here more than a day';
@@ -580,7 +580,8 @@ function renderPipeline(){
   var leads = clients().filter(function(c){ return c.stage !== 'past' && (c.createdAt || '').slice(0, 7) === monthStart; }), became = leads.filter(function(c){ return !c.isNew; }), booked = clients().filter(function(c){ return c.nextCall; });
   box.innerHTML = '<div class="journey"><div class="jhead"><h2 id="h-pipe" class="ct">Client journey</h2><span class="hint">Tap a step</span></div><ul class="pipe">' + rows.map(function(r){
     var p = r.p, list = r.list, stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub = '';
-    if (p.key === 'consult' && list.length) { var b = list.filter(function(c){ return c.nextCall; }).length; sub = b + ' with a call booked · ' + (list.length - b) + ' not booked yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
+    if (p.key === 'consult' && list.length) { sub = plural(list.length, 'has', 'have') + ' not booked a call yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
+    else if (p.key === 'booked' && list.length) { sub = 'Next: ' + list[0].name + ', ' + list[0].nextCall.label; }
     else if (stuck) sub = stuckText(p, stuck);
     var hot = stuck > 0 || (p.key === 'waiting' && list.length > 0);
     return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc' + (hot ? ' hot' : '') + '">' + list.length + '</span><span class="jbar"><i' + (hot ? ' class="hot"' : '') + ' style="transform:scaleX(' + (list.length / max).toFixed(3) + ')"></i></span>' + (sub ? '<span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span>' : '') + '</button></li>';
@@ -598,15 +599,16 @@ function stageHTML(key, x){
   var head = '<div class="full-h"><div><h3>' + esc(p.name) + '</h3><p>' + list.length + (list.length === 1 ? ' client' : ' clients') + ' · ' + esc(p.next) + '</p></div>' + x + '</div>';
   function ul(arr, empty){ return '<ul class="full-list">' + (arr.length ? arr.map(function(c){ return stageRow(c, p); }).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul>'; }
   if (!list.length) return head + '<p class="none">Nobody here right now.</p>';
-  if (p.key === 'consult') {
-    var b = list.filter(function(c){ return c.nextCall; }).sort(function(x1, y1){ return x1.nextCall.when.localeCompare(y1.nextCall.when); }), nb = list.filter(function(c){ return !c.nextCall; });
-    return head + '<div class="day-h">Call booked</div>' + ul(b, 'No calls booked.') + '<div class="day-h">No call booked yet</div>' + ul(nb, 'Everyone has booked.');
-  }
   if (p.key === 'chef') {
     var by = {}; list.forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
     return head + Object.keys(by).sort().map(function(n){ return '<div class="day-h">' + esc(n) + ' · ' + by[n].length + '</div>' + ul(by[n], ''); }).join('');
   }
   return head + ul(list, '');
+}
+function consultText(c){
+  if (c.consult && c.consult.label) return (c.consult.past ? 'Held ' : 'Booked for ') + esc(c.consult.label);
+  if (c.nextCall) return 'Booked for ' + esc(c.nextCall.label);
+  return (c.stage === 'consult' && !c.hasChef) ? 'No call booked yet' : '';
 }
 function stageLabel(c){
   if (c.isNew) return 'Intake received, agreement not signed yet';
@@ -825,7 +827,7 @@ function restrictionsHTML(c){
 }
 function personSheet(c, extra){
   var sum = c.summaryObj || null;
-  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Archived', esc(c.archived)], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
+  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Consultation', consultText(c)], ['Archived', esc(c.archived)], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
   return '<h3>' + esc(c.name) + '</h3><p class="sub">' + (extra && extra.sub ? extra.sub : esc(stageLabel(c))) + '</p>' +
     expectHTML(sum, c) +
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
@@ -837,7 +839,7 @@ function withDetails(c, cb){
   c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
   api('contact/' + c.id).then(function(r){ return r.json(); }).then(function(d){
     if (d && d.summary) c.summaryObj = d.summary;
-    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; c.archived = d.archived || c.archived || ''; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
+    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; c.archived = d.archived || c.archived || ''; c.consult = d.consult || null; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
     cb(c, true);
   }).catch(function(){ cb(c, false); });
 }

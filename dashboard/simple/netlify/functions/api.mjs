@@ -343,13 +343,18 @@ export default async (req) => {
     }
     if (route.startsWith('contact/') && req.method === 'GET') {
       const id = route.split('/')[1]; if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return json({ ok: false }, 400);
-      const [d, notes] = await Promise.all([ghl('/contacts/' + id), notesOf(id)]);
+      const [d, notes, ap] = await Promise.all([ghl('/contacts/' + id), notesOf(id), ghl('/contacts/' + id + '/appointments').catch(() => ({}))]);
       const c = d.contact || {}; const f = c.customFields || [];
       const n = intakeNote(notes, cf(f, cfg.fields.intakeNoteId));
+      // consultation call: the next booked one, else the most recent one held (cancelled / no-show excluded)
+      const evs = (ap.events || []).filter((e) => e.startTime && !/cancel|no.?show|invalid/i.test(e.appointmentStatus || '')).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+      const nowT = Date.now(); const nextEv = evs.find((e) => new Date(e.startTime).getTime() >= nowT); const lastEv = evs.slice().reverse().find((e) => new Date(e.startTime).getTime() < nowT);
+      const ev = nextEv || lastEv; const consult = ev ? { when: ev.startTime, past: !nextEv, status: ev.appointmentStatus || '', title: ev.title || '',
+        label: fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(ev.startTime)) + ' at ' + timeOf(new Date(ev.startTime)) } : null;
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
         intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
-        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '' });
+        intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '', consult });
     }
     if (route === 'assign' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));

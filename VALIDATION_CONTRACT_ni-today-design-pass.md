@@ -125,3 +125,17 @@ the full details. Try again" with a working retry; bell shows "Could not load yo
 back to the full screen's X or the greeting (`#hello` tabindex -1) when the opener was re-rendered; Dismiss on home also marks the
 alert viewed in the bell. Builder verification on the live site at 375 px: a mouse drag from the handle closed the Lock sheet (page
 unlocked, key intact), a short press on the header left it open, a real X tap closed it; caches show `nitoday-v20`.
+
+### 2026-10-13, patches 24-26 (sw v21-v23): journey steps, consultation line, monthly graph
+- Journey: "Agreement signed" removed (signing, QuickBooks, menu and invite chain within minutes, it was always 0); "Call booked" added
+  (consultation-stage clients with a call on the calendar, soonest first); Consultation = invite sent, no call yet. Every client card
+  shows a Consultation line (held on / booked for / not booked yet) from `GET /contacts/{id}/appointments` (api.mjs contact route).
+- "See the last 12 months" under the journey footer opens the By month sheet (Jay's request for Amber): nested bars in ONE hue (light
+  olive tint = new leads, solid olive = became clients) because every brand two-hue pair failed the dataviz validator's colour-blind
+  check (olive vs gold ΔE 4.1 deutan, olive vs terracotta 1.1); lightness carries the difference. Rounded 4 px data ends, recessive
+  grid, direct labels on the latest and the peak month only, month labels every other month ending on the current one, tap or hover
+  a column for the numbers in a caption, legend, and a table view with the conversion rate. Data: `createdAt` month of every client
+  (live cards and past), "became clients" = signed (stage past New lead, or the signed tag, or a contract PDF).
+- Builder verification at 375 px light + dark: 12 lead bars, 8 client bars, caption "October 2026: 10 new leads, 5 became clients
+  (50%)", tap on a column updates the caption, table 12 rows. Found and fixed: the legend swatch class collided with the push switch
+  (`.sw`), axis labels collided at 12 columns.

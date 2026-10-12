@@ -26,7 +26,7 @@
   --paper:#FBF8F1; --raise:#FFFFFF; --tile:#F3EDE0; --ink:#2E352A; --head:#3E4736; --soft:#5E6655; --faint:#656C5C; --hair:#E4DBC6;
   --weekly:#467326; --weekly-bg:#E6F0DA; --event:#9C4825; --event-bg:#F7E4D9; --wait:#9C4825;
   --allergy:#B42318; --allergy-bg:#FCE9E7;
-  --hot:#6F5410; --track:#E4DBC6; --bar:#467326; --chip-bg:#E9E2D1; --chip-fg:#3E4736; --chip-open-bg:#E6F0DA; --chip-open-fg:#2E5A14;
+  --hot:#6F5410; --track:#E4DBC6; --bar:#467326; --ch-tint:#D7E4C3; --chip-bg:#E9E2D1; --chip-fg:#3E4736; --chip-open-bg:#E6F0DA; --chip-open-fg:#2E5A14;
   --warn-bg:#F7E4D9; --warn-fg:#8A3A1B; --warn-bd:#E6B9A7; --badge:#B93A24; --sw-off:#8F9785; --press:rgba(46,53,42,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#3E4736; --btn-fg:#FBF8F1; --scrim:rgba(24,28,20,.42); --focus:#467326;
   --shadow:0 1px 2px rgba(46,53,42,.05), 0 12px 32px -20px rgba(46,53,42,.28);
@@ -43,14 +43,14 @@
   --paper:#171B14; --raise:#1F251B; --tile:#232A20; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#8A927E; --hair:#30382A;
   --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
   --allergy:#F4978E; --allergy-bg:#3B1F1C;
-  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
+  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
   --warn-bg:rgba(214,96,72,.22); --warn-fg:#F6B2A2; --warn-bd:rgba(214,96,72,.4); --badge:#C84A32; --sw-off:rgba(255,255,255,.2); --press:rgba(255,255,255,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:#A6CC7C; --shadow:none; --hair:#343C2E; color-scheme:dark } }
 :root[data-theme="dark"]{
   --paper:#171B14; --raise:#1F251B; --tile:#232A20; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#8A927E; --hair:#30382A;
   --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
   --allergy:#F4978E; --allergy-bg:#3B1F1C;
-  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
+  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
   --warn-bg:rgba(214,96,72,.22); --warn-fg:#F6B2A2; --warn-bd:rgba(214,96,72,.4); --badge:#C84A32; --sw-off:rgba(255,255,255,.2); --press:rgba(255,255,255,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:#A6CC7C; --shadow:none; --hair:#343C2E; color-scheme:dark }
 
@@ -148,6 +148,27 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .prow .jbar i.hot{background:var(--hot)}
 .prow .ps{grid-column:1 / -1;color:var(--soft);font-size:var(--fs-13);margin-top:6px}
 .jfoot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);border-top:1px solid var(--hair);margin-top:var(--s4);padding-top:var(--s4)}
+.jlink{min-height:44px;font-weight:600;color:var(--soft);text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:4px;margin-top:var(--s1);padding:0}
+.chart{position:relative;margin:var(--s3) 0 var(--s2)}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .grid{stroke:var(--hair)}
+.chart text{font:600 11px var(--text);fill:var(--faint)}
+.chart text.v{fill:var(--head);font-size:12px}
+.chart .lead{fill:var(--ch-tint);stroke:var(--bar);stroke-width:1}
+.chart .cli{fill:var(--bar)}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .hit:hover,.chart .hit.on{fill:var(--press)}
+.clegend{display:flex;gap:var(--s4);font-size:var(--fs-13);color:var(--soft);margin:0 0 var(--s2)}
+.clegend span{display:inline-flex;align-items:center;gap:6px}
+.clegend .lsw{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
+.clegend .lsw.lead{background:var(--ch-tint);border:1px solid var(--bar)}
+.clegend .lsw.cli{background:var(--bar)}
+.ccap{min-height:22px;margin:0 0 var(--s3);color:var(--ink);font-size:var(--fs-14);font-variant-numeric:tabular-nums}
+.ttable{width:100%;border-collapse:collapse;font-size:var(--fs-14)}
+.ttable th{text-align:left;color:var(--faint);font-weight:600;font-size:var(--fs-12);letter-spacing:.08em;text-transform:uppercase;padding:8px 0;border-bottom:1px solid var(--hair)}
+.ttable td{padding:9px 0;border-bottom:1px solid var(--hair);color:var(--ink);font-variant-numeric:tabular-nums}
+.ttable .n{text-align:right}
+.ttable tr:last-child td{border-bottom:0}
 .jfoot span{display:block;color:var(--soft);font-size:var(--fs-14);line-height:1.3;margin:0 0 6px}
 .jfoot b{display:block;font-family:var(--display);font-weight:300;font-size:30px;line-height:1.1;color:var(--head);margin:0;font-variant-numeric:tabular-nums}
 .crow .right .status{margin:0}
@@ -580,13 +601,13 @@ function renderPipeline(){
   var leads = clients().filter(function(c){ return c.stage !== 'past' && (c.createdAt || '').slice(0, 7) === monthStart; }), became = leads.filter(function(c){ return !c.isNew; }), booked = clients().filter(function(c){ return c.nextCall; });
   box.innerHTML = '<div class="journey"><div class="jhead"><h2 id="h-pipe" class="ct">Client journey</h2><span class="hint">Tap a step</span></div><ul class="pipe">' + rows.map(function(r){
     var p = r.p, list = r.list, stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub = '';
-    if (p.key === 'consult' && list.length) { sub = plural(list.length, 'has', 'have') + ' not booked a call yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
+    if (p.key === 'consult' && list.length) { sub = (list.length === 1 ? '1 has' : list.length + ' have') + ' not booked a call yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
     else if (p.key === 'booked' && list.length) { sub = 'Next: ' + list[0].name + ', ' + list[0].nextCall.label; }
     else if (stuck) sub = stuckText(p, stuck);
     var hot = stuck > 0 || (p.key === 'waiting' && list.length > 0);
     return '<li><button class="prow" data-openstage="' + p.key + '"><span class="pn">' + esc(p.name) + '</span><span class="pc' + (hot ? ' hot' : '') + '">' + list.length + '</span><span class="jbar"><i' + (hot ? ' class="hot"' : '') + ' style="transform:scaleX(' + (list.length / max).toFixed(3) + ')"></i></span>' + (sub ? '<span class="ps' + (stuck ? ' hot' : '') + '">' + esc(sub) + '</span>' : '') + '</button></li>';
   }).join('') + '</ul>' +
-    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div></div>';
+    '<div class="jfoot"><div><span>New leads in ' + monthName + '</span><b>' + leads.length + '</b></div><div><span>Became clients</span><b>' + became.length + '</b></div><div><span>Calls booked ahead</span><b>' + booked.length + '</b></div></div><button type="button" class="link jlink" data-trends>See the last 12 months</button></div>';
 }
 function stageRow(c, p){
   var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;
@@ -864,6 +885,7 @@ function openNew(id){
 document.addEventListener('click', function(e){
   var t;
   if ((t = e.target.closest('[data-cf]'))) { callFilter = t.dataset.cf; store.set('callfilter', callFilter); renderCalls(); return; }
+  if ((t = e.target.closest('[data-trends]'))) { openTrends(); return; }
   if ((t = e.target.closest('[data-retrydetails]'))) { var sr = sheetApiOf(t.closest('.sheet')); if (sr && sr.refill) { t.textContent = 'Loading…'; sr.refill(); } return; }
   if ((t = e.target.closest('[data-archive]'))) { openArchive(t.dataset.archive, t.closest('.sheet')); return; }
   if ((t = e.target.closest('[data-unarchive]'))) { var cu = findClient(t.dataset.unarchive); if (cu) { var shu = sheetApiOf(t.closest('.sheet')); if (shu) shu.close(); unarchive(cu, null); } return; }
@@ -912,6 +934,44 @@ document.addEventListener('change', function(e){
   var sel = e.target.closest('select[data-assign]'); if (!sel || !sel.value) return;
   confirmAssign(sel.dataset.assign, sel.value, sel);
 });
+
+/* ---------------- by month: new leads vs became clients ---------------- */
+function becameClient(c){ return (c.stage !== 'past' && !c.isNew) || (c.tags || []).indexOf('agreement_signed') >= 0 || !!c.contractPdf || !!c.signedDoc; }
+function monthStats(){
+  var now = new Date(), out = [], map = {};
+  for (var i = 11; i >= 0; i--) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1); var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    var o = {key:k, label: d.toLocaleString('en-US', {month:'short'}), axis: d.toLocaleString('en-US', {month:'short'}) + (d.getMonth() === 0 || i === 11 ? ' ' + String(d.getFullYear()).slice(2) : ''), full: d.toLocaleString('en-US', {month:'long', year:'numeric'}), leads:0, clients:0}; map[k] = o; out.push(o); }
+  clients().forEach(function(c){ var o = map[(c.createdAt || '').slice(0, 7)]; if (!o) return; o.leads++; if (becameClient(c)) o.clients++; });
+  return out;
+}
+function barPath(x, yTop, w, yBase){ var h = yBase - yTop; if (h <= 0) return ''; var r = Math.min(4, w / 2, h); return 'M' + x + ' ' + yBase + ' V' + (yTop + r) + ' Q' + x + ' ' + yTop + ' ' + (x + r) + ' ' + yTop + ' H' + (x + w - r) + ' Q' + (x + w) + ' ' + yTop + ' ' + (x + w) + ' ' + (yTop + r) + ' V' + yBase + ' Z'; }
+function chartSVG(rows){
+  var W = 340, H = 180, padL = 24, padR = 4, padT = 16, padB = 24, n = rows.length, gw = (W - padL - padR) / n, bw = Math.min(16, gw - 6);
+  var max = Math.max(1, Math.max.apply(null, rows.map(function(r){ return r.leads; }))), step = max <= 5 ? 1 : max <= 10 ? 2 : max <= 20 ? 5 : 10, top = Math.ceil(max / step) * step;
+  var peak = rows.indexOf(rows.slice().sort(function(a, b){ return b.leads - a.leads; })[0]);
+  function y(v){ return padT + (H - padT - padB) * (1 - v / top); }
+  var o = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="New leads and became clients, by month">';
+  for (var g = 0; g <= top; g += step) o += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(g).toFixed(1) + '" y2="' + y(g).toFixed(1) + '"/><text x="' + (padL - 5) + '" y="' + (y(g) + 4).toFixed(1) + '" text-anchor="end">' + g + '</text>';
+  rows.forEach(function(r, i){ var x = padL + i * gw + (gw - bw) / 2, base = H - padB, cx = (x + bw / 2).toFixed(1);
+    o += '<path class="lead" d="' + barPath(x, y(r.leads), bw, base) + '"/>' + (r.clients ? '<path class="cli" d="' + barPath(x, y(r.clients), bw, base) + '"/>' : '');
+    if (r.leads && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(r.leads) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + '</text>';
+    if ((n - 1 - i) % 2 === 0) o += '<text x="' + cx + '" y="' + (base + 15) + '" text-anchor="middle">' + esc(r.label) + '</text>';
+    o += '<rect class="hit" data-m="' + i + '" x="' + (padL + i * gw).toFixed(1) + '" y="' + padT + '" width="' + gw.toFixed(1) + '" height="' + (H - padT - padB) + '" rx="6"><title>' + esc(r.full) + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients</title></rect>'; });
+  return o + '</svg>';
+}
+function openTrends(){
+  if (!DATA) return;
+  var rows = monthStats(), y12 = rows.reduce(function(a, r){ return a + r.leads; }, 0), c12 = rows.reduce(function(a, r){ return a + r.clients; }, 0);
+  var table = '<table class="ttable"><thead><tr><th>Month</th><th class="n">New leads</th><th class="n">Became clients</th><th class="n">Rate</th></tr></thead><tbody>' +
+    rows.slice().reverse().map(function(r){ return '<tr><td>' + esc(r.axis) + '</td><td class="n">' + r.leads + '</td><td class="n">' + r.clients + '</td><td class="n">' + (r.leads ? Math.round(100 * r.clients / r.leads) + '%' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
+  var sh = openSheet('<h3>By month</h3><p class="sub">New leads each month, and how many of them became clients (signed the agreement). Last 12 months: ' + plural(y12, 'lead') + ', ' + c12 + ' became clients.</p>' +
+    '<div class="clegend"><span><i class="lsw lead"></i>New leads</span><span><i class="lsw cli"></i>Became clients</span></div>' +
+    '<div class="chart">' + chartSVG(rows) + '</div><p class="ccap" id="ccap">Tap a month for its numbers.</p>' + table);
+  function show(i){ var r = rows[i]; if (!r) return; $$('.hit', sh.el).forEach(function(h){ h.classList.toggle('on', +h.dataset.m === i); }); $('#ccap', sh.el).textContent = r.full + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' became clients' + (r.leads ? ' (' + Math.round(100 * r.clients / r.leads) + '%)' : ''); }
+  sh.el.addEventListener('click', function(e){ var h = e.target.closest('.hit'); if (h) show(+h.dataset.m); });
+  sh.el.addEventListener('pointerover', function(e){ var h = e.target.closest('.hit'); if (h && e.pointerType === 'mouse') show(+h.dataset.m); });
+  show(rows.length - 1);
+}
 
 /* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */
 var ARCHIVE_REASONS = ['Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];

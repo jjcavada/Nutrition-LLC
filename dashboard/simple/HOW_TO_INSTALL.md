@@ -26,3 +26,4 @@ Link: https://ni-today.netlify.app
 - The code locks the app. Tap "Lock" at the bottom if you hand your phone to someone. Ask Jay to change the code any time.
 - The app refreshes itself every couple of minutes; pull down or tap Refresh for an instant update.
 - Nothing here can delete or change a client. The only thing it writes is the chef you pick.
+- If the icon on your home screen is a plain letter N instead of the green leaf, your phone saved the icon before the logo was ready. Phones never re-download that icon, so remove the app from the home screen and add it again from Safari (step 2). You will enter the code and allow notifications once more.

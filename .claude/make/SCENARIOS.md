@@ -297,6 +297,30 @@ Phase 3 HTTP call → Webhook
 
 ---
 
+### NI Today pushes for the four onboarding moments (2026-10-13, Jay)
+Amber's phone gets a push and a bell entry when an intake comes in, when the agreement is signed, when the consultation invite
+goes out, and when the client books the call. Before this, every notify call sat in an error handler (failures only) and the
+bell's "signed" entry disappeared the moment the card left Agreement Signed / 15 Item Menu.
+
+| Moment | Where it fires | Bell tag |
+|---|---|---|
+| Intake sent | Phase 1 (4082106) module **408**, right after module 4 (card created): `kind: intake`, "<name> sent an intake", `/?open={{3.body.contact.id}}` | New |
+| Agreement signed | Phase 2 (4071952) module **4263**, head of router 423 route 3 (every real signing, card or not): `kind: signed`, "<name> signed the agreement", `/?open={{3.id}}` | Signed |
+| Consultation invite sent | Phase 4 (4212046) module **419**, right after module 4 (the invite email) in router 31 route 3: `kind: invite`, "Consultation invite sent to <name>", `/?open={{7.id}}` | Invite sent |
+| Consultation booked | The app itself: `scanBookings()` in `api.mjs` compares Amber's calendar (yesterday to +120 days, cancelled and deleted excluded) with the known set in blob `ni-cache/bookings`; runs inside every snapshot build, on `POST /api/scan`, and every 5 minutes from `netlify/functions/scan.mjs`. New appointments made in the last 24 h push "<name> booked a consultation" (weekly calendar) or "booked an event planning call" (event calendar) with the slot in Phoenix time. First run only seeds. | Booked |
+
+Rules: each new Make module clones the scenario's own notify module (`handleErrors: false`, error handler = **Ignore**), so a push
+failure can never stop onboarding. `POST /api/notify` stores `kind` intake/signed/invite/booked as bell entries (7 days) and
+`alert` as "Needs attention"; `quiet: true` is honoured only for ZZTEST titles (tests). ZZTEST entries are hidden from the app
+unless `test=1` (localStorage `nitoday:testview` = true for inspector screenshots). The snapshot exposes `lastPush` (when, title,
+sent, dead) and `lastScheduledScan` so delivery and the schedule are observable. The computed backstop for "signed" now keys on
+the "Signed on (NI Today)" field, any stage. Proof 2026-10-13: Phase 4 fixture run -> `invite:` entry 4 s after the hook; ZZTEST
+booking -> scan `sent: 1`, second scan nothing, deleted appointment ignored. Phase 1 and 2 modules are verified statically; the
+first real intake / signing is the live proof (check the Make execution for modules 408 / 4263).
+Contract: `VALIDATION_CONTRACT_ni-today-push-events.md`.
+
+---
+
 ## Complete Phase Flow
 
 ```

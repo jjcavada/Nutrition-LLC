@@ -562,7 +562,7 @@ function sync(){
 }
 function load(fresh){
   if (loading) return; loading = true; lastErr = ''; sync();
-  api('today' + (fresh ? '?fresh=1' : '')).then(function(r){ return r.json(); }).then(function(d){
+  api('today?' + (fresh ? 'fresh=1' : '') + (store.get('testview', false) === true ? '&test=1' : '')).then(function(r){ return r.json(); }).then(function(d){ // testview: inspector only, shows ZZTEST entries
     if (!d || !d.clients) throw new Error(d && d.error ? d.error : 'bad data');
     DATA = d; saveSnap(d); loading = false; renderAll();
   }).catch(function(e){
@@ -1211,7 +1211,8 @@ function renderBell(){
 }
 function notifTag(i, seen){
   if (seen) return '<span class="tag viewed">Viewed</span>';
-  return i.kind === 'alert' ? '<span class="tag warn">Needs attention</span>' : '<span class="tag">' + (i.kind === 'signed' ? 'Signed' : 'New') + '</span>';
+  var w = i.kind === 'alert' ? 'Needs attention' : i.kind === 'signed' ? 'Signed' : i.kind === 'invite' ? 'Invite sent' : i.kind === 'booked' ? 'Booked' : 'New';
+  return '<span class="tag' + (i.kind === 'alert' ? ' warn' : '') + '">' + w + '</span>';
 }
 function notifListHTML(){
   var items = notifItems(), unread = items.filter(function(i){ return readNotif.indexOf(i.id) < 0; }).length;
@@ -1227,7 +1228,7 @@ function openNotify(){
   if (isMobile && !isStandalone) body = '<h3>Get the app</h3><p class="sub">Add Nutrition Intuition to your Home Screen. It opens full screen like any app and can send you notifications.</p>' + installSteps();
   else if (!canPush) body = '<h3>Notifications</h3><p class="sub">This browser can’t show notifications. On iPhone, open Nutrition Intuition from your Home Screen (iOS 16.4 or newer).</p>';
   else body = '<h3>Notifications</h3>' +
-    '<label class="toggle"><span><b>Phone notifications</b><span class="fine">A push when a new intake comes in, a client signs, or something needs attention.</span></span><input type="checkbox" role="switch" id="pushtoggle"' + (granted ? ' checked' : '') + '><span class="sw"></span></label>' +
+    '<label class="toggle"><span><b>Phone notifications</b><span class="fine">A push when an intake comes in, a client signs, the consultation invite goes out, a client books their call, or something needs attention.</span></span><input type="checkbox" role="switch" id="pushtoggle"' + (granted ? ' checked' : '') + '><span class="sw"></span></label>' +
     '<p class="fine" id="pushmsg">' + (granted ? 'On for this phone.' : 'Off. Flip the switch and your phone will ask you to allow them.') + '</p>';
   body += notifListHTML();
   var sh = openSheet(body), b = sh.el.querySelector('#pushtoggle');

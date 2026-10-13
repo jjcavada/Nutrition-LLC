@@ -450,7 +450,7 @@ export default async (req) => {
       if (!/^[A-Za-z0-9]{10,40}$/.test(contactId)) return json({ ok: false, error: 'bad request' }, 400);
       if (!undo && !reason) return json({ ok: false, error: 'reason required' }, 400);
       // the opportunity: the app passes the id it knows (direct GET, strongly consistent); the search endpoint lags by seconds, so it is only a fallback
-      const want = undo ? 'lost' : 'open'; let pick = null;
+      const wantOk = undo ? ['lost'] : ['open', 'won']; let pick = null; // a card Amber marked Won (Rupa Shah) can still pull out
       const givenOpp = /^[A-Za-z0-9]{10,40}$/.test(String(b.oppId || '')) ? String(b.oppId) : '';
       if (givenOpp) { try { const g = await ghl('/opportunities/' + givenOpp); const o = g.opportunity || g; if (o && o.id && (o.contactId === contactId || (o.contact && o.contact.id === contactId))) pick = o; } catch (e) {} }
       if (!pick) {
@@ -458,10 +458,10 @@ export default async (req) => {
         try { const sr = await ghl('/opportunities/search?location_id=' + cfg.ghlLocation + '&contact_id=' + contactId); opps = (sr.opportunities || sr.data || []).filter((o) => !cfg.pipeline || o.pipelineId === cfg.pipeline); }
         catch (e) { return json({ ok: false, error: 'could not read GoHighLevel' }, 502); }
         const byNewest = (x, y) => (y.updatedAt || y.lastStatusChangeAt || '').localeCompare(x.updatedAt || x.lastStatusChangeAt || '');
-        pick = opps.filter((o) => o.status === want).sort(byNewest)[0] || null;
+        pick = opps.filter((o) => wantOk.includes(o.status)).sort(byNewest)[0] || null;
       }
       if (!pick) return json({ ok: false, error: undo ? 'nothing to put back' : 'not in the client journey' }, 404);
-      if (pick.status !== want) return json({ ok: false, error: undo ? 'not archived' : 'not in the client journey' }, 409);
+      if (!wantOk.includes(pick.status)) return json({ ok: false, error: undo ? 'not archived' : 'not in the client journey' }, 409);
       const when = longDate(new Date()); const text = undo ? '' : when + ': ' + reason + (note ? '. ' + note : '');
       try { await ghl('/opportunities/' + pick.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: undo ? 'open' : 'lost' }) }); }
       catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); }

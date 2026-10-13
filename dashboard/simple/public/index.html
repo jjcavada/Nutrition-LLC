@@ -348,6 +348,8 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
 .acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 20px;min-height:46px;font-weight:600;font-size:var(--fs-15);background:var(--btn);color:var(--btn-fg);text-decoration:none;flex:1;min-width:120px;transition:transform var(--dur-fast) var(--ease),filter var(--dur-fast)}
 .btn.ghost-b{background:transparent;color:var(--head);border:1px solid var(--hair)}
+.btn.warn-b{background:transparent;color:var(--warn-fg);border:1px solid var(--warn-bd)}
+.arch-help{font-size:var(--fs-13);color:var(--soft);line-height:1.5;margin:8px 0 0}
 .btn[aria-disabled="true"]{opacity:.5;pointer-events:none}
 .docs{display:grid;gap:8px;margin:14px 0 4px}
 .doc{display:flex;align-items:center;gap:12px;border:1px solid var(--hair);border-radius:var(--r-md);padding:12px 14px;text-decoration:none;color:var(--head);font-weight:600;font-size:15px;background:var(--raise)}
@@ -998,8 +1000,8 @@ function renderMonth(){
 /* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */
 var ARCHIVE_REASONS = ['Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];
 function archiveLinkHTML(c){
-  if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="link arch-link" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div>' : '';
-  return '<div class="acts"><button class="link arch-link" data-archive="' + esc(c.id) + '">Not continuing? Archive this client</button></div>';
+  if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="btn ghost-b" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div><p class="arch-help">Archived: ' + esc(c.archived) + '</p>' : '';
+  return '<div class="acts"><button class="btn warn-b" data-archive="' + esc(c.id) + '">Archive client</button></div><p class="arch-help">If they pull out. Nothing is deleted: they move to past clients and can be put back any time.</p>';
 }
 function sheetApiOf(el){ return sheets.filter(function(s){ return s.el === el; })[0]; }
 function openArchive(id, el){

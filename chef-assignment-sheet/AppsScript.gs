@@ -149,10 +149,17 @@ function onChefAssigned(e) {
     var code = res.getResponseCode();
     var when = Utilities.formatDate(new Date(), 'America/Phoenix', 'MMM d, h:mm a');
 
-    if (code >= 200 && code < 300) {
+    var body = String(res.getContentText() || '').trim().toLowerCase();
+    if (code >= 200 && code < 300 && body.indexOf('sent') === 0) {
       sheet.getRange(row, COL.STATUS)
            .setValue('Sent to ' + chef + ' on ' + when)
            .setFontColor('#2e7d32');
+    } else if (code >= 200 && code < 300) {
+      // Make answers "sent" only when the chef was really emailed. Any other 2xx ("Accepted") means an error handler ran:
+      // the chef was NOT found or nothing went out (inspector finding 2026-10-15: the sheet said Sent when nothing was sent).
+      sheet.getRange(row, COL.STATUS)
+           .setValue('NOT sent: the automation did not confirm (' + (body || 'no reply').slice(0, 40) + '). Check the app for a Needs attention alert, or tell JJ.')
+           .setFontColor('#b00020');
     } else if (code === 409) {
       // Make answered: this client has no 15-item menu yet, so the chef got nothing.
       sheet.getRange(row, COL.STATUS)

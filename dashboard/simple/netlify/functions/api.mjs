@@ -144,7 +144,7 @@ function restrictionsOf(text) {
   return out;
 }
 // Amber's own GHL notes on the contact (anything the automations did not write), newest first, so what she types in GHL shows on the card
-const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION)/i; // automation notes and HTML-pasted emails are not Amber's notes
+const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
 function humanNotes(notes) {
   return (notes || []).filter((n) => n.body && !AUTOMATION_NOTE.test(n.body)).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 5)
     .map((n) => ({ id: n.id, when: n.dateAdded || '', body: String(n.body).trim().slice(0, 1200) }));
@@ -222,7 +222,7 @@ async function buildSnapshot() {
   const [contacts, opps, events, farEvents] = await Promise.all([listContacts(), listOpps(), eventsBetween(new Date(now.getTime() - 6 * 3600000), new Date(now.getTime() + 8 * 86400000)),
     eventsBetween(new Date(now.getTime() + 8 * 86400000), new Date(now.getTime() + 90 * 86400000)).catch(() => [])]); // farEvents: only for each client's next booked call (pipeline screen)
   const byId = {}; contacts.forEach((c) => { byId[c.id] = c; });
-  const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned' && !/^zztest/i.test(o.name || (byId[o.contactId] || {}).contactName || '')); // test fixtures never reach Amber's view
+  const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned'); // ZZTEST fixtures are split off below (testClients) and shown only with test=1
   const chefs = await pool(live, 6, oppChef);
   // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
   const ghlChefs = contacts.filter((c) => (c.tags || []).includes('chef') && !/^zztest/i.test(c.contactName || c.firstName || '')).map((c) => (c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim()).filter(Boolean);
@@ -230,17 +230,20 @@ async function buildSnapshot() {
   const chefNames = []; const seen = new Set();
   cfg.chefs.map((c) => c[0]).concat(ghlChefs.map(titleCase)).forEach((n) => { const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); chefNames.push(n); } });
   chefNames.sort((a, b) => a.localeCompare(b));
-  const clients = live.map((o, i) => {
+  let clients = live.map((o, i) => {
     const c = byId[o.contactId] || o.contact || {}; const f = c.customFields || [];
     let stage = cfg.stages[o.pipelineStageId] || 'waitlist';
     if (o.status === 'won' && stage === 'new') stage = 'waitlist'; // marked Won at New Lead (Rupa Shah): a client without a signing record, waiting for a chef, not an unsigned lead
-    const chef = chefs[i] && chefs[i] !== 'tbd' ? chefs[i] : '';
+    const signed = (c.tags || []).includes('agreement_signed') || !!cf(f, cfg.fields.signedOn); // the signing record, not the card position (inspector B: Jennifer Nieves signed with the card still at New Lead)
+    const cardBehind = stage === 'new' && signed; if (cardBehind) stage = 'signed';
+    const chef = stage === 'new' ? '' : (chefs[i] && chefs[i] !== 'tbd' ? chefs[i] : ''); // a chef on an unsigned lead is a stray write (Fardowsa)
+    const hasChef = !!chef || stage === 'assigned'; // the Chef Assigned stage counts even when the name was never recorded (24 pre-app clients)
     const sum = parseSummary(cf(f, cfg.fields.summary));
-    const name = o.name || c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ');
+    const name = titleCase(o.name || c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '));
     return {
       id: o.contactId, oppId: o.id, stageChangedAt: o.lastStageChangeAt || '', intakeNoteId: cf(c.customFields, cfg.fields.intakeNoteId) || '', name, first: firstName(name), phone: c.phone || '', email: c.email || '',
-      stage, status: o.status, chef, hasChef: !!chef, isNew: stage === 'new',
-      waiting: stage !== 'new' && !chef, waitingDays: daysSince(o.lastStageChangeAt || o.createdAt),
+      stage, status: o.status, chef, hasChef, chefKnown: !!chef, signed, cardBehind, isNew: stage === 'new',
+      waiting: stage !== 'new' && !hasChef, waitingDays: daysSince(o.lastStageChangeAt || o.createdAt),
       since: o.createdAt ? monthDay(new Date(o.createdAt)) + ', ' + new Date(o.createdAt).getFullYear() : '', createdAt: o.createdAt || '',
       area: c.city || (sum && sum.area) || '', household: sum ? sum.household || '' : '', allergies: sum && Array.isArray(sum.allergies) ? sum.allergies : [],
       diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
@@ -273,12 +276,12 @@ async function buildSnapshot() {
     contacts.forEach((c) => {
       if (have.has(c.id)) return;
       const f = c.customFields || []; const name = c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ');
-      if (!name || /^zztest/i.test(name)) return;
+      if (!name) return;
       const hasIntake = cf(f, cfg.fields.intakeNoteId) || cf(f, cfg.fields.intakePdf) || cf(f, cfg.fields.summary) || (c.tags || []).includes('intake_received');
       if (!hasIntake) return;
       const sum = parseSummary(cf(f, cfg.fields.summary));
-      clients.push({ id: c.id, oppId: '', stageChangedAt: '', intakeNoteId: cf(f, cfg.fields.intakeNoteId) || '', name, first: firstName(name), phone: c.phone || '', email: c.email || '',
-        stage: 'past', status: 'past', chef: '', hasChef: false, isNew: false, waiting: false, waitingDays: 0,
+      clients.push({ id: c.id, oppId: '', stageChangedAt: '', intakeNoteId: cf(f, cfg.fields.intakeNoteId) || '', name: titleCase(name), first: firstName(name), phone: c.phone || '', email: c.email || '',
+        stage: 'past', status: 'past', chef: '', hasChef: false, chefKnown: false, signed: (c.tags || []).includes('agreement_signed') || !!cf(f, cfg.fields.signedOn), cardBehind: false, isNew: false, waiting: false, waitingDays: 0,
         since: c.dateAdded ? monthDay(new Date(c.dateAdded)) + ', ' + new Date(c.dateAdded).getFullYear() : '', createdAt: c.dateAdded || '',
         area: c.city || (sum && sum.area) || '', household: sum ? sum.household || '' : '', allergies: sum && Array.isArray(sum.allergies) ? sum.allergies : [],
         diet: sum ? sum.diet || '' : '', wants: sum ? sum.wants || '' : '', line: sum ? sum.line || '' : '', summary: sum ? sum.summary || '' : '',
@@ -287,6 +290,7 @@ async function buildSnapshot() {
         signedDoc: cf(f, cfg.fields.signedDoc), signedAt: cf(f, cfg.fields.signedOn) || '', hasSummary: !!(sum && sum.summary), archived: cf(f, cfg.fields.archived) || '' });
     });
     clients.sort((x, y) => x.name.localeCompare(y.name)); }
+  const testClients = clients.filter((c) => /^zztest/i.test(c.name)); clients = clients.filter((c) => !/^zztest/i.test(c.name)); // fixtures never reach Amber's view; test=1 adds them back
   const weekAgo = Date.now() - 7 * 86400000;
   // bell entries: what Make and the booking scan reported (events), plus computed backstops for anything that happened while a push failed
   const newItems = (await readList('events')).filter((e) => e && e.when && new Date(e.when).getTime() > weekAgo)
@@ -320,6 +324,8 @@ async function buildSnapshot() {
   unknownChefs.forEach((n) => chefList.push({ name: n, clients: clients.filter((c) => c.chef === n).map((c) => c.id) }));
   const alerts = [];
   try { const as = strongStore('ni-cache'); const raw = as ? await as.get('alerts') : null; (raw ? JSON.parse(raw) : []).forEach((a) => { if (Date.now() - new Date(a.when).getTime() < 7 * 86400000) alerts.push(Object.assign({ kind: 'make' }, a)); }); } catch (e) {}
+  clients.forEach((c) => { if (c.cardBehind) alerts.push({ id: 'card-behind:' + c.id, kind: 'check', when: c.stageChangedAt || c.createdAt, title: 'Signed, but the card is still at New Lead: ' + c.name, body: 'The signing is recorded on the contact but the pipeline card never moved. Move it in GoHighLevel (Agreement Signed or further) so the menu and the invite can run.', url: '/?open=' + c.id, contactId: c.id });
+    if (c.stage === 'past' && c.signed && !c.archived) alerts.push({ id: 'no-card:' + c.id, kind: 'check', when: c.createdAt, title: 'Signed client without a pipeline card: ' + c.name, body: 'This client signed but has no card in the Client Onboarding pipeline and was not archived from the app. If they finished, archive them; if not, their card was deleted and needs to be put back.', url: '/?open=' + c.id, contactId: c.id }); });
   clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
     // signed (the card left New) since the Drive automation went live on 2026-10-09, 30+ min ago, and still no signed PDF in Drive: the Phase 2 -> Drive hop failed or never fired.
@@ -328,7 +334,7 @@ async function buildSnapshot() {
     if (!c.isNew && c.stage !== 'past' && !c.contractPdf && c.stageChangedAt && c.stageChangedAt >= DRIVE_LIVE && (c.createdAt >= DRIVE_LIVE || ['signed', 'menu', 'consult'].includes(c.stage)) && Date.now() - new Date(c.stageChangedAt).getTime() > 30 * 60000) alerts.push({ id: 'contract-missing:' + c.id, kind: 'check', when: c.stageChangedAt, title: 'Signed contract not in Drive for ' + c.name, body: 'They signed, but the signed PDF never reached their Google Drive folder. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
   });
   let lastScheduledScan = '', lastPush = null; try { const ls = strongStore('ni-cache'); if (ls) { lastScheduledScan = (await ls.get('lastScan')) || ''; const lp = await ls.get('lastPush'); lastPush = lp ? JSON.parse(lp) : null; } } catch (e) {}
-  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), lastScheduledScan, lastPush, alerts, calls, newItems, clients, chefs: chefList, chefOptions: chefNames, testChef: cfg.testChef || '' /* shown as the last dropdown entry 'Test' while Jay is testing; remove testChef from config.secret.json to hide it */,
+  return { generatedAt: new Date().toISOString(), today, todayLabel: longDate(now), lastScheduledScan, lastPush, alerts, calls, newItems, clients, testClients, chefs: chefList, chefOptions: chefNames, testChef: cfg.testChef || '' /* shown as the last dropdown entry 'Test' while Jay is testing; remove testChef from config.secret.json to hide it */,
     counts: { total: clients.length, past: clients.filter((c) => c.stage === 'past').length, active: clients.filter((c) => c.hasChef).length, waiting: clients.filter((c) => c.waiting).length, calls: calls.filter((c) => c.dayKey >= today).length, newLeads: clients.filter((c) => c.isNew).length }, events: evs };
 }
 async function getSnapshot(fresh) {
@@ -344,6 +350,8 @@ async function getSnapshot(fresh) {
 function stageLabel(c) {
   if (c.isNew) return 'Intake received, agreement not signed yet';
   if (c.chef) return 'With ' + c.chef;
+  if (c.hasChef) return 'With a chef (name not recorded)';
+  if (c.cardBehind) return 'Agreement signed, card still at New Lead';
   return { signed: 'Agreement signed, waiting for a chef', menu: 'Menu built, waiting for a chef', consult: 'Consultation scheduled, waiting for a chef', waitlist: 'Waiting for a chef', assigned: 'Chef assigned' }[c.stage] || 'Waiting for a chef';
 }
 
@@ -382,7 +390,7 @@ export default async (req) => {
       const b = await notifyBody(req);
       if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
       const kind = EVENT_KINDS.includes(b.kind) ? b.kind : (b.kind === 'alert' ? 'alert' : 'other');
-      const quiet = b.quiet === true && /zztest/i.test(String(b.title || '')); // test fixtures can be stored without waking every phone
+      const quiet = /zztest/i.test(String(b.title || '') + ' ' + String(b.body || '')); // test fixtures never wake a phone (Make and the scan do not send quiet)
       const r = quiet ? { sent: 0, dead: 0, quiet: true } : await pushAll(b); if (r.error) return json({ ok: false, error: r.error }, 500);
       const contactId = cleanId(b.contactId);
       const entry = { when: new Date().toISOString(), title: String(b.title || (kind === 'alert' ? 'Needs attention' : 'Nutrition Intuition')).slice(0, 80), body: String(b.body || '').slice(0, 300), url: typeof b.url === 'string' && b.url.startsWith('/') ? b.url : '/', contactId };
@@ -392,9 +400,15 @@ export default async (req) => {
       await dropSnapshot();
       return json({ ok: true, sent: r.sent, dead: r.dead, kind, quiet: !!r.quiet });
     }
-    if (!authed) return json({ ok: false, error: 'locked' }, 401);
+    if (!authed) { // a wrong key is a guess at the passcode: count it like the unlock route does (inspector B: 1e6 keys, no limit)
+      if (key) { const KW = 15 * 60000, now = Date.now(), ip = String(req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'na').split(',')[0].trim();
+        const st = strongStore('ni-cache'); const perIp = await bump(st, 'badkey:' + ip.replace(/[^A-Za-z0-9.:]/g, '_'), now, KW); const all = await bump(st, 'badkey:all', now, KW);
+        if (perIp.n > 20 || all.n > 150) return json({ ok: false, error: 'too many tries' }, 429); }
+      return json({ ok: false, error: 'locked' }, 401); }
 
-    if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1'); return json(url.searchParams.get('test') === '1' ? snap : Object.assign({}, snap, { newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')), alerts: (snap.alerts || []).filter((a) => !/zztest/i.test((a.title || '') + ' ' + (a.body || ''))) })); } // test fixtures never reach Amber's bell or home card
+    if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1');
+      if (url.searchParams.get('test') === '1') return json(Object.assign({}, snap, { clients: (snap.clients || []).concat(snap.testClients || []) }));
+      return json(Object.assign({}, snap, { testClients: undefined, calls: (snap.calls || []).filter((c) => !/^zztest/i.test(c.who || '')), newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')), alerts: (snap.alerts || []).filter((a) => !/zztest/i.test((a.title || '') + ' ' + (a.body || ''))) })); } // test fixtures never reach Amber's view
     if (route === 'scan' && req.method === 'POST') return json(await scanBookings(nameFromGhl));
     if (route === 'alerts/clear' && req.method === 'POST') { // test clean-up: drop stored Make alerts whose title or body contains `match`
       const b = await req.json().catch(() => ({})); const match = String(b.match || '').toLowerCase(); if (match.length < 3) return json({ ok: false, error: 'match too short' }, 400);
@@ -411,7 +425,8 @@ export default async (req) => {
       const c = d.contact || {}; const f = c.customFields || [];
       const n = intakeNote(notes, cf(f, cfg.fields.intakeNoteId));
       // consultation call: the next booked one, else the most recent one held (cancelled / no-show excluded)
-      const evs = (ap.events || []).filter((e) => e.startTime && !/cancel|no.?show|invalid/i.test(e.appointmentStatus || '')).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+      const zoned = (t) => /(Z|[+-]\d\d:?\d\d)$/.test(String(t || '')) ? t : t + '-07:00'; // GHL returns contact appointments without a zone: they are Phoenix wall-clock (inspector B: shown 7 h early)
+      const evs = (ap.events || []).filter((e) => e.startTime && !/cancel|no.?show|invalid/i.test(e.appointmentStatus || '')).map((e) => Object.assign({}, e, { startTime: zoned(e.startTime) })).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
       const nowT = Date.now(); const nextEv = evs.find((e) => new Date(e.startTime).getTime() >= nowT); const lastEv = evs.slice().reverse().find((e) => new Date(e.startTime).getTime() < nowT);
       const ev = nextEv || lastEv; const consult = ev ? { when: ev.startTime, past: !nextEv, status: ev.appointmentStatus || '', title: ev.title || '',
         label: fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(ev.startTime)) + ' at ' + timeOf(new Date(ev.startTime)) } : null;
@@ -424,9 +439,17 @@ export default async (req) => {
       const b = await req.json().catch(() => ({}));
       const chef = String(b.chef || ''); const contactId = String(b.contactId || '');
       if (!/^[A-Za-z0-9]{10,40}$/.test(contactId)) return json({ ok: false, error: 'bad request' }, 400);
-      const snap = await getSnapshot(false); const client = snap.clients.find((c) => c.id === contactId);
+      const snap = await getSnapshot(false); const client = (snap.clients || []).concat(snap.testClients || []).find((c) => c.id === contactId);
       if (!((snap.chefOptions || []).includes(chef) || chef === cfg.testChef)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!client || client.stage === 'past' || client.isNew) return json({ ok: false, reason: 'not-ready', error: 'only signed clients with a live card can be assigned' }, 409);
+      if (client.chef === chef && !b.force) return json({ ok: false, reason: 'already', error: 'already with ' + chef }, 409); // no second email to the chef on a double tap
       const oppId = client ? client.oppId : '';
+      if (b.recordOnly === true) { // the chef already has the menu (assigned before the app, or by hand): write the name, no email
+        if (!oppId) return json({ ok: false, error: 'no card' }, 409);
+        try { await ghl('/opportunities/' + oppId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customFields: [{ id: cfg.chefField, field_value: chef }] }) }); } catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); }
+        try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: cfg.ghlUser, body: 'CHEF RECORDED (NI Today) by Amber on ' + longDate(new Date()) + ': ' + chef + '. No email was sent (the chef already had the menu).' }) }); } catch (e) {}
+        await dropSnapshot(); if (store('ni-cache')) { try { await store('ni-cache').delete('opp:' + oppId); } catch (e) {} }
+        return json({ ok: true, recorded: chef }); }
       // opportunityId is passed explicitly: the Make scenario otherwise takes the contact's FIRST opportunity (listOpportunities limit 1), which can be an old/abandoned one
       const r = await fetch(cfg.assignHook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId, opportunityId: oppId, chefName: chef, clientName: client ? client.name : (b.clientName || ''), source: 'NI Today app' }) });
       const t = (await r.text()).trim();
@@ -460,20 +483,21 @@ export default async (req) => {
         const byNewest = (x, y) => (y.updatedAt || y.lastStatusChangeAt || '').localeCompare(x.updatedAt || x.lastStatusChangeAt || '');
         pick = opps.filter((o) => wantOk.includes(o.status)).sort(byNewest)[0] || null;
       }
-      if (!pick) return json({ ok: false, error: undo ? 'nothing to put back' : 'not in the client journey' }, 404);
-      if (!wantOk.includes(pick.status)) return json({ ok: false, error: undo ? 'not archived' : 'not in the client journey' }, 409);
-      const when = longDate(new Date()); const text = undo ? '' : when + ': ' + reason + (note ? '. ' + note : '');
-      try { await ghl('/opportunities/' + pick.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: undo ? 'open' : 'lost' }) }); }
-      catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); }
+      // no card at all (a finished client whose card is gone, or an archive being undone after the card was deleted): record the archive on the contact only
+      if (pick && !wantOk.includes(pick.status)) return json({ ok: false, error: undo ? 'not archived' : 'not in the client journey' }, 409);
+      const when = longDate(new Date()); const text = undo ? '' : when + ': ' + reason + (note ? '. ' + note : '') + (pick && pick.status === 'won' ? ' [was Won]' : '');
+      let backTo = 'open'; if (undo) { try { const cc = (await ghl('/contacts/' + contactId)).contact || {}; if (/\[was Won\]/.test(cf(cc.customFields, cfg.fields.archived) || '')) backTo = 'won'; } catch (e) {} }
+      if (pick) { try { await ghl('/opportunities/' + pick.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: undo ? backTo : 'lost' }) }); }
+      catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); } }
       // one write at a time: GoHighLevel rejects concurrent updates to the same contact
       const side = {}, JH = { 'Content-Type': 'application/json' };
       if (cfg.fields.archived) { try { await ghl('/contacts/' + contactId, { method: 'PUT', headers: JH, body: JSON.stringify({ customFields: [{ id: cfg.fields.archived, field_value: text }] }) }); side.field = 'ok'; } catch (e) { side.field = String(e.message).slice(0, 140); } } else side.field = 'no field id';
       try { await ghl('/contacts/' + contactId + '/tags', { method: undo ? 'DELETE' : 'POST', headers: JH, body: JSON.stringify({ tags: ['archived'] }) }); side.tag = 'ok'; } catch (e) { side.tag = String(e.message).slice(0, 140); }
       try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: JH, body: JSON.stringify({ userId: cfg.ghlUser, body: undo
         ? 'ARCHIVE UNDONE (NI Today): back in the client journey. By Amber on ' + when + '.'
-        : 'ARCHIVED (NI Today) by Amber on ' + when + ': ' + reason + (note ? '\n' + note : '') + '\nThe client left the journey (opportunity set to Lost, stage unchanged). Undo from the app, or set the opportunity back to Open in GoHighLevel.' }) }); side.note = 'ok'; } catch (e) { side.note = String(e.message).slice(0, 140); }
-      mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); await store('ni-cache').delete('opp:' + pick.id); } catch (e) {} }
-      return json({ ok: true, oppId: pick.id, status: undo ? 'open' : 'lost', archived: text, side });
+        : 'ARCHIVED (NI Today) by Amber on ' + when + ': ' + reason + (note ? '\n' + note : '') + (pick ? '\nThe client left the journey (opportunity set to Lost, stage unchanged). Undo from the app, or set the opportunity back to Open in GoHighLevel.' : '\nThere was no pipeline card for this client, so only the contact is marked archived.') }) }); side.note = 'ok'; } catch (e) { side.note = String(e.message).slice(0, 140); }
+      mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); if (pick) await store('ni-cache').delete('opp:' + pick.id); } catch (e) {} }
+      return json({ ok: true, oppId: pick ? pick.id : '', status: pick ? (undo ? backTo : 'lost') : 'none', archived: text, side });
     }
     if (route === 'summary' && req.method === 'POST') {
       const b = await req.json().catch(() => ({})); const contactId = String(b.contactId || '');

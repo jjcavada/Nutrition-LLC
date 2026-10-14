@@ -348,6 +348,7 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
 .acts{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:12px 20px;min-height:46px;font-weight:600;font-size:var(--fs-15);background:var(--btn);color:var(--btn-fg);text-decoration:none;flex:1;min-width:120px;transition:transform var(--dur-fast) var(--ease),filter var(--dur-fast)}
 .btn.ghost-b{background:transparent;color:var(--head);border:1px solid var(--hair)}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.45;cursor:default;pointer-events:none}
 .btn.warn-b{background:transparent;color:var(--warn-fg);border:1px solid var(--warn-bd)}
 .arch-help{font-size:var(--fs-13);color:var(--soft);line-height:1.5;margin:8px 0 0}
 .btn[aria-disabled="true"]{opacity:.5;pointer-events:none}
@@ -606,8 +607,8 @@ function renderPipeline(){
   var box = $('#pipeline'); if (!box) return;
   if (!DATA) { box.innerHTML = lastErr ? '<div class="journey"><div class="jhead"><h2 id="h-pipe" class="ct">Client journey</h2><span class="hint">Tap a step</span></div><p class="none">Could not load the client journey. Check the connection, then tap Retry above.</p></div>' : '<div class="journey"><div class="jhead"><h2 id="h-pipe" class="ct">Client journey</h2><span class="hint">Tap a step</span></div><div class="skrow"></div><div class="skrow short"></div><div class="skrow"></div><div class="skrow short"></div></div>'; return; }
   var rows = PHASES.map(function(p){ return {p: p, list: phaseClients(p.key)}; }), max = Math.max(1, Math.max.apply(null, rows.map(function(r){ return r.list.length; })));
-  var monthStart = DATA.today.slice(0, 7), monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(monthStart.slice(5, 7), 10) - 1];
-  var leads = clients().filter(function(c){ return c.stage !== 'past' && (c.createdAt || '').slice(0, 7) === monthStart; }), became = leads.filter(function(c){ return !c.isNew; }), booked = clients().filter(function(c){ return c.nextCall; });
+  var monthStart = DATA.today.slice(0, 7), pxm = function(iso){ return iso ? new Date(new Date(iso).getTime() - 7 * 3600000).toISOString().slice(0, 7) : ''; }, monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(monthStart.slice(5, 7), 10) - 1];
+  var leads = clients().filter(function(c){ return c.stage !== 'past' && pxm(c.createdAt) === monthStart; }), became = leads.filter(function(c){ return !c.isNew; }), booked = clients().filter(function(c){ return c.nextCall; });
   box.innerHTML = '<div class="journey"><div class="jhead"><h2 id="h-pipe" class="ct">Client journey</h2><span class="hint">Tap a step</span></div><ul class="pipe">' + rows.map(function(r){
     var p = r.p, list = r.list, stuck = p.stuck ? list.filter(function(c){ return (c.waitingDays || 0) > p.stuck; }).length : 0, sub = '';
     if (p.key === 'consult' && list.length) { sub = (list.length === 1 ? '1 has' : list.length + ' have') + ' not booked a call yet' + (stuck ? ' · ' + stuckText(p, stuck) : ''); }
@@ -644,6 +645,8 @@ function stageLabel(c){
   if (c.isNew) return 'Intake received, agreement not signed yet';
   if (c.stage === 'past') return c.archived ? 'Archived: ' + c.archived : 'Past client or lead, not in the pipeline';
   if (c.chef) return 'With ' + c.chef;
+  if (c.hasChef) return 'With a chef (name not recorded)';
+  if (c.cardBehind) return 'Agreement signed, card still at New Lead';
   return {signed:'Agreement signed, waiting for a chef', menu:'Menu built, waiting for a chef', consult:'Consultation scheduled, waiting for a chef', waitlist:'Waiting for a chef', assigned:'Chef assigned'}[c.stage] || 'Waiting for a chef';
 }
 function docsHTML(c){
@@ -863,7 +866,8 @@ function personSheet(c, extra){
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
     factsHTML(facts) + restrictionsHTML(c) + notesHTML(c) + docsHTML(c) +
     ((c.phone || c.email) ? '<div class="acts">' + (c.phone ? '<a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a>' : '') + (c.email ? '<a class="btn ghost-b" href="mailto:' + esc(c.email) + '">Email</a>' : '') + '</div>' : '') +
-    '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>' + archiveLinkHTML(c);
+    '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>' +
+    (c.hasChef && !c.chef && c.stage !== 'past' ? '<div class="acts"><select aria-label="Record the chef for ' + esc(c.name) + '" data-record="' + esc(c.id) + '">' + chefOptions() + '</select></div><p class="arch-help">This client is at Chef Assigned but the chef was never recorded. Pick the chef here to record it. No email is sent.</p>' : '') + archiveLinkHTML(c);
 }
 function withDetails(c, cb){
   c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
@@ -917,29 +921,35 @@ document.addEventListener('click', function(e){
 });
 
 /* ---------------- assign a chef (her call) ---------------- */
-function confirmAssign(cid, chef, sel){
+function confirmAssign(cid, chef, sel, recordOnly){
   var w = findClient(cid); if (!w) return;
   var sent = false, first = chef.split(' ')[0];
-  var sh = openSheet('<h3>Send to ' + esc(first) + '?</h3><p class="sub">' + esc(w.name) + '’s intake and 15-item menu go to ' + esc(chef) + ' by email, and ' + esc(first) + ' becomes their chef in GoHighLevel.</p>' +
+  var sh = openSheet((recordOnly ? '<h3>Record ' + esc(first) + ' as the chef?</h3><p class="sub">' + esc(chef) + ' becomes ' + esc(w.name) + '’s chef in GoHighLevel. No email is sent.</p>' : '<h3>Send to ' + esc(first) + '?</h3><p class="sub">' + esc(w.name) + '’s intake and 15-item menu go to ' + esc(chef) + ' by email, and ' + esc(first) + ' becomes their chef in GoHighLevel.</p>') +
     factsHTML([['Household', esc(w.household)], ['Allergies', w.allergies.length ? algs(w.allergies) : (w.hasSummary ? 'None listed' : '')], ['Diet', esc(w.diet)], ['Wants', esc(w.wants)], ['Area', esc(w.area)]]) +
-    '<div class="acts"><button class="btn" data-send>Send intake and menu</button><button class="btn ghost-b" data-close>Cancel</button></div><p class="fine">Same as picking a chef in the Google Sheet. If the menu has not been built yet, nothing is sent and you will see a message.</p>',
+    (recordOnly ? '' : '<label class="toggle"><span><b>Just record the chef</b><span class="fine">No email. Use this when the chef already has the menu.</span></span><input type="checkbox" role="switch" id="recordonly"><span class="sw"></span></label>') +
+    '<div class="acts"><button class="btn" data-send>' + (recordOnly ? 'Record' : 'Send intake and menu') + '</button><button class="btn ghost-b" data-close>Cancel</button></div>' + (recordOnly ? '' : '<p class="fine">Same as picking a chef in the Google Sheet. If the menu has not been built yet, nothing is sent and you will see a message.</p>'),
     function(){ if (!sent && sel) sel.value = ''; });
   sh.el.querySelector('[data-send]').addEventListener('click', function(){
+    var ro = !!recordOnly || !!(sh.el.querySelector('#recordonly') && sh.el.querySelector('#recordonly').checked);
     sent = true; sh.close();
     pending[cid] = {chef:chef}; renderWaiting();
-    api('assign', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:cid, chef:chef, clientName:w.name})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
+    api('assign', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:cid, chef:chef, clientName:w.name, recordOnly:ro})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
       delete pending[cid];
       if (x.d && x.d.ok) {
-        w.chef = chef; w.hasChef = true; w.waiting = false;
+        w.chef = chef; w.hasChef = true; w.chefKnown = true; w.waiting = false;
         var ch = DATA.chefs.filter(function(c){ return c.name === chef; })[0]; if (ch) { if (ch.clients.indexOf(cid) < 0) ch.clients.push(cid); } else DATA.chefs.push({name:chef, clients:[cid]});
-        saveSnap(DATA); renderAll(); toast('Sent. ' + first + ' has ' + w.name + '’s intake and menu.');
+        saveSnap(DATA); renderAll(); sheets.slice().forEach(function(o){ if (o.refill) o.refill(); });
+        toast(ro ? 'Recorded. ' + chef + ' is ' + w.name + '’s chef.' : 'Sent. ' + first + ' has ' + w.name + '’s intake and menu.');
       } else if (x.d && x.d.reason === 'no-menu') { renderWaiting(); toast('No menu built yet for ' + w.name + '. Nothing was sent.', null, 6000); }
       else if (x.d && x.d.reason === 'not-sent') { renderWaiting(); toast('Nothing was sent to ' + first + '. See Needs attention on the home screen.', null, 7000); }
+      else if (x.d && x.d.reason === 'already') { renderWaiting(); toast(w.name + ' is already with ' + chef + '. Nothing was sent again.', null, 6000); }
+      else if (x.d && x.d.reason === 'not-ready') { renderWaiting(); toast('Only signed clients with a live card can be assigned.', null, 6000); }
       else { renderWaiting(); toast('Could not send. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); }
     }).catch(function(e){ delete pending[cid]; renderWaiting(); if (e.message !== 'locked') toast('Could not send. Check your connection.'); });
   });
 }
 document.addEventListener('change', function(e){
+  var rsel = e.target.closest('select[data-record]'); if (rsel && rsel.value) { confirmAssign(rsel.dataset.record, rsel.value, rsel, true); return; }
   var sel = e.target.closest('select[data-assign]'); if (!sel || !sel.value) return;
   confirmAssign(sel.dataset.assign, sel.value, sel);
 });
@@ -950,7 +960,8 @@ function monthStats(){
   var now = new Date(), out = [], map = {};
   for (var i = 11; i >= 0; i--) { var d = new Date(now.getFullYear(), now.getMonth() - i, 1); var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     var o = {key:k, label: d.toLocaleString('en-US', {month:'short'}), axis: d.toLocaleString('en-US', {month:'short'}) + (d.getMonth() === 0 || i === 11 ? ' ' + String(d.getFullYear()).slice(2) : ''), full: d.toLocaleString('en-US', {month:'long', year:'numeric'}), leads:0, clients:0}; map[k] = o; out.push(o); }
-  clients().forEach(function(c){ var o = map[(c.createdAt || '').slice(0, 7)]; if (o) o.leads++;
+  var pxm = function(iso){ return iso ? new Date(new Date(iso).getTime() - 7 * 3600000).toISOString().slice(0, 7) : ''; }; // Phoenix month, not UTC (inspector B: 2 leads landed in the wrong month)
+  clients().forEach(function(c){ var o = map[pxm(c.createdAt)]; if (o) o.leads++;
     var sm = (c.signedAt || '').slice(0, 7); if (sm) { if (map[sm]) map[sm].clients++; } else if (o && becameClient(c)) o.clients++; });
   return out;
 }
@@ -964,7 +975,7 @@ function chartSVG(rows){
   for (var g = 0; g <= top; g += step) o += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(g).toFixed(1) + '" y2="' + y(g).toFixed(1) + '"/><text x="' + (padL - 5) + '" y="' + (y(g) + 4).toFixed(1) + '" text-anchor="end">' + g + '</text>';
   rows.forEach(function(r, i){ var x = padL + i * gw + (gw - 2 * bw - gap) / 2, x2 = x + bw + gap, base = H - padB, cx = (x + bw + gap / 2).toFixed(1);
     o += (r.leads ? '<path class="lead" d="' + barPath(x, y(r.leads), bw, base) + '"/>' : '') + (r.clients ? '<path class="cli" d="' + barPath(x2, y(r.clients), bw, base) + '"/>' : '');
-    if ((r.leads || r.clients) && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(Math.max(r.leads, r.clients)) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + '/' + r.clients + '</text>';
+    if ((r.leads || r.clients) && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(Math.max(r.leads, r.clients)) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + ' new, ' + r.clients + ' signed</text>';
     if ((n - 1 - i) % 2 === 0) o += '<text x="' + cx + '" y="' + (base + 15) + '" text-anchor="middle">' + esc(r.label) + '</text>';
     o += '<rect class="chit" data-m="' + i + '" x="' + (padL + i * gw).toFixed(1) + '" y="' + padT + '" width="' + gw.toFixed(1) + '" height="' + (H - padT - padB) + '" rx="6"><title>' + esc(r.full) + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' signed</title></rect>'; });
   return o + '</svg>';
@@ -1000,7 +1011,7 @@ function renderMonth(){
 /* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */
 var ARCHIVE_REASONS = ['Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];
 function archiveLinkHTML(c){
-  if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="btn ghost-b" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div><p class="arch-help">Archived: ' + esc(c.archived) + '</p>' : '';
+  if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="btn ghost-b" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div><p class="arch-help">Archived: ' + esc(c.archived) + '</p>' : '<div class="acts"><button class="btn warn-b" data-archive="' + esc(c.id) + '">Archive client</button></div><p class="arch-help">Finished, or not continuing? Archive them so they stop showing as needing attention. Nothing is deleted.</p>';
   return '<div class="acts"><button class="btn warn-b" data-archive="' + esc(c.id) + '">Archive client</button></div><p class="arch-help">If they pull out. Nothing is deleted: they move to past clients and can be put back any time.</p>';
 }
 function sheetApiOf(el){ return sheets.filter(function(s){ return s.el === el; })[0]; }
@@ -1059,7 +1070,7 @@ function cgroup(title, arr, empty){
 }
 function clientRow(c){
   var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
-  return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef.split(' ')[0] : (c.waiting ? 'needs a chef' : '')) + ICON.chev + '</span><span class="what">' + esc(c.archived ? 'Archived: ' + c.archived : ([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c))) + ' ' + algs(c.allergies) + '</span></button></li>';
+  return '<li class="crow" data-hay="' + esc(hay) + '"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + (c.isNew ? ' <span class="status dim">Not signed</span>' : '') + '</span><span class="right">' + esc(c.chef ? c.chef : (c.hasChef ? 'chef not recorded' : (c.waiting ? 'needs a chef' : ''))) + ICON.chev + '</span><span class="what">' + esc(c.archived ? 'Archived: ' + c.archived : ([c.household, c.wants || c.area].filter(Boolean).join(' · ') || stageLabel(c))) + ' ' + algs(c.allergies) + '</span></button></li>';
 }
 function fullHTML(kind, arg){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
@@ -1107,6 +1118,7 @@ function openFull(kind, tile, tab, arg){
   }
   var s = $('#csearch', ov);
   if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); $$('.chef', ov).forEach(function(li){ var hit = !q || li.textContent.toLowerCase().indexOf(q) >= 0; li.hidden = !hit; if (q && hit && !li.classList.contains('empty')) li.classList.add('open'); }); });
+  if (s) s.addEventListener('input', function(){ var q = s.value.trim(); var any = $$('.crow', ov).some(function(li){ return !li.hidden; }); var nm = $('#nomatch', ov); if (!nm) { nm = document.createElement('p'); nm.className = 'none'; nm.id = 'nomatch'; s.parentNode.appendChild(nm); } nm.hidden = !q || any; nm.textContent = 'No one matches “' + q + '”.'; });
   setTimeout(function(){ var b = ov.querySelector('[data-closefull]'); if (b) try { b.focus({preventScroll:true}); } catch(e) {} }, 60);
 }
 function closeFull(fromPop){

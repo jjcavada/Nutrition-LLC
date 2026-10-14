@@ -318,6 +318,17 @@ the "Signed on (NI Today)" field, any stage. Proof 2026-10-13: Phase 4 fixture r
 booking -> scan `sent: 1`, second scan nothing, deleted appointment ignored. Phase 1 and 2 modules are verified statically; the
 first real intake / signing is the live proof (check the Make execution for modules 408 / 4263).
 Contract: `VALIDATION_CONTRACT_ni-today-push-events.md`.
+**2026-10-15 A-to-Z readiness fixes (inspector round, contract `VALIDATION_CONTRACT_a-to-z-readiness-2026-10-15.md`):** Phase 2: Signed on
+formula quoting fixed (bare quotes inside {{ }}), 0-result contact lookup guarded (4265 GET + router 4266 -> email + alert "Signing
+not credited"), QuickBooks real errors Resume instead of Ignore, card search limited to the client pipeline. Phase 4: email dash
+removed, first-name greeting, Outlook-safe button, same lookup guard (421/422), pipeline filter. Phase 3: no fallback to a non-intake
+note, router 436 alerts "Menu not built" when no intake is on file, pipeline filter. Chef Assigned: Won-card fallback in 520,
+pipeline filter. Phase 1: router 410 alerts "Returning client" when the upsert matched an existing contact (tags m6 still replace,
+deferred). Phase 9: m11 is an HTTP lookup with a handler; the created contact id wins. Rule learned: a Make search module with 0
+results emits no bundle and the run ends silently; put an HTTP GET + router in front when the no-result case matters.
+**2026-10-15:** Client Records to Drive (6561132) had its own older pushes (module 29 "New intake: <name>" after the Drive records,
+47 and 57 "<name> signed their agreement" after the signed PDF), so from Oct 13 every intake pushed twice (aaron rosenson, 17:13Z and
+17:19Z). Removed with their handlers (125 -> 116 modules); Phase 1 (408) and Phase 2 (4263) are the only intake/signing pushes now.
 
 ---
 

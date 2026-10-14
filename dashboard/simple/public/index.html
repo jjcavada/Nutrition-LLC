@@ -621,7 +621,7 @@ function renderPipeline(){
 }
 function stageRow(c, p){
   var d = c.waitingDays || 0, here = d === 0 ? 'since today' : d === 1 ? '1 day here' : d + ' days here', stuck = p.stuck && d > p.stuck;
-  var info = c.nextCall ? 'Call ' + c.nextCall.label : (p.key === 'consult' ? 'No call booked yet' : p.key === 'chef' ? 'With ' + c.chef : (c.wants ? 'wants ' + c.wants : ''));
+  var info = c.nextCall ? 'Call ' + c.nextCall.label : (p.key === 'consult' ? 'No call booked yet' : p.key === 'chef' ? (c.chef ? 'With ' + c.chef : 'Chef not recorded') : (c.wants ? 'wants ' + c.wants : ''));
   return '<li class="crow"><button class="row" data-client="' + esc(c.id) + '"><span class="who">' + esc(c.name) + '</span><span class="right">' + (stuck ? '<span class="status warn">' + esc(here) + '</span>' : esc(here)) + ICON.chev + '</span>' +
     '<span class="what">' + esc([info, c.household, c.area].filter(Boolean).join(' · ')) + (c.allergies && c.allergies.length ? '<span class="wtags">' + algs(c.allergies) + '</span>' : '') + '</span></button></li>';
 }
@@ -631,7 +631,7 @@ function stageHTML(key, x){
   function ul(arr, empty){ return '<ul class="full-list">' + (arr.length ? arr.map(function(c){ return stageRow(c, p); }).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul>'; }
   if (!list.length) return head + '<p class="none">Nobody here right now.</p>';
   if (p.key === 'chef') {
-    var by = {}; list.forEach(function(c){ (by[c.chef] = by[c.chef] || []).push(c); });
+    var by = {}; list.forEach(function(c){ var k = c.chef || 'Chef not recorded'; (by[k] = by[k] || []).push(c); });
     return head + Object.keys(by).sort().map(function(n){ return '<div class="day-h">' + esc(n) + ' · ' + by[n].length + '</div>' + ul(by[n], ''); }).join('');
   }
   return head + ul(list, '');
@@ -747,7 +747,7 @@ function renderChefList(box, showAll){
       }).join('') + '</div></li>';
   }).join('');
   var more = $('.full #morechefs');
-  var sum = $('.full #chefsum'); if (sum) sum.textContent = names.length + ' chefs · ' + active().length + ' clients with a chef · ' + names.filter(function(n){ return !by[n].length; }).length + ' with no clients yet';
+  var sum = $('.full #chefsum'); if (sum) { var rec = active().filter(function(c){ return c.chef; }).length, unrec = active().length - rec; sum.textContent = names.length + ' chefs · ' + rec + ' clients with a recorded chef' + (unrec ? ' · ' + unrec + ' with a chef not recorded' : '') + ' · ' + names.filter(function(n){ return !by[n].length; }).length + ' with no clients yet'; }
   if (more) { more.hidden = names.length <= 10; more.textContent = chefsAll ? 'Show fewer chefs' : 'Show all ' + names.length + ' chefs'; }
 }
 function waitRow(w){
@@ -860,7 +860,7 @@ function restrictionsHTML(c){
 }
 function personSheet(c, extra){
   var sum = c.summaryObj || null;
-  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Consultation', consultText(c)], ['Archived', esc(c.archived)], ['Chef', esc(c.chef || 'Not picked yet')], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
+  var facts = [['Household', esc(c.household)], ['Allergies', c.allergies && c.allergies.length ? algs(c.allergies) : (c.hasSummary ? 'None listed' : '')], ['Diet', esc(c.diet)], ['Wants', esc(c.wants)], ['Area', esc(c.area)], ['Status', esc(stageLabel(c))], ['Consultation', consultText(c)], ['Archived', esc(c.archived)], ['Chef', esc(c.chef || (c.hasChef ? 'Not recorded (pick below)' : 'Not picked yet'))], ['Phone', esc(nicePhone(c.phone))], ['Email', esc(c.email)], ['Came from', esc(c.from)], ['Client since', esc(c.since)]];
   return '<h3>' + esc(c.name) + '</h3><p class="sub">' + (extra && extra.sub ? extra.sub : esc(stageLabel(c))) + '</p>' +
     expectHTML(sum, c) +
     (sum && sum.said ? '<p class="quote" style="margin:0 0 14px">“' + esc(sum.said) + '”</p>' : '') +
@@ -929,6 +929,7 @@ function confirmAssign(cid, chef, sel, recordOnly){
     (recordOnly ? '' : '<label class="toggle"><span><b>Just record the chef</b><span class="fine">No email. Use this when the chef already has the menu.</span></span><input type="checkbox" role="switch" id="recordonly"><span class="sw"></span></label>') +
     '<div class="acts"><button class="btn" data-send>' + (recordOnly ? 'Record' : 'Send intake and menu') + '</button><button class="btn ghost-b" data-close>Cancel</button></div>' + (recordOnly ? '' : '<p class="fine">Same as picking a chef in the Google Sheet. If the menu has not been built yet, nothing is sent and you will see a message.</p>'),
     function(){ if (!sent && sel) sel.value = ''; });
+  var rsw = sh.el.querySelector('#recordonly'); if (rsw) rsw.addEventListener('change', function(){ var h = sh.el.querySelector('h3'), sub = sh.el.querySelector('p.sub'), btn = sh.el.querySelector('[data-send]'); if (rsw.checked) { h.textContent = 'Record ' + first + ' as the chef?'; sub.textContent = chef + ' becomes ' + w.name + '’s chef in GoHighLevel. No email is sent.'; btn.textContent = 'Record'; } else { h.textContent = 'Send to ' + first + '?'; sub.textContent = w.name + '’s intake and 15-item menu go to ' + chef + ' by email, and ' + first + ' becomes their chef in GoHighLevel.'; btn.textContent = 'Send intake and menu'; } });
   sh.el.querySelector('[data-send]').addEventListener('click', function(){
     var ro = !!recordOnly || !!(sh.el.querySelector('#recordonly') && sh.el.querySelector('#recordonly').checked);
     sent = true; sh.close();
@@ -975,7 +976,7 @@ function chartSVG(rows){
   for (var g = 0; g <= top; g += step) o += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(g).toFixed(1) + '" y2="' + y(g).toFixed(1) + '"/><text x="' + (padL - 5) + '" y="' + (y(g) + 4).toFixed(1) + '" text-anchor="end">' + g + '</text>';
   rows.forEach(function(r, i){ var x = padL + i * gw + (gw - 2 * bw - gap) / 2, x2 = x + bw + gap, base = H - padB, cx = (x + bw + gap / 2).toFixed(1);
     o += (r.leads ? '<path class="lead" d="' + barPath(x, y(r.leads), bw, base) + '"/>' : '') + (r.clients ? '<path class="cli" d="' + barPath(x2, y(r.clients), bw, base) + '"/>' : '');
-    if ((r.leads || r.clients) && (i === n - 1 || i === peak)) o += '<text class="v" x="' + cx + '" y="' + (y(Math.max(r.leads, r.clients)) - 5).toFixed(1) + '" text-anchor="middle">' + r.leads + ' new, ' + r.clients + ' signed</text>';
+    if ((r.leads || r.clients) && i === n - 1) o += '<text class="v" x="' + (W - padR).toFixed(1) + '" y="' + (y(Math.max(r.leads, r.clients)) - 5).toFixed(1) + '" text-anchor="end">' + r.leads + ' new, ' + r.clients + ' signed</text>';
     if ((n - 1 - i) % 2 === 0) o += '<text x="' + cx + '" y="' + (base + 15) + '" text-anchor="middle">' + esc(r.label) + '</text>';
     o += '<rect class="chit" data-m="' + i + '" x="' + (padL + i * gw).toFixed(1) + '" y="' + padT + '" width="' + gw.toFixed(1) + '" height="' + (H - padT - padB) + '" rx="6"><title>' + esc(r.full) + ': ' + plural(r.leads, 'new lead') + ', ' + r.clients + ' signed</title></rect>'; });
   return o + '</svg>';
@@ -1009,7 +1010,7 @@ function renderMonth(){
 }
 
 /* ---------------- archive: not continuing (Amber's call, undoable) ---------------- */
-var ARCHIVE_REASONS = ['Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];
+var ARCHIVE_REASONS = ['Finished', 'Did not want the agreement', 'Price', 'Went quiet', 'Timing', 'Other'];
 function archiveLinkHTML(c){
   if (c.stage === 'past') return c.archived ? '<div class="acts"><button class="btn ghost-b" data-unarchive="' + esc(c.id) + '">Put back in the client journey</button></div><p class="arch-help">Archived: ' + esc(c.archived) + '</p>' : '<div class="acts"><button class="btn warn-b" data-archive="' + esc(c.id) + '">Archive client</button></div><p class="arch-help">Finished, or not continuing? Archive them so they stop showing as needing attention. Nothing is deleted.</p>';
   return '<div class="acts"><button class="btn warn-b" data-archive="' + esc(c.id) + '">Archive client</button></div><p class="arch-help">If they pull out. Nothing is deleted: they move to past clients and can be put back any time.</p>';
@@ -1118,7 +1119,7 @@ function openFull(kind, tile, tab, arg){
   }
   var s = $('#csearch', ov);
   if (s) s.addEventListener('input', function(){ var q = s.value.trim().toLowerCase(); $$('.crow', ov).forEach(function(li){ li.hidden = !!q && li.dataset.hay.indexOf(q) < 0; }); $$('.chef', ov).forEach(function(li){ var hit = !q || li.textContent.toLowerCase().indexOf(q) >= 0; li.hidden = !hit; if (q && hit && !li.classList.contains('empty')) li.classList.add('open'); }); });
-  if (s) s.addEventListener('input', function(){ var q = s.value.trim(); var any = $$('.crow', ov).some(function(li){ return !li.hidden; }); var nm = $('#nomatch', ov); if (!nm) { nm = document.createElement('p'); nm.className = 'none'; nm.id = 'nomatch'; s.parentNode.appendChild(nm); } nm.hidden = !q || any; nm.textContent = 'No one matches “' + q + '”.'; });
+  if (s) s.addEventListener('input', function(){ var q = s.value.trim(); var any = $$('.crow', ov).some(function(li){ return !li.hidden; }); $$('.cgroup', ov).forEach(function(g){ g.hidden = !!q && !g.querySelector('.crow:not([hidden])'); }); var nm = $('#nomatch', ov); if (!nm) { nm = document.createElement('p'); nm.className = 'none'; nm.id = 'nomatch'; s.parentNode.appendChild(nm); } nm.hidden = !q || any; nm.textContent = 'No one matches “' + q + '”.'; });
   setTimeout(function(){ var b = ov.querySelector('[data-closefull]'); if (b) try { b.focus({preventScroll:true}); } catch(e) {} }, 60);
 }
 function closeFull(fromPop){

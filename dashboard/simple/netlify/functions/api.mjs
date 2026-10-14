@@ -226,7 +226,7 @@ async function buildSnapshot() {
   const chefs = await pool(live, 6, oppChef);
   // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
   const ghlChefs = contacts.filter((c) => (c.tags || []).includes('chef') && !/^zztest/i.test(c.contactName || c.firstName || '')).map((c) => (c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim()).filter(Boolean);
-  const titleCase = (n) => /[A-Z]/.test(n) ? n : n.replace(/\w/g, (ch) => ch.toUpperCase()); // "angelica ortiz" typed in lowercase on the packet form
+  const titleCase = (n) => /[A-Z]/.test(n) ? n : n.replace(/\b\w/g, (ch) => ch.toUpperCase()); // "angelica ortiz" typed in lowercase on the packet form
   const chefNames = []; const seen = new Set();
   cfg.chefs.map((c) => c[0]).concat(ghlChefs.map(titleCase)).forEach((n) => { const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); chefNames.push(n); } });
   chefNames.sort((a, b) => a.localeCompare(b));
@@ -325,7 +325,7 @@ async function buildSnapshot() {
   const alerts = [];
   try { const as = strongStore('ni-cache'); const raw = as ? await as.get('alerts') : null; (raw ? JSON.parse(raw) : []).forEach((a) => { if (Date.now() - new Date(a.when).getTime() < 7 * 86400000) alerts.push(Object.assign({ kind: 'make' }, a)); }); } catch (e) {}
   clients.forEach((c) => { if (c.cardBehind) alerts.push({ id: 'card-behind:' + c.id, kind: 'check', when: c.stageChangedAt || c.createdAt, title: 'Signed, but the card is still at New Lead: ' + c.name, body: 'The signing is recorded on the contact but the pipeline card never moved. Move it in GoHighLevel (Agreement Signed or further) so the menu and the invite can run.', url: '/?open=' + c.id, contactId: c.id });
-    if (c.stage === 'past' && c.signed && !c.archived) alerts.push({ id: 'no-card:' + c.id, kind: 'check', when: c.createdAt, title: 'Signed client without a pipeline card: ' + c.name, body: 'This client signed but has no card in the Client Onboarding pipeline and was not archived from the app. If they finished, archive them; if not, their card was deleted and needs to be put back.', url: '/?open=' + c.id, contactId: c.id }); });
+    if (c.stage === 'past' && c.signed && !c.archived) alerts.push({ id: 'no-card:' + c.id, kind: 'check', when: new Date().toISOString(), title: 'Signed client without a pipeline card: ' + c.name, body: 'This client signed but has no card in the Client Onboarding pipeline and was not archived from the app. If they finished, archive them; if not, their card was deleted and needs to be put back.', url: '/?open=' + c.id, contactId: c.id }); });
   clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
     // signed (the card left New) since the Drive automation went live on 2026-10-09, 30+ min ago, and still no signed PDF in Drive: the Phase 2 -> Drive hop failed or never fired.
@@ -403,7 +403,7 @@ export default async (req) => {
     if (!authed) { // a wrong key is a guess at the passcode: count it like the unlock route does (inspector B: 1e6 keys, no limit)
       if (key) { const KW = 15 * 60000, now = Date.now(), ip = String(req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'na').split(',')[0].trim();
         const st = strongStore('ni-cache'); const perIp = await bump(st, 'badkey:' + ip.replace(/[^A-Za-z0-9.:]/g, '_'), now, KW); const all = await bump(st, 'badkey:all', now, KW);
-        if (perIp.n > 20 || all.n > 150) return json({ ok: false, error: 'too many tries' }, 429); }
+        if (perIp.n > 10 || all.n > 50) return json({ ok: false, error: 'too many tries' }, 429); }
       return json({ ok: false, error: 'locked' }, 401); }
 
     if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1');

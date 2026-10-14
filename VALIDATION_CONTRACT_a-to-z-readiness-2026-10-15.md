@@ -406,3 +406,53 @@ Waiting dropped to 4 because of an app code change, not a data repair: `api.mjs`
 - Still open from round 1 and unchanged: Ellie Fritz and Kelly Klose still have 2 live cards each; the 10 unsigned leads with no card (A2); signed PDF missing for Amanda Graff, Jennifer Walters, Jonathan Levine, Misty Pile (plus Ashley Walker, known); "Viana Nyguen" vs "Nguyen"; duplicate Emily Shaw contact `kqAho67JYt2lof70BI7p`; the 23 legacy Chef Assigned cards still have no Assigned Chef value; Hillary Walsh still has 3 foreign Phase 2 notes.
 
 Writes performed: none
+
+### Inspector B round 2
+Run 2026-10-14 19:47Z to 20:02Z. Deployed `index.html` and `sw.js` (`nitoday-v31`) are byte-identical to the repo. The deployed function does NOT match the local `api.mjs` on one point: client names are still lowercase in the live snapshot (`aaron rosenson`, `zztest endtoend`), so the local name title-casing is not live. Live: tiles 61 / 4 / 0, `counts` {total 61, past 14, active 35, waiting 4, newLeads 8}, 4 alerts, 5 bell entries.
+
+| # | Change | PASS/FAIL | Evidence |
+|---|---|---|---|
+| 1 | Wrong-key throttle | PASS | 25 sequential wrong derived keys from one client: 20x 401, then 5x 429 "too many tries" (12.3 s total). Real key right after: 200. No key: 401. 25 of the global 150 used. Residual: 150 wrong keys + 30 unlocks per 15 min is still about 17,000 guesses a day, so about a month on average to find a 6-digit code (LOW). |
+| 2 | Appointment time zone | PASS | `/api/contact/SXB9ZaDCzmUjVu31tRfv` gives "Wed, Oct 7 at 1:30 PM". Ashley Walker 2:00 PM, Mary Cooper 2:00 PM, Jennifer Nieves 2:00 PM all match GHL. |
+| 3 | Signed = tag or Signed on; card behind; no-card alert | PASS (alert part static) | ZZTEST with the card open at New Lead plus Signed on 2026-10-14: about 25 s later `test=1` showed stage `signed`, `cardBehind:true`, `waiting:true`. Right after the write it still showed unsigned (GHL contact list lag of about 25 s). The "Signed, but the card is still at New Lead" alert cannot be produced for a fixture, because computed alerts run on `clients` after the ZZTEST split, so it is code review only. "Signed client without a pipeline card" fires live for 4 real contacts: jonathan levine, michelle o'connor o'connor, misty pile, sheena haan. |
+| 4 | Chef Assigned = assigned / hasChef; stray chef ignored; title case | FAIL | Mapping live: 35 with a chef, 23 of them "With a chef (name not recorded)". The rule that ignores a chef on an unsigned lead is in the code (`stage === 'new' ? ''`). Title case FAIL: 16 client names still all lowercase on the Clients screen (ashley walker, aaron rosenson, adam luber, ...). Also the local helper `titleCase` (`api.mjs:229`) is `n.replace(/\w/g, up)`, which turns "aaron rosenson" into "AARON ROSENSON" (tested), so deploying it as written makes it worse. Fix: `/\b\w/g`. Mixed-case names such as "Rupa shah" and "Mary cooper" are never touched. |
+| 5 | Tiles = journey = clients | PASS | Waiting tile 4 = waiting list 4 (Rupa Shah, Mackenzie Smith, Amanda Graff, Katelyn Keating) = journey Consultation 3 + Waitlist 1. Clients 35 + 4 + 8 + 14 = 61 = tile. Journey 8 + 3 + 0 + 1 + 35 + 14 past = 61. |
+| 6 | Phoenix month | PASS | `pxm()` agrees with `Intl` Phoenix month for all 61 records (0 mismatches). The journey footer "New leads in Oct 11" equals chart Oct 11. Side effect: Katelyn's restored card (created Oct 14) now counts as an October new lead although her intake is Sep 29, because lead month = card `createdAt` (LOW). |
+| 7 | Archive undo of Won; archive without a card | PASS | ZZTEST card set to won, then archived: `lost`, field "October 14, 2026: Other. ZZTEST inspector B round 2 [was Won]", tag `archived`. Undo: card back to `won`, field cleared, tag removed. Card abandoned (no live card): archive gives `status:"none"`, field, tag and note "There was no pipeline card...". Undo gives `none`, field cleared, tag removed. The past profile shows "Archive client" (screenshot 11). |
+| 8 | Assign guards + record only | PASS (logic), UX lapse | ZZTEST at Waitlist: in the waiting list I picked Viana Nyguen and turned on "Just record the chef". A route guard confirmed the body carried `recordOnly:true` for ZZTEST and would have blocked anything else. Result: card field "Viana Nyguen" and note "CHEF RECORDED ... No email was sent". Same chef again gives 409 `already`. A name not in the list gives 400. ZZTEST at Chef Assigned with no name: the profile shows the "Record the chef" picker; Kiyara Brown recorded (field and note verified). ZZTEST past gives 409 `not-ready`. Field cleared and card restored to abandoned at New Lead. Lapses: with the switch on, the sheet still says "Send to Viana?", "...menu go to Viana Nyguen by email" and the button still reads "Send intake and menu" (screenshot 03). 4.5 s after tapping Record the profile still showed the picker and "name not recorded"; it was right on reopen. The Clients list behind it kept "chef not recorded" until closed. The not-ready rule is stage-based, so an unsigned contact whose card was moved by hand (Rachel Troyan, John Matthews: no signing record, at Chef Assigned) can still be assigned. |
+| 9 | System notes hidden | PASS | Katelyn: 0 notes under "Notes in GHL" (the OPPORTUNITY RESTORED note is gone). ZZTEST: the 2 CHEF RECORDED, 2 ARCHIVED and 2 ARCHIVE UNDONE notes I created are hidden; only human-style notes show. |
+| 10 | UI fixes | PARTIAL | Disabled Archive button now `opacity .45` (PASS). Full chef names in client rows (PASS). `test=1` lists ZZTEST in clients (PASS); calls are filtered by name in the normal view (code; no ZZTEST call existed). Search: "No one matches" appears, but below four empty group cards that still show their full counts (screenshot 09). Chart labels: "12 new, 9 signed" and "11 new, 3 signed" overlap each other, and the second runs 23 px past the card's right edge (x 273..347, card ends at 324; screenshot 26). |
+
+#### Remaining lapses (round 2)
+**HIGH (visible in the meeting)**
+1. Journey "Chef assigned" screen: the first group header reads " · 23" (no name) and each of those 23 rows reads "With · 2 adults..." (`index.html:624` `'With ' + c.chef`, `:634` groups by an empty `c.chef`). Fix: group as "Chef not recorded" and use `stageLabel(c)` in the row.
+2. Home opens with 4 "Needs attention" cards dated Mar 2 to Mar 31 (March signers without a card). They are true, but if they finished they should be archived before the meeting. The archive reasons have no "Finished" option, although the help text says "Finished, or not continuing?".
+
+**MED**
+3. Title case is not live, and the local helper upper-cases whole names (see row 4).
+4. "Just record the chef" switch does not change the sheet title, text or button (row 8).
+5. Chart value labels collide and overflow (row 10).
+6. Chefs tab: "18 chefs · 35 clients with a chef · 10 with no clients yet", while the chef rows add up to 12 (23 clients have no recorded name and sit under no chef).
+7. Profile of a client at Chef Assigned with no name shows "Status: With a chef (name not recorded)" and "Chef: Not picked yet" at the same time (`index.html:863`).
+
+**LOW**
+8. "No one matches" appears below four empty group cards with full counts.
+9. After Record, there is no in-sheet progress state; the open Clients list stays stale until reopened.
+10. A restored card resets the lead month (Katelyn counted as an October lead).
+11. Archive field text shows the internal marker to Amber ("Archived: ... [was Won]").
+12. The no-card undo note says "back in the client journey" although nothing went back.
+13. Unchanged from round 1: lowercase areas ("paradise valley"), red allergy chips for dislikes, 40 px tabs, 23 px chart columns, render-blocking cdnjs script, "Viana Nyguen" spelling.
+
+Data note for C: Katelyn's Signed on is now 2026-10-04 (round 1 read 2026-10-08), which moves her signing into the By month count for October either way.
+
+#### Screenshots (round 2)
+`C:\Users\JJ\AppData\Local\Temp\claude\C--Users-JJ-OneDrive-Documents-Claude-Projects-JJ-Work\26596622-24b2-4bc2-ad07-97a04ebb6f1f\scratchpad\alerts\pushinsp\az2\inspB-*.png` (25 files, 375 px). 01-04 waiting list + assign sheet + record-only switch + toast (ZZTEST). 05-08 and 10 profile "Record the chef" (light, dark, confirm, after, reopen). 09 search with no match. 11-13 past profile Archive button + archive sheet (light, dark, cancelled). 20 home light/dark full. 21 clients light/dark. 22 waiting light/dark. 23 all chefs. 24 journey Chef assigned light/dark. 25 bell light/dark. 26 chart labels.
+
+#### Writes performed (round 2, UTC)
+- 19:53:18Z: ZZTEST card `Y29qBIG9YAI3hibQLCtg` PUT open at New Lead; contact Signed on = 2026-10-14. 19:54:49Z: Signed on cleared; card PUT open at Waitlist (the GHL workflow added HTML note `pEx5JmO9XNaU6oZMoMZ9` and, as far as I can tell, 1 "Assign Chef for ZZTEST Endtoend" task; ZZTEST now has 13 open such tasks, NOT RESTORED).
+- 19:56:03Z: app record-only (UI) Viana Nyguen: field written + note `WXpiiybQCYiewrGsVetk`. 19:56:24Z: field cleared; card PUT open at Chef Assigned. 19:57:14Z: app record-only (UI profile picker) Kiyara Brown: field + note `k3Kd2fNZMcDIMf0Ep1ld`. 19:58:27Z: field cleared.
+- 19:58:27Z to 19:58:42Z: card PUT won at New Lead; app archive (lost, field, tag, note `0dV6Ms9LlLALBDic3cDI`); undo (won, field cleared, tag removed, note `PK5PYKJEbCbFsOII9NAf`). 19:58:52Z: card PUT abandoned at New Lead.
+- 20:00:04Z to 20:00:11Z: app archive with no card (field, tag, note `RUibZos1qtf8bm2vNUgD`) and undo (field cleared, tag removed, note `oln3Bb6SqJ808piEcqNd`).
+- API probes that wrote nothing: assign record-only same chef (409), unknown chef (400), past (409); 25 wrong-key GETs (20x 401, 5x 429).
+- Final state verified 20:01:42Z: ZZTEST card abandoned at New Lead, Assigned Chef empty, Signed on empty, Archived empty, tags `intake_received`, `new_lead`. Amber's view: 0 ZZTEST clients, calls, bell entries or alerts. NOT RESTORABLE: 7 notes listed above, the Waitlist HTML note, 1 task.
+- Browser: the key was loaded from the key file through a Playwright route, never typed or printed. `testview` was used for the ZZTEST screens. All `nitoday:*` keys were removed at the end. No real client was assigned, recorded or archived; no notify writes in round 2.

@@ -326,6 +326,10 @@ note, router 436 alerts "Menu not built" when no intake is on file, pipeline fil
 pipeline filter. Phase 1: router 410 alerts "Returning client" when the upsert matched an existing contact (tags m6 still replace,
 deferred). Phase 9: m11 is an HTTP lookup with a handler; the created contact id wins. Rule learned: a Make search module with 0
 results emits no bundle and the run ends silently; put an HTTP GET + router in front when the no-result case matters.
+Phase 9 duplicate guard (2026-10-15): the packet form submitted again for an onboarded chef (Angelica Ortiz, 20:28Z) created a second
+contractor card, SignWell agreement, Checkr invitation and emails; cleaned up (card abandoned, agreement voided). Router after m11: "dup" when
+2.id is empty (contact existed) and the found contact has tag chef or source Contractor Onboarding Form -> email Jay + app alert, nothing
+else runs; otherwise the original flow. Static only (Phase 9 cannot be test-fired).
 Round 2 (same day): every new alert/email module has an Ignore handler; the lookup GETs (Phase 2 4265, Phase 4 421) email Jay the real
 error before resuming and the "no contact" alert says the lookup may have failed; Phase 2 m10 moves a card only from New Lead and
 Phase 3 m5 only from Agreement Signed / QB Customer Created (never backwards). Known: after a QuickBooks failure the qb_customer_created

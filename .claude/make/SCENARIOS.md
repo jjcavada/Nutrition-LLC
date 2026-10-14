@@ -326,6 +326,10 @@ note, router 436 alerts "Menu not built" when no intake is on file, pipeline fil
 pipeline filter. Phase 1: router 410 alerts "Returning client" when the upsert matched an existing contact (tags m6 still replace,
 deferred). Phase 9: m11 is an HTTP lookup with a handler; the created contact id wins. Rule learned: a Make search module with 0
 results emits no bundle and the run ends silently; put an HTTP GET + router in front when the no-result case matters.
+Round 2 (same day): every new alert/email module has an Ignore handler; the lookup GETs (Phase 2 4265, Phase 4 421) email Jay the real
+error before resuming and the "no contact" alert says the lookup may have failed; Phase 2 m10 moves a card only from New Lead and
+Phase 3 m5 only from Agreement Signed / QB Customer Created (never backwards). Known: after a QuickBooks failure the qb_customer_created
+tag and note are still written (alert + email say otherwise).
 **2026-10-15:** Client Records to Drive (6561132) had its own older pushes (module 29 "New intake: <name>" after the Drive records,
 47 and 57 "<name> signed their agreement" after the signed PDF), so from Oct 13 every intake pushed twice (aaron rosenson, 17:13Z and
 17:19Z). Removed with their handlers (125 -> 116 modules); Phase 1 (408) and Phase 2 (4263) are the only intake/signing pushes now.

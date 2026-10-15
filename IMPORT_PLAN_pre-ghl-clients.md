@@ -1,6 +1,6 @@
 # Import plan: Amber's pre-GoHighLevel clients (from her old Google Form)
 
-**Status:** waiting on Amber to add jjcavada1@gmail.com as a collaborator on the form
+**Status (corrected 2026-10-15):** ACCESS GRANTED. jjcavada1@gmail.com has been an EDITOR on the form since 2026-10-12 15:40:49Z (Drive permissions read 2026-10-15). The old "waiting on collaborator" line was written 12 minutes after the share and never rechecked. No linked responses sheet is visible to us, so read the responses in the form's Responses tab (browser). Next: pull the client list, then ask Amber for "client: chef" per name.
 `https://docs.google.com/forms/d/1SANXC_bZf5JO8LSoaE1SoUMad03Ap8ipJGnXvbT-EmI/edit` (NEW CLIENT INTAKE FORM; 2026-10-12 it opens as
 a read-only preview for Jay's account, so the responses are not visible yet). Goal: the app's client count (59 on 2026-10-12)
 matches Amber's (77 to 81); the gap is these older clients.

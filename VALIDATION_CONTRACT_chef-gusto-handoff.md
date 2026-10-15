@@ -26,3 +26,5 @@ Details come from the chef's own records: name and email from SignWell (the sign
 | G-6 | Contractor agreement viewed (not completed) is ignored | PASS: 1 operation (filtered) |
 | G-7 | No dashes in the email copy; bare quotes inside formulas (GR-073) | PASS: static check |
 | G-8 | Real signing | PENDING: the next chef who signs is the live proof |
+
+| G-9 | Finance address set (team@thefinanceagency.com, no forward line); fixture still routes to Jay only | PASS: pushed 12:26:41Z, run 12:26:54Z 7 ops, Gmail thread 1a13f87a73ffe8dc to jjcavada1@gmail.com only |

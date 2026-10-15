@@ -138,6 +138,15 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .calls .kind{font-size:var(--fs-13);font-weight:600;padding:3px 10px;border-radius:999px}
 .calls .kind::before{display:none}
 .calls .kind.weekly{background:var(--weekly-bg)} .calls .kind.event{background:var(--event-bg)}
+.evlist{list-style:none;margin:0;padding:0}
+.events .row{grid-template-columns:64px minmax(0,1fr);padding:14px 0;min-height:44px;text-align:left}
+.evlist li+li .row{border-top:1px solid var(--hair)} .events .row{border-bottom:0}
+.evrow .when{display:grid;gap:2px;line-height:1.2;font-size:var(--fs-14)} .evrow .when b{font-size:var(--fs-16);font-weight:600;color:var(--head)}
+.evrow .nameline .ck-pill{margin-left:auto}
+.evnext{color:var(--head);font-weight:600;margin-top:2px} .evnext.hot{color:var(--warn-fg)}
+.ck-pill.ck-s-urgent{background:var(--warn-bg);color:var(--warn-fg)} .ck-ic.ck-s-urgent{border:2px solid var(--warn-fg)}
+.evquote{white-space:pre-line;margin:0;font-size:var(--fs-16);overflow-wrap:anywhere}
+.evrow .who{min-width:0;overflow-wrap:anywhere} .sheet h3{overflow-wrap:anywhere}
 .pipe{list-style:none;margin:0;padding:0}
 .prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;align-items:baseline;width:100%;background:none;border:0;color:inherit;font:inherit;padding:13px 0 0;text-align:left;cursor:pointer}
 .prow .pn{font-size:var(--fs-16);font-weight:500;color:var(--head)}
@@ -304,7 +313,7 @@ li:last-child>.row{border-bottom:0}
 .ck-ic svg{width:14px;height:14px}
 .ck-ic.ck-s-done{background:var(--weekly);color:var(--paper)}
 .ck-ic.ck-s-waiting{border:2px solid var(--hot)}
-.ck-ic.ck-s-todo{border:2px solid var(--hair)}
+.ck-ic.ck-s-todo{border:2px solid var(--faint)}
 .ck-ic.ck-s-before{border:2px dashed var(--faint);opacity:.7}
 .ck-body{min-width:0}
 .ck-lbl{font-size:var(--fs-15);font-weight:600;color:var(--head);line-height:1.35}
@@ -491,6 +500,12 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
         <div class="journey calls">
           <div class="jhead"><h2 id="h-today" class="ct">Calls this week</h2><div class="segs" role="tablist" aria-label="Which calls"><button type="button" role="tab" aria-selected="true" data-cf="all">All</button><button type="button" role="tab" aria-selected="false" data-cf="weekly">Weekly</button><button type="button" role="tab" aria-selected="false" data-cf="event">Event</button></div></div>
           <div id="today"></div>
+        </div>
+      </section>
+      <section aria-labelledby="h-events">
+        <div class="journey events">
+          <div class="jhead"><h2 id="h-events" class="ct">Event requests</h2><span class="hint" id="evhint"></span></div>
+          <div id="events"></div>
         </div>
       </section>
       <section aria-labelledby="h-pipe">
@@ -747,7 +762,7 @@ function renderAlerts(){
   var box = $('#alerts'); if (!box) return;
   var items = (DATA && DATA.alerts ? DATA.alerts : []).filter(function(a){ return readAlerts.indexOf(a.id) < 0; });
   box.innerHTML = items.map(function(a){
-    return '<div class="new-item alert-item"><button class="hit" data-alert="' + esc(a.id) + '" data-contact="' + esc(a.contactId || '') + '"><span class="top"><span class="tag warn">Needs attention</span><span class="w">' + esc(whenShort(a.when)) + '</span></span><span class="t">' + esc(a.title) + '</span><span class="s">' + esc(a.body) + '</span></button><button class="dismiss" data-dismiss="' + esc(a.id) + '" aria-label="Dismiss: ' + esc(a.title) + '">Dismiss</button></div>';
+    return '<div class="new-item alert-item"><button class="hit" data-alert="' + esc(a.id) + '" data-contact="' + esc(a.contactId || '') + '"' + (a.eventId ? ' data-evalert="' + esc(a.eventId) + '"' : '') + '><span class="top"><span class="tag warn">Needs attention</span><span class="w">' + esc(whenShort(a.when)) + '</span></span><span class="t">' + esc(a.title) + '</span><span class="s">' + esc(a.body) + '</span></button><button class="dismiss" data-dismiss="' + esc(a.id) + '" aria-label="Dismiss: ' + esc(a.title) + '">Dismiss</button></div>';
   }).join('');
 }
 (function(){ var timer; document.addEventListener('pointerdown', function(e){ var t = e.target.closest('[data-alert]'); if (!t) return; timer = setTimeout(function(){ readAlerts.push(t.dataset.alert); store.set('readAlerts', readAlerts.slice(-50)); renderAlerts(); toast('Dismissed on this phone.'); }, 650); }); ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ document.addEventListener(ev, function(){ clearTimeout(timer); }); }); })();
@@ -816,6 +831,63 @@ function renderWaiting(){
   var hw = $('#waiting'); if (hw) hw.innerHTML = html;
   var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
   var tn = $('#tabwaitn'); if (tn) tn.textContent = list.length;
+}
+/* ---------------- event requests (Jay, 2026-10-15): website event form, tracked apart from meal clients ---------------- */
+var evPast = store.get('evpast', false) === true;
+function evList(){ return DATA && DATA.events ? DATA.events : []; }
+function evById(id){ return evList().filter(function(e){ return e.id === id; })[0] || null; }
+function evPill(e){
+  var map = {new:[e.urgent ? 'Call needed' : 'New request', e.urgent ? 'urgent' : 'todo'], call:['Planning call', 'waiting'], sent:['Agreement sent', 'waiting'], signed:['Signed', 'done'], past:e.agreement && e.agreement.state === 'signed' ? ['Done', 'done'] : ['Past', 'before']}; // urgency in words, not colour only
+  var p = map[e.stage] || map.new;
+  return '<span class="ck-pill ck-s-' + p[1] + '">' + esc(p[0]) + '</span>';
+}
+function evWhen(e){
+  if (e.daysUntil === null || e.daysUntil === undefined) return '';
+  if (e.daysUntil < 0) return '';
+  return e.daysUntil === 0 ? 'Today' : e.daysUntil === 1 ? 'Tomorrow' : 'In ' + e.daysUntil + ' days';
+}
+function evRow(e){
+  return '<li><button type="button" class="row evrow" data-event="' + esc(e.id) + '"><span class="when"><b>' + esc(e.dayShort || ' ') + '</b>' + esc(e.dateShort) + '</span>' +
+    '<span class="nameline"><span class="who">' + esc(e.who) + '</span>' + evPill(e) + '</span>' +
+    '<span class="what">' + esc([e.occasion, e.guests ? e.guests + ' guests' : '', evWhen(e)].filter(Boolean).join(' · ')) + '</span>' +
+    '<span class="what evnext' + (e.urgent ? ' hot' : '') + '">' + esc(e.next) + '</span></button></li>';
+}
+function renderEvents(){
+  var box = $('#events'), hint = $('#evhint'); if (!box) return;
+  if (!DATA) { if (hint) hint.textContent = ''; box.innerHTML = lastErr ? '<p class="none">Could not load event requests. Check the connection, then tap Retry above.</p>' : '<div class="skrow"></div><div class="skrow short"></div>'; return; }
+  if (DATA.events === undefined) { if (hint) hint.textContent = ''; box.innerHTML = loading ? '<div class="skrow"></div><div class="skrow short"></div>' : '<p class="none">Tap Refresh at the bottom to load event requests.</p>'; return; } // an older saved copy has no events yet
+  var list = evList(), up = list.filter(function(e){ return e.stage !== 'past'; }), past = list.filter(function(e){ return e.stage === 'past'; });
+  if (hint) hint.textContent = up.length ? up.length + ' coming up' : '';
+  if (!list.length) { box.innerHTML = '<p class="none">No event requests yet. New ones from the event form on the website show up here.</p>'; return; }
+  box.innerHTML = (up.length ? '<ul class="evlist">' + up.map(evRow).join('') + '</ul>' : '<p class="none">No upcoming events.</p>') +
+    (past.length ? '<button type="button" class="ck-more" data-evpast aria-expanded="' + evPast + '"><span>Past events (' + past.length + ')</span>' + ICON.chev + '</button>' +
+      '<ul class="evlist"' + (evPast ? '' : ' hidden') + '>' + past.map(evRow).join('') + '</ul>' : '');
+}
+function evStep(label, state, detail){
+  return '<li class="ck-step"><span class="ck-ic ck-s-' + state + '" aria-hidden="true">' + (state === 'done' ? ICON.check : '') + '</span><div class="ck-body"><div class="ck-lbl">' + esc(label) + '</div>' +
+    (detail ? '<div class="ck-det">' + esc(detail) + '</div>' : '') + '</div></li>';
+}
+function eventSheet(e){
+  var callDone = e.call.state === 'booked' || e.call.state === 'held';
+  var agr = e.agreement.state === 'signed' ? 'done' : e.agreement.state === 'sent' ? 'waiting' : 'todo';
+  var day = e.stage === 'past' ? (e.agreement.state === 'signed' ? 'done' : 'before') : (e.urgent ? 'urgent' : 'todo');
+  var steps = evStep('Request received', 'done', e.received) +
+    evStep('Planning call', callDone ? 'done' : e.stage === 'past' ? 'before' : (e.urgent ? 'urgent' : 'todo'), e.call.label) +
+    evStep('Agreement', agr, e.agreement.label) +
+    evStep('Event day', day, e.dateLabel + (evWhen(e) ? ' (' + evWhen(e).toLowerCase() + ')' : ''));
+  return '<h3>' + esc(e.who) + '</h3><p class="sub">' + esc([e.occasion, e.dateLabel, e.guests ? e.guests + ' guests' : ''].filter(Boolean).join(' · ')) + '</p>' +
+    (e.urgent ? '<div class="expect ck-flags"><b>Coming up soon</b><ul><li>' + esc(e.next) + '</li></ul></div>' : '') +
+    '<div class="ck-gh">Where it stands</div><ol class="ck-steps">' + steps + '</ol>' +
+    '<div class="ck-gh">From the event form</div>' +
+    factsHTML([['Event', esc(e.occasion)], ['Date', esc(e.date ? e.dateLabel : '')], ['Guests', esc(e.guests)], ['Location', esc(e.location)], ['Budget', esc(e.budget)], ['Dietary', esc(e.dietary)], ['Referred by', esc(e.referred)], ['Phone', esc(nicePhone(e.phone))], ['Email', esc(e.email)]]) +
+    (e.words ? '<div class="expect"><h4>In their words</h4><p class="quote evquote">' + esc(e.words) + '</p></div>' : '') +
+    (e.partial ? '<p class="none">Some details could not be loaded just now. Tap Refresh at the bottom of the home screen in a minute.</p>' : '') +
+    ((e.phone || e.email) ? '<div class="acts">' + (e.phone ? '<a class="btn" href="' + tel(e.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(e.phone) + '">Text</a>' : '') + (e.email ? '<a class="btn ghost-b" href="mailto:' + esc(e.email) + '">Email</a>' : '') + '</div>' : '') +
+    '<p class="fine">Event requests come from the event form on the website and stay out of the client list. The agreement waits as a draft in SignWell until you send it after the planning call.</p>';
+}
+function openEvent(id){
+  var e = evById(id); if (!e) { toast('This event request is no longer in the list.'); return; }
+  var sh = openSheet(eventSheet(e)); sh.findOpener = function(){ return document.querySelector('.evrow[data-event="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); };
 }
 /* ---------------- chef checklist (Jay, 2026-10-15): third tab on the Waiting screen ---------------- */
 var CK = {data:null, at:0, err:'', loading:false, busy:{}};
@@ -924,7 +996,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderMonth(); renderCalls(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderMonth(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- day / night ---------------- */
 var themeQ = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1042,7 +1114,9 @@ document.addEventListener('click', function(e){
   if ((t = e.target.closest('[data-archive]'))) { openArchive(t.dataset.archive, t.closest('.sheet')); return; }
   if ((t = e.target.closest('[data-unarchive]'))) { var cu = findClient(t.dataset.unarchive); if (cu) { var shu = sheetApiOf(t.closest('.sheet')); if (shu) shu.close(); unarchive(cu, null); } return; }
   if ((t = e.target.closest('[data-dismiss]'))) { readAlerts.push(t.dataset.dismiss); store.set('readAlerts', readAlerts.slice(-50)); if (readNotif.indexOf(t.dataset.dismiss) < 0) { readNotif.push(t.dataset.dismiss); store.set('readNotif', readNotif.slice(-100)); } renderAlerts(); renderBell(); var nx = $('.alert-item .dismiss') || $('#bell'); if (nx) try { nx.focus({preventScroll:true}); } catch (x) {} toast('Dismissed on this phone.'); return; }
-  if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
+  if ((t = e.target.closest('[data-event]'))) { openEvent(t.dataset.event); return; }
+  if ((t = e.target.closest('[data-evpast]'))) { evPast = !evPast; store.set('evpast', evPast); renderEvents(); return; }
+  if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.evalert) { openEvent(t.dataset.evalert); return; } if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
   if ((t = e.target.closest('[data-intake]'))) {
     var c = findClient(t.dataset.intake), box = $('#rawbox', t.closest('.sheet')); if (!c || !box) return;
     if (box.innerHTML) { box.innerHTML = ''; t.textContent = 'Read the full intake'; return; }

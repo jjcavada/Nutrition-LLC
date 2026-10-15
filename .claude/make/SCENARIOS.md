@@ -348,6 +348,7 @@ chef's GHL contact by the signer email, email the details (name, email, phone, s
 go to Jay), push Amber (bell kind signed), and write "GUSTO HAND-OFF SENT" on the chef's contact (the NI Today Chef checklist reads it
 as "Details sent to finance to add in Gusto"). Client agreements and other events stop at module 2 (1 operation). Contract:
 `VALIDATION_CONTRACT_chef-gusto-handoff.md`. To set the finance address: edit module 2 `financeEmail` (and `forwardMode` turns "no").
+**2026-10-15 12:26Z: finance address SET** to team@thefinanceagency.com (Amber, WhatsApp 8:18 PM Phoenix), `forwardMode` "no" (subject "New chef to add in Gusto: <name>", no forward line). Fixture re-run 12:26:54Z: 7 ops, email to Jay only. Amber is checking with finance whether chefs also need QuickBooks Workforce access (Workforce is linked to QuickBooks) and who files the 1099s.
 
 ---
 

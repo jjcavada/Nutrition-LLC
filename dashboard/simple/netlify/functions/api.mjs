@@ -564,12 +564,107 @@ async function ckBuild({ fresh = false, test = false, E: given = null } = {}) {
     summary: { chefs: real.length, before: old.filter((c) => c.id !== 'zztest-chef').length, todo: real.reduce((n, c) => n + c.todo, 0), waiting: real.reduce((n, c) => n + c.waiting, 0) }, chefs: all };
 }
 
+/* ---------- event requests (Jay, 2026-10-15): website event form contacts, tracked apart from meal clients ---------- */
+// Source: contacts tagged event_inquiry + their "WEBSITE EVENT INQUIRY" note (Make 6248370), the contact's appointments (planning call)
+// and the SignWell draft named in the note (agreement). The JSON never carries the SignWell document id or any signing link.
+// Fix round 1 (inspectors U + D): fields come from the note HEADER only (the client's own words never fill a field), dates must be real,
+// every unknown is labeled as unknown, one time budget per row with the last good row as fallback, SignWell failures cached 2 min and
+// concurrent reads shared, no SignWell or calendar reads for past events.
+const EV_BUDGET = 3000; // ms per event row; the snapshot never waits longer than this for an event
+const evWait = (ms) => new Promise((r) => setTimeout(r, ms));
+function evStale(c) { return c.v && Date.now() - c.at < 30 * 60000 ? Object.assign({}, c.v, { staleAt: c.at }) : { state: 'unknown' }; } // last good value for 30 min, flagged
+function evSignwell(id) { // agreement status only; good reads cached 10 min, failures 2 min, one read in flight per document
+  if (!id) return Promise.resolve({ state: 'none' });
+  mem.evSw = mem.evSw || {}; const c = mem.evSw[id] || (mem.evSw[id] = {}); const now = Date.now();
+  if (c.v && now - c.at < 10 * 60000) return Promise.resolve(c.v);
+  if (c.failAt && now - c.failAt < 2 * 60000) return Promise.resolve(evStale(c));
+  if (c.p) return c.p;
+  if (!cfg.signwellKey) return Promise.resolve({ state: 'unknown' });
+  c.p = (async () => {
+    let v = null;
+    try {
+      const r = await fetch('https://www.signwell.com/api/v1/documents/' + id + '/', { headers: { 'X-Api-Key': cfg.signwellKey, Accept: 'application/json' }, signal: AbortSignal.timeout(2500) });
+      if (r.status === 404) v = { state: 'deleted' };
+      else if (r.ok) { const d = await r.json(); const s = String(d.status || '').toLowerCase().trim();
+        v = { state: s === 'completed' ? 'signed' : s === 'draft' ? 'draft' : /^(pending|sent|viewed|awaiting)/.test(s) ? 'sent' : /^(expired|declined|canceled|cancelled|voided?)$/.test(s) ? 'dead' : 'unknown', when: d.completed_at || d.updated_at || '' }; }
+    } catch (e) { v = null; }
+    c.p = null;
+    if (v) { c.v = v; c.at = Date.now(); c.failAt = 0; return v; }
+    c.failAt = Date.now(); return evStale(c);
+  })();
+  return c.p;
+}
+const evDay = (ymd, opts) => fmt(opts).format(new Date(ymd + 'T12:00:00-07:00'));
+const evRealDate = (d) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return ''; const t = new Date(d + 'T12:00:00Z'); return !isNaN(t) && t.toISOString().slice(0, 10) === d ? d : ''; }; // 2026-02-30 is not a date
+function evWho(c) { const raw = String(c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Event request').trim();
+  return /[A-Z]/.test(raw) ? raw : raw.replace(/\b\w/g, (ch) => ch.toUpperCase()); } // the form stores lowercase names
+async function eventOf(c, todayKey) {
+  const who = evWho(c); const first = firstName(who);
+  const key = c.id + '|' + c.dateUpdated;
+  const notes = mem.noteCache[key] || (mem.noteCache[key] = (await ghl('/contacts/' + c.id + '/notes', { signal: AbortSignal.timeout(2500) })).notes || []); // a failure throws: the caller uses the last good row
+  const n = notes.filter((x) => /WEBSITE EVENT INQUIRY/.test(x.body || '')).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || ''))[0];
+  const body = n ? String(n.body || '').replace(/\r/g, '') : '';
+  const head = body.split(/\nNotes:/)[0]; // the client's free text never fills a field (inspector D finding 5)
+  const f = {}; parseInquiry(head).forEach((p) => { const k = p[0].toLowerCase(); if (!(k in f)) f[k] = p[1]; }); // first value wins
+  const m = body.match(/\nNotes:[ \t]*\n([\s\S]*?)(?=\n\s*\n?Agreement:|\nClient emailed|$)/);
+  let words = m ? m[1].trim() : ''; if (words.length > 2000) words = words.slice(0, 2000).trim() + '...';
+  const ids = [...body.matchAll(/\nAgreement:[^\n]*SignWell doc ([0-9a-f-]{36})/gi)]; const docId = ids.length ? ids[ids.length - 1][1] : ''; // the system line comes last
+  const date = evRealDate(f.date);
+  const daysUntil = date ? Math.round((Date.parse(date + 'T12:00:00-07:00') - Date.parse(todayKey + 'T12:00:00-07:00')) / 86400000) : null;
+  const past = daysUntil !== null && daysUntil < 0;
+  // planning call (upcoming events only): the next booked appointment, else the last one held (cancelled / no-show excluded)
+  let call = { state: past ? 'past' : 'none', label: past ? '' : 'Not booked yet' };
+  if (!past) {
+    try {
+      const ap = await ghl('/contacts/' + c.id + '/appointments', { signal: AbortSignal.timeout(2500) });
+      const zoned = (t) => /(Z|[+-]\d\d:?\d\d)$/.test(String(t || '')) ? t : t + '-07:00';
+      const list = (ap.events || []).filter((e) => e.startTime && !/cancel|no.?show|invalid/i.test(e.appointmentStatus || '')).map((e) => zoned(e.startTime)).sort();
+      const nowT = Date.now(); const next1 = list.find((t) => new Date(t).getTime() >= nowT); const last1 = list.slice().reverse().find((t) => new Date(t).getTime() < nowT);
+      const lab = (t) => fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(t)) + ' at ' + timeOf(new Date(t));
+      if (next1) call = { state: 'booked', label: 'Booked for ' + lab(next1) }; else if (last1) call = { state: 'held', label: 'Held ' + lab(last1) };
+    } catch (e) { call = { state: 'unknown', label: 'Could not check the calendar' }; }
+  }
+  // agreement: SignWell for upcoming events; a past event keeps whatever was last known
+  const sw = past ? ((mem.evSw || {})[docId] || {}).v || { state: 'past' } : await evSignwell(docId);
+  const AGR = { none: 'No agreement yet', draft: 'Draft in SignWell, not sent yet', sent: 'Sent, waiting for ' + first + ' to sign', dead: 'Expired or declined in SignWell',
+    deleted: 'No longer in SignWell', unknown: 'Could not check SignWell', past: 'Not checked after the event' };
+  const agreement = { state: sw.state, label: (sw.state === 'signed' ? 'Signed' + (sw.when ? ' ' + monthDay(new Date(sw.when)) : '') : AGR[sw.state] || AGR.unknown) + (sw.staleAt ? ' (last checked ' + timeOf(new Date(sw.staleAt)) + ')' : '') };
+  const stage = past ? 'past' : sw.state === 'signed' ? 'signed' : sw.state === 'sent' ? 'sent' : (call.state === 'booked' || call.state === 'held') ? 'call' : 'new';
+  const next = past ? 'Event was ' + evDay(date, { weekday: 'short', month: 'short', day: 'numeric' }) + '.'
+    : stage === 'signed' ? 'Agreement signed. All set for the event.'
+    : stage === 'sent' ? 'Agreement sent. Waiting for ' + first + ' to sign.'
+    : call.state === 'booked' ? 'Planning call ' + call.label.replace(/^Booked for /, '') + '.'
+    : call.state === 'held' ? 'Call held. Send the agreement from SignWell.'
+    : call.state === 'unknown' ? 'Could not check the calendar. Look in GoHighLevel before booking.'
+    : 'Book a planning call with ' + first + '.';
+  const urgent = !past && stage !== 'signed' && daysUntil !== null && daysUntil <= 7;
+  const row = { id: c.id, who, first, phone: c.phone || '', email: c.email || '', receivedAt: c.dateAdded || '', received: c.dateAdded ? longDate(new Date(c.dateAdded)) : '',
+    occasion: f.event || 'Event', date, dateLabel: date ? evDay(date, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No date given',
+    dayShort: date ? evDay(date, { weekday: 'short' }) : '', dateShort: date ? evDay(date, { month: 'short', day: 'numeric' }) : 'No date', daysUntil,
+    guests: f.guests || '', location: f.location || '', budget: f.budget || '', dietary: f.dietary || '', referred: f['referred by'] || '', words,
+    call, agreement, stage, next, urgent, partial: false };
+  mem.evRows = mem.evRows || {}; mem.evRows[c.id] = row; return row;
+}
+async function eventRow(c, todayKey) { // one time budget per row; on failure the last good row (flagged) or an honest minimal row, never a missing one
+  try { return await Promise.race([eventOf(c, todayKey), evWait(EV_BUDGET).then(() => { throw new Error('took longer than ' + EV_BUDGET + ' ms'); })]); }
+  catch (e) {
+    console.error('event row', c.id, e && e.message);
+    const last = (mem.evRows || {})[c.id]; if (last) return Object.assign({}, last, { partial: true });
+    const who = evWho(c);
+    return { id: c.id, who, first: firstName(who), phone: c.phone || '', email: c.email || '', receivedAt: c.dateAdded || '', received: c.dateAdded ? longDate(new Date(c.dateAdded)) : '',
+      occasion: 'Event request', date: '', dateLabel: 'Not loaded', dayShort: '', dateShort: 'Not loaded', daysUntil: null, guests: '', location: '', budget: '', dietary: '', referred: '', words: '',
+      call: { state: 'unknown', label: 'Could not check the calendar' }, agreement: { state: 'unknown', label: 'Could not check SignWell' }, stage: 'new',
+      next: 'Could not load this request right now. Tap Refresh in a minute.', urgent: false, partial: true };
+  }
+}
+
 /* ---------- snapshot ---------- */
 async function buildSnapshot() {
   const now = new Date(), today = dayKey(now);
   const [contacts, opps, events, farEvents] = await Promise.all([listContacts(), listOpps(), eventsBetween(new Date(now.getTime() - 6 * 3600000), new Date(now.getTime() + 8 * 86400000)),
     eventsBetween(new Date(now.getTime() + 8 * 86400000), new Date(now.getTime() + 90 * 86400000)).catch(() => [])]); // farEvents: only for each client's next booked call (pipeline screen)
   const byId = {}; contacts.forEach((c) => { byId[c.id] = c; });
+  const evsP = pool(contacts.filter((c) => (c.tags || []).includes('event_inquiry') && !/^zztest/i.test(String(c.contactName || c.firstName || ''))), 6, (c) => eventRow(c, today)); // event requests, read while the clients build
   const live = opps.filter((o) => o.status !== 'lost' && o.status !== 'abandoned'); // ZZTEST fixtures are split off below (testClients) and shown only with test=1
   const fail0 = mem.oppFailAt || 0; const chefs = await pool(live, 6, oppChef); const partialAt = (mem.oppFailAt || 0) > fail0 ? Date.now() : 0; // a client card did not load: this snapshot is partial
   // chef roster = the legacy list in config.secret.json UNION every GHL contact tagged `chef` (Phase 9 tags new chefs on the packet form, 2026-10-12)
@@ -654,18 +749,7 @@ async function buildSnapshot() {
   });
   newItems.sort((a, b) => (b.when || '').localeCompare(a.when || ''));
 
-  const inquiries = contacts.filter((c) => (c.tags || []).includes('event_inquiry')).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 8);
-  const evs = await pool(inquiries, 4, async (c) => {
-    let facts = [], said = '';
-    try {
-      const key = c.id + '|' + c.dateUpdated; let notes = mem.noteCache[key];
-      if (!notes) { notes = await notesOf(c.id); mem.noteCache[key] = notes; }
-      const n = notes.filter((x) => /WEBSITE EVENT INQUIRY/.test(x.body || '')).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || ''))[0];
-      if (n) { facts = parseInquiry(n.body); const m = (n.body || '').match(/(?:Details|Message|Notes?|Tell us)[^:\n]*:\s*([\s\S]{0,400})/i); if (m) said = m[1].trim().split('\n')[0]; }
-    } catch (e) {}
-    const call = calls.find((k) => k.contactId === c.id);
-    return { id: c.id, who: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', when: c.dateAdded, whenLabel: monthDay(new Date(c.dateAdded)), facts, said, call: call ? call.day + ' at ' + call.time : '' };
-  });
+  const evs = (await evsP).sort((x, y) => (x.stage === 'past') - (y.stage === 'past') || (x.stage === 'past' ? (y.date || '').localeCompare(x.date || '') : (x.date || '9999').localeCompare(y.date || '9999')));
 
   const chefList = chefNames.map((n) => ({ name: n, clients: clients.filter((c) => c.chef === n).map((c) => c.id) }));
   const unknownChefs = [...new Set(clients.map((c) => c.chef).filter((n) => n && !chefNames.includes(n)))];
@@ -674,6 +758,9 @@ async function buildSnapshot() {
   try { const as = strongStore('ni-cache'); const raw = as ? await as.get('alerts') : null; (raw ? JSON.parse(raw) : []).forEach((a) => { if (Date.now() - new Date(a.when).getTime() < 7 * 86400000) alerts.push(Object.assign({ kind: 'make' }, a)); }); } catch (e) {}
   clients.forEach((c) => { if (c.cardBehind) alerts.push({ id: 'card-behind:' + c.id, kind: 'check', when: c.stageChangedAt || c.createdAt, title: 'Signed, but the card is still at New Lead: ' + c.name, body: 'The signing is recorded on the contact but the pipeline card never moved. Move it in GoHighLevel (Agreement Signed or further) so the menu and the invite can run.', url: '/?open=' + c.id, contactId: c.id });
     if (c.stage === 'past' && c.signed && !c.archived) alerts.push({ id: 'no-card:' + c.id, kind: 'check', when: new Date().toISOString(), title: 'Signed client without a pipeline card: ' + c.name, body: 'This client signed but has no card in the Client Onboarding pipeline and was not archived from the app. If they finished, archive them; if not, their card was deleted and needs to be put back.', url: '/?open=' + c.id, contactId: c.id }); });
+  evs.forEach((e) => { if (e.urgent && e.call.state !== 'booked' && e.call.state !== 'held') alerts.push({ id: 'event-soon:' + e.id + ':' + e.date, kind: 'check', when: new Date().toISOString(), eventId: e.id,
+    title: (e.daysUntil === 0 ? 'Event today: ' : e.daysUntil === 1 ? 'Event tomorrow: ' : 'Event in ' + e.daysUntil + ' days: ') + e.who,
+    body: e.occasion + (e.guests ? ' for ' + e.guests + ' guests' : '') + ' on ' + e.dateLabel + '. ' + (e.call.state === 'unknown' ? 'The calendar could not be checked, so look in GoHighLevel for a planning call.' : 'No planning call is booked.') + ' ' + (e.agreement.state === 'unknown' ? 'SignWell could not be checked.' : 'The agreement is not signed yet.') }); }); // an event request about to slip (Brie, Oct 17); an unknown calendar still alerts (inspectors U5, D8)
   clients.forEach((c) => { // onboarding that stopped halfway (what happened to Sara and Aaron on Oct 9/10): new lead, 20+ min old, no intake saved
     if (c.isNew && c.createdAt && Date.now() - new Date(c.createdAt).getTime() > 20 * 60000 && !c.hasSummary && !c.intakePdf && !c.intakeNoteId) alerts.push({ id: 'intake-missing:' + c.id, kind: 'check', when: c.createdAt, title: 'Onboarding stopped halfway for ' + c.name, body: 'They filled out the intake but nothing was saved to GHL or Drive and no agreement went out. Check the Make alert email or ask Jay.', url: '/?open=' + c.id, contactId: c.id });
     // signed (the card left New) since the Drive automation went live on 2026-10-09, 30+ min ago, and still no signed PDF in Drive: the Phase 2 -> Drive hop failed or never fired.

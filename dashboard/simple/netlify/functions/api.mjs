@@ -8,6 +8,8 @@
 //   POST subscribe   {subscription}                -> stores a push subscription (Netlify Blobs)
 //   POST notify      {secret, kind, title, body, url, contactId} -> pushes to every phone; kind intake|signed|invite|booked is kept as a bell entry, alert as Needs attention (called by Make)
 //   POST scan                                      -> looks for new consultation bookings (also runs every 5 min from scan.mjs)
+//   GET  chefs/checklist[?fresh=1][&test=1]        -> every chef's onboarding steps with proof, newest first (test adds the ZZTEST Chef)
+//   POST chefs/check {chefId, step, done}          -> Amber ticks a manual step (Blobs ni-cache/chefcheck + a GHL note on the chef)
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -144,7 +146,7 @@ function restrictionsOf(text) {
   return out;
 }
 // Amber's own GHL notes on the contact (anything the automations did not write), newest first, so what she types in GHL shows on the card
-const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
+const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|CHEF CHECKLIST|GUSTO HAND-OFF|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
 function humanNotes(notes) {
   return (notes || []).filter((n) => n.body && !AUTOMATION_NOTE.test(n.body)).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 5)
     .map((n) => ({ id: n.id, when: n.dateAdded || '', body: String(n.body).trim().slice(0, 1200) }));
@@ -214,6 +216,279 @@ async function scanBookings(nameOf, opts = {}) {
   }
   await dropSnapshot();
   return { ok: true, new: out, seeded: first, sent };
+}
+
+/* ---------- chef checklist (Jay, 2026-10-15): every onboarding step per chef, newest first, with proof ---------- */
+const CK_WAIT_DAYS = 21;
+const ckPlural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+const CK_STEPS = [
+  { key: 'form', label: 'Sign-up form received', group: 'Signed up' },
+  { key: 'roster', label: 'Name added to the app, the chef sheet and GoHighLevel', group: 'Signed up' },
+  { key: 'packet', label: 'Welcome email with the contractor handbook', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'agreementSent', label: 'Contractor agreement (SignWell)', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'bgcheckSent', label: 'Background check invite (Checkr)', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'w9Sent', label: 'W-9 form for the 1099', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'profileSent', label: 'Website profile form', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'workforceSent', label: 'QuickBooks Workforce invite (clock-in app)', group: 'Sent to the chef', manual: true, sent: true },
+  { key: 'agreement', label: 'Contractor agreement signed', group: 'Back from the chef', manual: true },
+  { key: 'bgcheck', label: 'Background check cleared', group: 'Back from the chef', manual: true },
+  { key: 'w9', label: 'W-9 received (for the 1099)', group: 'Back from the chef', manual: true },
+  { key: 'profile', label: 'Website profile received', group: 'Back from the chef', manual: true },
+  { key: 'qbvendor', label: 'Set up in QuickBooks as a 1099 vendor', group: 'Pay and records', manual: true },
+  { key: 'gusto', label: 'Details sent to finance to add in Gusto', group: 'Pay and records', manual: true, sent: true },
+  { key: 'website', label: 'Profile live on the website', group: 'Live', owner: 'jay' },
+  { key: 'firstclient', label: 'First client assigned', group: 'Live' },
+];
+const CK_MANUAL = CK_STEPS.filter((s) => s.manual).map((s) => s.key);
+const CK_PAIRS = { agreement: 'agreementSent', bgcheck: 'bgcheckSent', w9: 'w9Sent', profile: 'profileSent' }; // a "back" step done implies its "sent" step
+const ckSlug = (n) => String(n || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+const ckNorm = (n) => String(n || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const ckTitle = (n) => /[A-Z]/.test(n) ? n : String(n || '').replace(/\b\w/g, (ch) => ch.toUpperCase());
+const ckTime = (iso) => { const t = iso ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + 'T19:00:00Z' : iso).getTime() : NaN; return isNaN(t) ? 0 : t; }; // a bare date = noon in Phoenix
+const ckDate = (iso) => { const t = ckTime(iso); if (!t) return ''; const d = new Date(t); const y = fmt({ year: 'numeric' }).format(d); return monthDay(d) + (y !== fmt({ year: 'numeric' }).format(new Date()) ? ', ' + y : ''); };
+const ckDays = (iso) => { const t = ckTime(iso); return t ? Math.max(0, Math.floor((Date.now() - t) / 86400000)) : null; };
+const ckText = (s) => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li)>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, "'");
+function ckPacket(note) { // "CONTRACTOR PACKET SENT (via Onboarding Form)" written by Phase 9 module 10
+  const t = ckText(note.body); if (!/^\W*CONTRACTOR PACKET SENT/i.test(t)) return null;
+  const pick = (re) => { const m = t.match(re); return m ? m[1].trim() : ''; };
+  const date = pick(/Date:\s*([0-9T:.\-Z+]+)/i);
+  return { to: pick(/Email sent to:\s*([^\s<]+@[^\s<]+)/i).toLowerCase(), when: date || note.dateAdded || '', docId: pick(/Document ID:\s*([0-9a-f-]{36})/i),
+    invite: pick(/Invitation ID:\s*([0-9a-f]{16,40})/i), profile: /Website Profile Form/i.test(t) };
+}
+async function ckNotes(id, fresh) { mem.ckNotes = mem.ckNotes || {}; const c = mem.ckNotes[id];
+  if (!fresh && c && Date.now() - c.at < 5 * 60000) return c.notes;
+  let notes = []; try { notes = await notesOf(id); } catch (e) { notes = c ? c.notes : []; }
+  mem.ckNotes[id] = { at: Date.now(), notes }; return notes; }
+async function ckSignwell(fresh) { // contractor agreements only. SignWell's list allows 5 calls per 30 s, so: seed (config.icaSeed) + newest page(s) + a direct read of each still-open agreement
+  const as = strongStore('ni-cache'); let cached = null;
+  try { cached = as ? await as.get('ck:sw', { type: 'json' }) : null; } catch (e) { cached = null; }
+  const base = cached && Array.isArray(cached.docs) ? cached : { at: '', newest: '', docs: (cfg.icaSeed || []).slice() };
+  if (!fresh && cached && Date.now() - new Date(cached.at).getTime() < 10 * 60000) return { docs: cached.docs, stale: false };
+  if (!cfg.signwellKey) return { docs: base.docs, stale: true };
+  const H = { 'X-Api-Key': cfg.signwellKey, Accept: 'application/json' };
+  const isIca = (d) => d.template_id === cfg.icaTemplate || /independent.?contractor/i.test(d.name || '');
+  const slim = (d) => ({ id: d.id, name: d.name || '', template_id: d.template_id || '', status: d.status || '', archived: !!d.archived, created_at: d.created_at || '', updated_at: d.updated_at || '',
+    recipients: (d.recipients || []).map((r) => ({ email: String(r.email || '').toLowerCase(), status: r.status || '' })) }); // never keep signing links
+  const byId = {}; base.docs.forEach((d) => { byId[d.id] = d; });
+  let stale = false, newest = base.newest || base.docs.reduce((m, d) => (d.created_at > m ? d.created_at : m), '');
+  try {
+    for (let p = 1; p <= 2; p++) { // newest first; a second page only when the first is all new since the last look
+      const r = await fetch('https://www.signwell.com/api/v1/documents/?page=' + p + '&per_page=10', { headers: H });
+      if (!r.ok) { stale = true; break; }
+      const docs = (await r.json()).documents || [];
+      docs.filter(isIca).forEach((d) => { byId[d.id] = slim(d); });
+      const oldest = docs.length ? docs[docs.length - 1].created_at || '' : '';
+      if (!docs.length || !newest || oldest <= newest) break;
+    }
+  } catch (e) { stale = true; }
+  const openOnes = Object.values(byId).filter((d) => /^(sent|viewed|pending|draft)$/i.test(d.status) && !d.archived).slice(0, 10);
+  await pool(openOnes, 3, async (d) => { try { const r = await fetch('https://www.signwell.com/api/v1/documents/' + d.id + '/', { headers: H });
+    if (r.status === 404) byId[d.id] = Object.assign({}, d, { status: 'Deleted' }); else if (r.ok) byId[d.id] = slim(await r.json()); else stale = true; } catch (e) { stale = true; } });
+  const docs = Object.values(byId); newest = docs.reduce((m, d) => (d.created_at > m ? d.created_at : m), newest);
+  try { if (as) await as.set('ck:sw', JSON.stringify({ at: new Date().toISOString(), newest, docs })); } catch (e) {}
+  return { docs, stale };
+}
+async function ckWebsite(fresh) {
+  const as = strongStore('ni-cache'); let cached = null;
+  try { cached = as ? await as.get('ck:web', { type: 'json' }) : null; } catch (e) { cached = null; }
+  if (!fresh && cached && Date.now() - new Date(cached.at).getTime() < 3600000) return { names: cached.names || [], stale: false };
+  try {
+    const r = await fetch(cfg.websiteTeamUrl || 'https://www.nutritionintuitionaz.com/meet-the-team/', { headers: { 'User-Agent': 'NI-Today/1.0' } });
+    if (!r.ok) throw new Error('web ' + r.status);
+    const names = [...new Set([...(await r.text()).matchAll(/data-name="([^"]+)"/g)].map((m) => ckNorm(m[1])))];
+    if (!names.length) throw new Error('no names');
+    try { if (as) await as.set('ck:web', JSON.stringify({ at: new Date().toISOString(), names })); } catch (e) {}
+    return { names, stale: false };
+  } catch (e) { return { names: cached ? cached.names || [] : [], stale: true }; }
+}
+async function ckTicksRead(test) {
+  const as = strongStore('ni-cache'); const empty = { v: 1, chefs: {}, log: [] };
+  if (!as) return { data: empty, etag: null };
+  try { const r = await as.getWithMetadata(test ? 'chefcheck:test' : 'chefcheck', { type: 'json' }); if (r && r.data) return { data: Object.assign({ v: 1, chefs: {}, log: [] }, r.data), etag: r.etag || null }; } catch (e) {}
+  return { data: empty, etag: null };
+}
+async function ckTicksWrite(test, mutate) { // etag-guarded: two phones ticking at once cannot overwrite each other
+  const as = strongStore('ni-cache'); if (!as) throw new Error('no store');
+  for (let i = 0; i < 4; i++) {
+    const { data, etag } = await ckTicksRead(test);
+    if (mutate(data) === 'unchanged') return 'unchanged';
+    const w = await as.set(test ? 'chefcheck:test' : 'chefcheck', JSON.stringify(data), etag ? { onlyIfMatch: etag } : { onlyIfNew: true });
+    if (!w || w.modified !== false) return 'ok';
+  }
+  throw new Error('conflict');
+}
+async function ckInputs(fresh) {
+  if (!fresh && mem.ckIn && Date.now() - mem.ckIn.at < 2 * 60000) return mem.ckIn;
+  const [contacts, cardsRes, fieldRes, snap, sw, web] = await Promise.all([
+    listContacts(),
+    ghl('/opportunities/search?location_id=' + cfg.ghlLocation + '&pipeline_id=' + cfg.contractorPipeline + '&limit=100').catch(() => ({ opportunities: [] })),
+    ghl('/locations/' + cfg.ghlLocation + '/customFields/' + cfg.chefField).catch(() => ({})),
+    getSnapshot(false), ckSignwell(fresh), ckWebsite(fresh)]);
+  const cf0 = fieldRes.customField || fieldRes || {};
+  const picklist = (cf0.picklistOptions || cf0.options || []).map((o) => ckNorm(typeof o === 'string' ? o : (o.label || o.name || o.value)));
+  const cards = (cardsRes.opportunities || []).filter((o) => o.pipelineId === cfg.contractorPipeline);
+  mem.ckIn = { at: Date.now(), contacts, cards, picklist, snap, sw, web }; mem.ckOut = {};
+  return mem.ckIn;
+}
+function ckRoster(inp) { // cfg.chefs + contacts tagged chef + live contractor cards; one entry per person, matched by email (never by name)
+  const seed = cfg.chefSeed || {}; const list = []; const byEmail = {};
+  const add = (name, email, from) => {
+    const e = String(email || '').toLowerCase(); if (!name || /^zztest/i.test(name)) return;
+    if (e && byEmail[e]) return byEmail[e];
+    const extra = (seed[name] && seed[name].emails) || [];
+    const ch = { name, id: ckSlug(name), email: e, emails: [...new Set([e].concat(extra.map((x) => x.toLowerCase())).filter(Boolean))], from };
+    list.push(ch); ch.emails.forEach((x) => { byEmail[x] = ch; }); return ch;
+  };
+  (cfg.chefs || []).forEach(([n, e]) => add(n, e, 'roster'));
+  const byId = {}; inp.contacts.forEach((c) => { byId[c.id] = c; });
+  const nameOf = (c) => ckTitle(c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ')).trim();
+  inp.contacts.forEach((c) => { if ((c.tags || []).includes('chef')) add(nameOf(c), c.email, 'tag'); });
+  inp.cards.forEach((o) => { if (o.status === 'abandoned' || o.pipelineStageId === cfg.contractorRejectedStage) return; const c = byId[o.contactId]; if (c && c.email && !byEmail[String(c.email).toLowerCase()]) add(nameOf(c), c.email, 'card'); });
+  list.forEach((ch) => { ch.contacts = inp.contacts.filter((c) => c.email && ch.emails.includes(String(c.email).toLowerCase()));
+    const prim = ch.contacts.find((c) => String(c.email).toLowerCase() === ch.email) || ch.contacts[0]; ch.contactId = prim ? prim.id : ''; ch.contactName = prim ? nameOf(prim) : ''; });
+  return list;
+}
+function ckChef(ch, ev, ticksAll, inp) {
+  const T = ticksAll[ch.id] || {}; const seed = (cfg.chefSeed || {})[ch.name] || {}; const first = ch.name.split(/\s+/)[0];
+  const S = {}; const flags = [];
+  const set = (k, state, when, detail, o) => { S[k] = Object.assign({ state, when: when || '', detail: detail || '', warn: '', via: 'auto' }, o || {}); };
+  const tick = (k) => (T[k] ? T[k].at : '');
+  const ticked = (k, verb) => set(k, 'done', tick(k), (verb || 'Marked done') + ' in NI Today on ' + ckDate(tick(k)) + '.', { via: 'tick' });
+  const legacy = !ev.cards.length && !ev.packets.length;
+  const waitOrTodo = (sentWhen) => { const n = ckDays(sentWhen); return n !== null && n <= CK_WAIT_DAYS ? 'waiting' : 'todo'; };
+  // 1. sign-up form
+  if (ev.cards.length) { const c0 = ev.cards[0]; const extra = ev.cards.length - 1; const cancelled = ev.cards.filter((o) => o.status === 'abandoned').length;
+    set('form', 'done', c0.createdAt, 'Received ' + ckDate(c0.createdAt) + '.' + (extra ? ' The form came in ' + ev.cards.length + ' times' + (cancelled ? ' (' + cancelled + ' cancelled as duplicates)' : '') + '.' : ''));
+  } else set('form', 'before', '', 'Started before the sign-up form existed.');
+  // 2. roster: app + GoHighLevel list (the sheet dropdown follows the same list)
+  const inApp = (inp.snap.chefOptions || []).some((n) => ckNorm(n) === ckNorm(ch.name)); const inGhl = inp.picklist.includes(ckNorm(ch.name));
+  if (inApp && inGhl) set('roster', 'done', '', 'In the app, the chef sheet and the GoHighLevel Assigned Chef list as "' + ch.name + '".');
+  else set('roster', 'todo', '', 'Missing from ' + [inApp ? '' : 'the app', inGhl ? '' : 'the GoHighLevel Assigned Chef list'].filter(Boolean).join(' and ') + '. Tell Jay.');
+  if (ch.contactName && ckNorm(ch.contactName) !== ckNorm(ch.name)) S.roster.warn = 'GoHighLevel spells the name "' + ch.contactName + '", the app "' + ch.name + '". Tell Jay which is right.';
+  // 3. welcome email (packet)
+  const pk = ev.packets;
+  if (pk.length) { const p0 = pk[0]; const others = [...new Set(pk.map((p) => p.to).filter((t) => t && t !== ch.email))];
+    set('packet', 'done', p0.when, 'Emailed ' + ckDate(p0.when) + ' to ' + (p0.to || ch.email) + '. It has the handbook and the links for the agreement, the background check, the W-9' + (p0.profile ? ' and the website profile form' : '') + '.');
+    if (pk.length > 1) S.packet.warn = 'This email went out ' + pk.length + ' times because the form came in more than once' + (others.length ? '. One went to ' + others.join(', ') : '') + '.';
+  } else if (tick('packet')) ticked('packet', 'Marked sent');
+  else if (ev.cards.length) set('packet', 'todo', '', 'The sign-up came in but no welcome email is on record. Tell Jay.');
+  else set('packet', 'before', '', 'Joined before the welcome email was automated.');
+  // 4 + 9. contractor agreement: sent and signed (SignWell)
+  const docs = ev.docs; const live = docs.filter((d) => !d.archived); const done = docs.filter((d) => /completed/i.test(d.status)).sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+  const open = live.filter((d) => /^(sent|viewed|pending)$/i.test(d.status)); const dead = live.filter((d) => /expired|declined|cancel/i.test(d.status));
+  const goneIds = pk.map((p) => p.docId).filter((id) => id && !docs.some((d) => d.id === id));
+  const sentDocs = live.slice().sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  const signerOf = (d) => (d.recipients.find((r) => ch.emails.includes(r.email)) || {}).email || '';
+  if (sentDocs.length) set('agreementSent', 'done', sentDocs[0].created_at, 'Sent ' + ckDate(sentDocs[0].created_at) + ' to ' + (signerOf(sentDocs[0]) || ch.email) + ' through SignWell.' + (sentDocs.length > 1 ? ' Sent ' + sentDocs.length + ' times in all.' : ''));
+  else if (goneIds.length && pk.length) set('agreementSent', 'done', pk[0].when, 'Sent ' + ckDate(pk[0].when) + ' with the welcome email (that copy is no longer in SignWell).');
+  else if (tick('agreementSent')) ticked('agreementSent', 'Marked sent');
+  else set('agreementSent', legacy ? 'before' : 'todo', '', legacy ? 'No agreement on record from before the app.' : 'No agreement on record. Send one in SignWell, then mark it sent.');
+  if (done.length) { const d0 = done[0]; const who = signerOf(d0);
+    set('agreement', 'done', d0.updated_at, 'Signed ' + ckDate(d0.updated_at) + ' in SignWell' + (who && who !== ch.email ? ' as ' + who : '') + '.' + (done.length > 1 ? ' Signed ' + done.length + ' times.' : ''));
+    if (open.length) S.agreement.warn = 'An unsigned copy sent ' + ckDate(open[0].created_at) + ' is still open in SignWell. You can cancel it.';
+    if (who && who !== ch.email) flags.push({ tone: 'info', text: first + ' signs as ' + who + ', but client menus go to ' + ch.email + '.' });
+  } else if (tick('agreement')) ticked('agreement', 'Marked signed');
+  else if (open.length) { const o0 = open[0]; const n = ckDays(o0.created_at); set('agreement', waitOrTodo(o0.created_at), o0.created_at, 'Sent ' + ckDate(o0.created_at) + '. Not signed yet (' + ckPlural(n, 'day') + ').' + (n > CK_WAIT_DAYS ? ' Chase ' + first + ' or resend it.' : '')); }
+  else if (dead.length) set('agreement', 'todo', '', 'No signed agreement on file.', { warn: 'The agreement sent ' + ckDate(dead[0].created_at) + ' ' + String(dead[0].status).toLowerCase() + ' without a signature. Send a new one in SignWell.' });
+  else if (goneIds.length) set('agreement', 'todo', '', 'No signed agreement on file.', { warn: 'The agreement from the sign-up is no longer in SignWell. Check SignWell.' });
+  else set('agreement', 'todo', '', 'No signed agreement on file. If it was signed another way, mark it done.');
+  // 5 + 10. background check
+  const invites = [...new Set(pk.map((p) => p.invite).filter(Boolean))];
+  if (invites.length) { set('bgcheckSent', 'done', pk[0].when, 'Checkr invite sent ' + ckDate(pk[0].when) + ' to ' + (pk[0].to || ch.email) + '.');
+    if (invites.length > 1) S.bgcheckSent.warn = 'Checkr invites went out ' + invites.length + ' times. Make sure only one check runs, each one is charged.'; }
+  else if (tick('bgcheckSent')) ticked('bgcheckSent', 'Marked sent');
+  else set('bgcheckSent', legacy ? 'before' : 'todo', '', legacy ? 'No Checkr invite on record from before the app.' : 'No Checkr invite on record. Send one from Checkr, then mark it sent.');
+  if (tick('bgcheck')) ticked('bgcheck', 'Marked cleared');
+  else if (S.bgcheckSent.state === 'done' && S.bgcheckSent.when) set('bgcheck', waitOrTodo(S.bgcheckSent.when), '', 'Invite sent ' + ckDate(S.bgcheckSent.when) + ' (' + ckPlural(ckDays(S.bgcheckSent.when), 'day') + ' ago). Mark done when Checkr shows the check is clear.');
+  else set('bgcheck', 'todo', '', 'Mark done once the background check is clear.');
+  // 6 + 11. W-9 for the 1099
+  if (pk.length) set('w9Sent', 'done', pk[0].when, 'W-9 link emailed ' + ckDate(pk[0].when) + ' in the welcome email.');
+  else if (tick('w9Sent')) ticked('w9Sent', 'Marked sent');
+  else set('w9Sent', legacy ? 'before' : 'todo', '', legacy ? 'Not tracked before the app.' : 'Send the W-9, then mark it sent.');
+  if (tick('w9')) ticked('w9', 'Marked received');
+  else if (S.w9Sent.state === 'done' && S.w9Sent.when) set('w9', waitOrTodo(S.w9Sent.when), '', 'W-9 link sent ' + ckDate(S.w9Sent.when) + '. Mark done when the signed W-9 is back.');
+  else set('w9', 'todo', '', 'Mark done when the signed W-9 is on file.');
+  // 7 + 12. website profile
+  const onWeb = [ch.name].concat(seed.webNames || []).some((n) => inp.web.names.includes(ckNorm(n)));
+  const pkProfile = pk.find((p) => p.profile);
+  if (pkProfile) set('profileSent', 'done', pkProfile.when, 'Included in the welcome email ' + ckDate(pkProfile.when) + '.');
+  else if (seed.profileInviteAt) set('profileSent', 'done', seed.profileInviteAt, 'Emailed ' + ckDate(seed.profileInviteAt) + ' with the website profile invite.');
+  else if (tick('profileSent')) ticked('profileSent', 'Marked sent');
+  else set('profileSent', 'todo', '', 'Send ' + first + ' the website profile form, then mark it sent.');
+  if (seed.profileAt) set('profile', 'done', seed.profileAt, 'Received ' + ckDate(seed.profileAt) + '.');
+  else if (onWeb) set('profile', 'done', '', 'Received before records began (the profile is on the website).');
+  else if (tick('profile')) ticked('profile', 'Marked received');
+  else if (S.profileSent.state === 'done' && S.profileSent.when) set('profile', waitOrTodo(S.profileSent.when), '', 'Form sent ' + ckDate(S.profileSent.when) + '. Not back yet.');
+  else set('profile', 'todo', '', 'Mark done when the profile form is back.');
+  // 8. Workforce, 13. QuickBooks, 14. Gusto: Amber's own steps
+  if (tick('workforceSent')) ticked('workforceSent', 'Marked sent'); else set('workforceSent', 'todo', '', 'Send the QuickBooks Workforce invite from QuickBooks, then mark it sent.');
+  if (tick('qbvendor')) ticked('qbvendor'); else set('qbvendor', 'todo', '', 'Check QuickBooks for ' + first + ' as a 1099 vendor, then mark it done.', { warn: pk.length > 1 ? 'The form came in more than once. Check QuickBooks for a duplicate vendor.' : '' });
+  const gn = ev.gusto[0]; // "GUSTO HAND-OFF SENT" note, written by the chef-signed automation
+  if (gn) set('gusto', 'done', gn.when, 'Emailed ' + ckDate(gn.when) + (gn.to ? ' to ' + gn.to : '') + ' so finance can add ' + first + ' in Gusto.');
+  else if (tick('gusto')) ticked('gusto', 'Marked sent');
+  else if (S.agreement.state === 'done') set('gusto', 'todo', '', 'Email finance to add ' + first + ' in Gusto, then mark it sent.');
+  else if (legacy) set('gusto', 'todo', '', 'If ' + first + ' is not in Gusto yet, email finance to add them, then mark it sent.');
+  else set('gusto', 'waiting', '', 'Goes to finance automatically once ' + first + ' signs the agreement.');
+  // 15. website (Jay)
+  if (onWeb) set('website', 'done', '', 'Live on the Meet the Team page.');
+  else if (inp.web.stale && !inp.web.names.length) set('website', 'todo', '', 'Could not check the website just now.');
+  else set('website', 'todo', '', 'Not on the website yet. Jay adds it once the profile is in.');
+  // 16. first client
+  const cl = ev.clients;
+  if (cl.length) { const dated = cl.filter((c) => c.sent).sort((a, b) => a.sent.localeCompare(b.sent));
+    set('firstclient', 'done', dated.length ? dated[0].sent : '', ckPlural(cl.length, 'client') + ': ' + cl.map((c) => c.name + (c.sent ? ' (menu and intake sent ' + ckDate(c.sent) + ')' : c.noMenu ? ' (assigned, no menu to send yet)' : ' (assigned before the app kept a record)')).join(', ') + '.');
+  } else set('firstclient', 'todo', '', 'No client yet. Assign one from the Waiting tab.');
+  // a "back" step done implies its "sent" step
+  Object.keys(CK_PAIRS).forEach((b) => { const s = CK_PAIRS[b]; if (S[b].state === 'done' && S[s].state !== 'done') set(s, 'done', S[b].when, 'Implied: it came back ' + (S[b].when ? ckDate(S[b].when) : 'already') + '.', { via: 'implied' }); });
+  const steps = CK_STEPS.map((st) => { const v = S[st.key];
+    return { key: st.key, label: st.label, group: st.group, state: v.state, when: v.when, whenLabel: v.state === 'done' ? ckDate(v.when) : '', detail: v.detail, warn: v.warn || '',
+      owner: st.owner === 'jay' ? 'jay' : (st.manual ? 'amber' : 'auto'), sent: !!st.sent, manual: !!st.manual && v.state !== 'done', ticked: !!T[st.key], canUndo: v.via === 'tick' }; });
+  steps.forEach((s) => { if (s.warn) flags.push({ tone: 'warn', text: s.warn }); });
+  const counted = steps.filter((s) => s.state !== 'before');
+  const next = steps.find((s) => s.state === 'waiting' || s.state === 'todo') || null;
+  const dates = [pk[0] && pk[0].when, ev.cards[0] && ev.cards[0].createdAt, done[0] && done[0].created_at].filter(Boolean).concat(done.length ? [] : sentDocs.slice(0, 1).map((d) => d.created_at)).concat(!done.length && !sentDocs.length && dead.length ? [dead[0].created_at] : []);
+  const onboardedAt = dates.length ? dates.slice().sort((a, b) => ckTime(a) - ckTime(b))[0] : '';
+  const src = !onboardedAt ? 'Started before the sign-up form' : (ev.cards[0] && ckTime(ev.cards[0].createdAt) <= ckTime(onboardedAt) + 60000) || (pk[0] && pk[0].when === onboardedAt) ? 'Sign-up form, ' + ckDate(onboardedAt) : 'Agreement in SignWell, ' + ckDate(onboardedAt);
+  return { id: ch.id, name: ch.name, firstName: first, email: ch.email, contactId: ch.contactId || null, onboardedAt, onboardedLabel: onboardedAt ? ckDate(onboardedAt) : '', sourceLabel: src,
+    group: onboardedAt ? 'new' : 'before', done: counted.filter((s) => s.state === 'done').length, total: counted.length,
+    todo: counted.filter((s) => s.state === 'todo' && s.owner !== 'jay').length, waiting: counted.filter((s) => s.state === 'waiting').length,
+    next: next ? { key: next.key, label: next.label, state: next.state, owner: next.owner } : null, flags, steps };
+}
+async function ckBuild({ fresh = false, test = false } = {}) {
+  const inp = await ckInputs(fresh); mem.ckOut = mem.ckOut || {};
+  const ck = test ? 'test' : 'live'; if (!fresh && mem.ckOut[ck]) return mem.ckOut[ck];
+  const roster = ckRoster(inp); const ticks = (await ckTicksRead(false)).data.chefs || {};
+  const icaRe = /independent.?contractor/i;
+  // clients per chef + the "menu and intake sent" date from the client's notes
+  const clientsOf = {}; (inp.snap.clients || []).forEach((c) => { if (c.chef && c.stage !== 'past') (clientsOf[ckNorm(c.chef)] = clientsOf[ckNorm(c.chef)] || []).push(c); });
+  const wanted = [...new Set([].concat(...roster.map((ch) => ch.contacts.map((c) => c.id)), ...Object.values(clientsOf).map((a) => a.map((c) => c.id))))];
+  const notesById = {}; await pool(wanted, 4, async (id) => { notesById[id] = await ckNotes(id, fresh); });
+  const chefs = roster.map((ch) => {
+    const ids = ch.contacts.map((c) => c.id);
+    const cards = inp.cards.filter((o) => ids.includes(o.contactId)).sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    const packets = [].concat(...ids.map((id) => (notesById[id] || []).map(ckPacket).filter(Boolean))).sort((a, b) => ckTime(a.when) - ckTime(b.when));
+    const docs = inp.sw.docs.filter((d) => (d.template_id === cfg.icaTemplate || icaRe.test(d.name)) && d.recipients.some((r) => ch.emails.includes(r.email)));
+    const clients = (clientsOf[ckNorm(ch.name)] || []).map((c) => { const ns = notesById[c.id] || []; let sent = '', noMenu = false;
+      ns.forEach((n) => { const t = ckText(n.body); const who = (t.match(/Chef:\s*(.+?)\s*(?:\r?\n|Chef email:|Client:|$)/i) || [])[1]; if (!who || ckNorm(who) !== ckNorm(ch.name)) return;
+        if (/MENU \+ INTAKE SENT TO ASSIGNED CHEF/i.test(t)) { const m = t.match(/Sent:\s*(\d{4}-\d{2}-\d{2})/); const w = m ? m[1] : (n.dateAdded || ''); if (!sent || w < sent) sent = w; }
+        else if (/CHEF ASSIGNED BUT NO MENU/i.test(t)) noMenu = true; });
+      return { name: String(c.name || '').trim(), sent, noMenu }; });
+    const gusto = [].concat(...ids.map((id) => (notesById[id] || []).map((n) => { const t = ckText(n.body); if (!/^\W*GUSTO HAND-OFF SENT/i.test(t)) return null;
+      return { when: n.dateAdded || '', to: ((t.match(/Sent to:\s*([^\s<]+@[^\s<]+)/i) || [])[1] || '').toLowerCase() }; }).filter(Boolean))).sort((a, b) => ckTime(a.when) - ckTime(b.when));
+    return ckChef(ch, { cards, packets, docs, clients, gusto }, ticks, inp);
+  });
+  if (test) { // fixture chef, only with test=1: no evidence, ticks from chefcheck:test, notes go to the ZZTEST contact
+    const tt = (await ckTicksRead(true)).data.chefs || {};
+    const z = ckChef({ name: 'ZZTEST Chef', id: 'zztest-chef', email: 'jjcavada1+e2e@gmail.com', emails: ['jjcavada1+e2e@gmail.com'], contacts: [], contactId: cfg.testChefContact, contactName: '' }, { cards: [], packets: [], docs: [], clients: [], gusto: [] }, tt, inp);
+    z.onboardedAt = new Date().toISOString(); z.onboardedLabel = ckDate(z.onboardedAt); z.group = 'new'; z.sourceLabel = 'Test chef (only visible in test mode)'; z.contactId = cfg.testChefContact;
+    chefs.push(z);
+  }
+  const fresh1 = chefs.filter((c) => c.group === 'new').sort((a, b) => ckTime(b.onboardedAt) - ckTime(a.onboardedAt));
+  const old = chefs.filter((c) => c.group !== 'new').sort((a, b) => a.name.localeCompare(b.name));
+  const all = fresh1.concat(old);
+  const out = { ok: true, generatedAt: new Date().toISOString(), stale: { signwell: !!inp.sw.stale, website: !!inp.web.stale },
+    summary: { chefs: all.filter((c) => c.id !== 'zztest-chef').length, before: old.length, todo: all.reduce((n, c) => n + c.todo, 0), waiting: all.reduce((n, c) => n + c.waiting, 0) }, chefs: all };
+  mem.ckOut[ck] = out; return out;
 }
 
 /* ---------- snapshot ---------- */
@@ -498,6 +773,36 @@ export default async (req) => {
         : 'ARCHIVED (NI Today) by Amber on ' + when + ': ' + reason + (note ? '\n' + note : '') + (pick ? '\nThe client left the journey (opportunity set to Lost, stage unchanged). Undo from the app, or set the opportunity back to Open in GoHighLevel.' : '\nThere was no pipeline card for this client, so only the contact is marked archived.') }) }); side.note = 'ok'; } catch (e) { side.note = String(e.message).slice(0, 140); }
       mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); if (pick) await store('ni-cache').delete('opp:' + pick.id); } catch (e) {} }
       return json({ ok: true, oppId: pick ? pick.id : '', status: pick ? (undo ? backTo : 'lost') : 'none', archived: text, side });
+    }
+    if (route === 'chefs/checklist' && req.method === 'GET') {
+      try { return json(await ckBuild({ fresh: url.searchParams.get('fresh') === '1', test: url.searchParams.get('test') === '1' })); }
+      catch (e) { console.error('chefs/checklist', e && e.stack || e); return json({ ok: false, error: 'Could not build the checklist.', detail: String(e && e.message || e).slice(0, 160) }, 502); }
+    }
+    if (route === 'chefs/check' && req.method === 'POST') {
+      const b = await req.json().catch(() => ({}));
+      const chefId = String(b.chefId || ''), step = String(b.step || ''), done = b.done;
+      if (!/^[a-z0-9-]{3,60}$/.test(chefId)) return json({ ok: false, error: 'unknown chef' }, 409);
+      if (!CK_MANUAL.includes(step)) return json({ ok: false, error: 'This step cannot be ticked.' }, 400);
+      if (typeof done !== 'boolean') return json({ ok: false, error: 'bad request' }, 400);
+      const isTest = chefId === 'zztest-chef';
+      if (isTest && url.searchParams.get('test') !== '1') return json({ ok: false, error: 'unknown chef' }, 409);
+      let list; try { list = await ckBuild({ test: isTest }); } catch (e) { return json({ ok: false, error: 'Could not read the checklist.' }, 502); }
+      const chef = list.chefs.find((c) => c.id === chefId); if (!chef) return json({ ok: false, error: 'unknown chef' }, 409);
+      let res; const now = new Date().toISOString();
+      try { res = await ckTicksWrite(isTest, (data) => { data.chefs = data.chefs || {}; const cur = (data.chefs[chefId] || {})[step];
+        if (done ? !!cur : !cur) return 'unchanged';
+        data.chefs[chefId] = data.chefs[chefId] || {}; if (done) data.chefs[chefId][step] = { at: now }; else delete data.chefs[chefId][step];
+        data.log = [{ chefId, step, done, at: now }].concat(data.log || []).slice(0, 200); }); }
+      catch (e) { return json({ ok: false, error: 'Could not save. Try again.' }, 502); }
+      if (res === 'unchanged') return json({ ok: true, unchanged: true, note: null, chef });
+      let note = null;
+      if (chef.contactId) { const st = CK_STEPS.find((x) => x.key === step) || { label: step }; const d = new Date();
+        try { await ghl('/contacts/' + chef.contactId + '/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: cfg.ghlUser,
+          body: 'CHEF CHECKLIST (NI Today): "' + st.label + '" for ' + chef.name + (done ? (st.sent ? ' marked sent' : ' marked done') : ' marked not done (undo)') + ' on ' + longDate(d) + ' at ' + timeOf(d) + ' (Phoenix time).' }) }); note = true; }
+        catch (e) { note = false; } }
+      mem.ckOut = {};
+      let fresh1; try { fresh1 = await ckBuild({ test: isTest }); } catch (e) { fresh1 = null; }
+      return json({ ok: true, note, chef: fresh1 ? fresh1.chefs.find((c) => c.id === chefId) || null : null });
     }
     if (route === 'summary' && req.method === 'POST') {
       const b = await req.json().catch(() => ({})); const contactId = String(b.contactId || '');

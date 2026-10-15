@@ -26,7 +26,7 @@
   --paper:#FBF8F1; --raise:#FFFFFF; --tile:#F3EDE0; --ink:#2E352A; --head:#3E4736; --soft:#5E6655; --faint:#656C5C; --hair:#E4DBC6;
   --weekly:#467326; --weekly-bg:#E6F0DA; --event:#9C4825; --event-bg:#F7E4D9; --wait:#9C4825;
   --allergy:#B42318; --allergy-bg:#FCE9E7;
-  --hot:#6F5410; --track:#E4DBC6; --bar:#467326; --ch-tint:#D7E4C3; --chip-bg:#E9E2D1; --chip-fg:#3E4736; --chip-open-bg:#E6F0DA; --chip-open-fg:#2E5A14;
+  --hot:#6F5410; --ck-wait-bg:#F5ECCF; --track:#E4DBC6; --bar:#467326; --ch-tint:#D7E4C3; --chip-bg:#E9E2D1; --chip-fg:#3E4736; --chip-open-bg:#E6F0DA; --chip-open-fg:#2E5A14;
   --warn-bg:#F7E4D9; --warn-fg:#8A3A1B; --warn-bd:#E6B9A7; --badge:#B93A24; --sw-off:#8F9785; --press:rgba(46,53,42,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#3E4736; --btn-fg:#FBF8F1; --scrim:rgba(24,28,20,.42); --focus:#467326;
   --shadow:0 1px 2px rgba(46,53,42,.05), 0 12px 32px -20px rgba(46,53,42,.28);
@@ -43,14 +43,14 @@
   --paper:#171B14; --raise:#1F251B; --tile:#232A20; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#8A927E; --hair:#30382A;
   --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
   --allergy:#F4978E; --allergy-bg:#3B1F1C;
-  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
+  --hot:#E2C169; --ck-wait-bg:rgba(226,193,105,.16); --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
   --warn-bg:rgba(214,96,72,.22); --warn-fg:#F6B2A2; --warn-bd:rgba(214,96,72,.4); --badge:#C84A32; --sw-off:rgba(255,255,255,.2); --press:rgba(255,255,255,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:#A6CC7C; --shadow:none; --hair:#343C2E; color-scheme:dark } }
 :root[data-theme="dark"]{
   --paper:#171B14; --raise:#1F251B; --tile:#232A20; --ink:#E9E4D6; --head:#F2EDE1; --soft:#A2A996; --faint:#8A927E; --hair:#30382A;
   --weekly:#A6CC7C; --weekly-bg:#2A3820; --event:#EC9472; --event-bg:#3B291F; --wait:#EC9472;
   --allergy:#F4978E; --allergy-bg:#3B1F1C;
-  --hot:#E2C169; --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
+  --hot:#E2C169; --ck-wait-bg:rgba(226,193,105,.16); --track:rgba(255,255,255,.08); --bar:#A3B55D; --ch-tint:rgba(163,181,93,.24); --chip-bg:rgba(255,255,255,.08); --chip-fg:#E9E4D6; --chip-open-bg:rgba(120,170,90,.22); --chip-open-fg:#B9DB9F;
   --warn-bg:rgba(214,96,72,.22); --warn-fg:#F6B2A2; --warn-bd:rgba(214,96,72,.4); --badge:#C84A32; --sw-off:rgba(255,255,255,.2); --press:rgba(255,255,255,.07); --act-done:#467326; --act-arch:#6B7363;
   --btn:#DCE8C8; --btn-fg:#171B14; --scrim:rgba(0,0,0,.55); --focus:#A6CC7C; --shadow:none; --hair:#343C2E; color-scheme:dark }
 
@@ -261,10 +261,61 @@ li:last-child>.row{border-bottom:0}
 .chef.open .csub{display:block;font-size:13.5px;color:var(--soft);margin-top:1px}
 .chef.open .cl .alg{margin-top:6px}
 .morechefs{margin-top:12px;min-height:44px;font-weight:600;font-size:14px;color:var(--weekly)}
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--tile);border-radius:999px;padding:4px;margin:var(--s1) 0 var(--s3)}
-.seg button{border-radius:999px;padding:9px 10px;min-height:40px;font-weight:600;font-size:var(--fs-14);color:var(--soft);text-align:center;transition:background-color var(--dur) ,color var(--dur)}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--tile);border-radius:999px;padding:4px;margin:var(--s1) 0 var(--s3)}
+.seg button{border-radius:999px;padding:9px 4px;min-height:44px;font-weight:600;font-size:var(--fs-14);line-height:1.2;color:var(--soft);text-align:center;transition:background-color var(--dur) ,color var(--dur)}
 .seg button[aria-selected="true"]{background:var(--raise);color:var(--head);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .overview{font-size:14px;color:var(--soft);margin:0 0 6px}
+.tab-check[hidden],.ck-old[hidden]{display:none}
+.ck-list{display:grid;gap:var(--s3)}
+.ck-card{display:grid;gap:var(--s2);width:100%;text-align:left;background:var(--raise);border:1px solid var(--hair);border-radius:var(--r-md);padding:var(--s4);color:var(--ink);font:inherit;cursor:pointer;transition:background-color var(--dur-fast) var(--ease)}
+.ck-card:hover{background:var(--press)}
+.ck-card:active{background:var(--press)}
+.ck-top{display:flex;align-items:center;gap:var(--s3);min-width:0}
+.ck-name{font-family:var(--display);font-size:var(--fs-18);color:var(--head);flex:1;min-width:0;line-height:1.2}
+.ck-of{font-size:var(--fs-13);color:var(--soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ck-top .chev{transform:rotate(-90deg);color:var(--faint);flex:none}
+.ck-src{font-size:var(--fs-13);color:var(--soft)}
+.ck-bar{display:block;height:6px;border-radius:999px;background:var(--track);overflow:hidden}
+.ck-bar i{display:block;height:100%;background:var(--weekly);transform-origin:left;transition:transform .5s var(--ease)}
+.ck-next{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;font-size:var(--fs-14);color:var(--ink)}
+.ck-nl{min-width:0}
+.ck-alldone{color:var(--weekly);font-weight:600}
+.ck-flag{font-size:var(--fs-13);color:var(--warn-fg);font-weight:600}
+.ck-pill{display:inline-flex;align-items:center;font-size:var(--fs-12);font-weight:600;line-height:1.4;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.ck-pill.ck-s-done{background:var(--weekly-bg);color:var(--weekly)}
+.ck-pill.ck-s-waiting{background:var(--ck-wait-bg);color:var(--hot)}
+.ck-pill.ck-s-todo{background:var(--tile);color:var(--ink)}
+.ck-pill.ck-s-before{background:transparent;border:1px dashed var(--hair);color:var(--faint)}
+.ck-more{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);width:100%;min-height:48px;padding:var(--s3) var(--s1);margin-top:var(--s2);font:600 var(--fs-14)/1.3 var(--text);color:var(--soft);border-top:1px solid var(--hair);text-align:left;cursor:pointer}
+.ck-more .chev{transition:transform var(--dur) var(--ease)}
+.ck-more[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.ck-skel{background:var(--raise);border:1px solid var(--hair);border-radius:var(--r-md);padding:var(--s2) var(--s4)}
+.ck-upd{color:var(--faint)}
+.ck-mail{display:block;font-size:var(--fs-13);color:var(--faint);margin-top:2px;word-break:break-all}
+.ck-sum{font-size:var(--fs-14);color:var(--soft);margin:var(--s2) 0 var(--s3)}
+.ck-flags ul{margin:var(--s1) 0 0;padding-left:18px;list-style:disc}
+.ck-flags li{font-size:var(--fs-14);color:var(--warn-fg);margin:2px 0}
+.ck-gh{font:600 var(--fs-12)/1 var(--text);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:var(--s5) 0 var(--s1)}
+.ck-steps{display:grid;margin:0;padding:0;list-style:none}
+.ck-step{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:var(--s3);align-items:start;padding:var(--s3) 0;border-bottom:1px solid var(--hair);outline-offset:4px}
+.ck-step:last-child{border-bottom:0}
+.ck-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;margin-top:1px;box-sizing:border-box}
+.ck-ic svg{width:14px;height:14px}
+.ck-ic.ck-s-done{background:var(--weekly);color:var(--paper)}
+.ck-ic.ck-s-waiting{border:2px solid var(--hot)}
+.ck-ic.ck-s-todo{border:2px solid var(--hair)}
+.ck-ic.ck-s-before{border:2px dashed var(--faint);opacity:.7}
+.ck-body{min-width:0}
+.ck-lbl{font-size:var(--fs-15);font-weight:600;color:var(--head);line-height:1.35}
+.ck-pl{margin-top:4px}
+.ck-det{font-size:var(--fs-13);color:var(--soft);margin-top:4px;line-height:1.45}
+.ck-warn{font-size:var(--fs-13);color:var(--warn-fg);margin-top:4px;line-height:1.45}
+.ck-act{display:flex;align-items:center;min-height:44px}
+.ck-act .btn{min-height:44px;padding:8px 14px;font-size:var(--fs-14);white-space:nowrap}
+.ck-undo{min-height:44px;padding:0 4px}
+.ck-foot{margin-top:var(--s4)}
+@media (max-width:380px){.ck-step{grid-template-columns:24px minmax(0,1fr)}.ck-act{grid-column:2;min-height:0}}
+
 .chef-head .free{display:block;font-weight:400}
 .chef.empty .chef-head{cursor:default;padding-bottom:12px}
 .free{font-size:13px;color:var(--faint)}
@@ -764,6 +815,92 @@ function renderWaiting(){
   var full = $('.full[data-kind="waiting"] .full-list'); if (full) full.innerHTML = html;
   var tn = $('#tabwaitn'); if (tn) tn.textContent = list.length;
 }
+/* ---------------- chef checklist (Jay, 2026-10-15): third tab on the Waiting screen ---------------- */
+var CK = {data:null, at:0, err:'', loading:false, busy:{}};
+function ckTestQ(){ return store.get('testview', false) === true; }
+function ckFetch(force){
+  if (CK.loading) return; CK.loading = true; CK.err = ''; if (!CK.data) renderChecklist();
+  var q = []; if (ckTestQ()) q.push('test=1'); if (force) q.push('fresh=1');
+  api('chefs/checklist' + (q.length ? '?' + q.join('&') : '')).then(function(r){ return r.json(); }).then(function(d){
+    CK.loading = false; if (!d || !d.ok || !d.chefs) throw new Error((d && d.error) || 'bad data');
+    CK.data = d; CK.at = Date.now(); renderChecklist(); ckRefreshSheets();
+  }).catch(function(e){ CK.loading = false; if (e.message === 'locked') return; CK.err = 'x'; renderChecklist(); if (force) toast('Could not refresh the checklist. Try again.', null, 5000); });
+}
+function loadChecklist(){ if (!CK.data || Date.now() - CK.at > 120000) ckFetch(false); else renderChecklist(); }
+function ckChef(id){ return CK.data ? (CK.data.chefs || []).filter(function(c){ return c.id === id; })[0] : null; }
+function ckPill(s, first){
+  var t = s.state === 'done' ? ((s.sent ? 'Sent' : 'Done') + (s.whenLabel ? ' ' + s.whenLabel : '')) : s.state === 'waiting' ? 'Waiting on ' + (first || 'the chef') : s.state === 'before' ? 'Before the app' : (s.owner === 'jay' ? 'To do (Jay)' : 'To do');
+  return '<span class="ck-pill ck-s-' + esc(s.state) + '">' + esc(t) + '</span>';
+}
+function ckBar(c){ var pct = c.total ? c.done / c.total : 0; return '<span class="ck-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + c.total + '" aria-valuenow="' + c.done + '" aria-label="' + c.done + ' of ' + c.total + ' steps done"><i style="transform:scaleX(' + pct.toFixed(3) + ')"></i></span>'; }
+function ckCard(c){
+  var n = c.next;
+  return '<div class="ck-item"><button type="button" class="ck-card" data-ckchef="' + esc(c.id) + '">' +
+    '<span class="ck-top"><span class="av" aria-hidden="true">' + esc(initials(c.name)) + '</span><span class="ck-name">' + esc(c.name) + '</span><span class="ck-of">' + c.done + ' of ' + c.total + '</span>' + ICON.chev + '</span>' +
+    '<span class="ck-src">' + esc(c.sourceLabel) + '</span>' + ckBar(c) +
+    (n ? '<span class="ck-next"><span class="ck-nl">Next: ' + esc(n.label) + '</span>' + ckPill(n, c.firstName) + '</span>' : '<span class="ck-next ck-alldone">All steps done</span>') +
+    (c.flags && c.flags.length ? '<span class="ck-flag">' + esc(plural(c.flags.length, 'thing') + ' to check') + '</span>' : '') +
+    '</button></div>';
+}
+function ckAgo(){ return CK.at ? ago(Math.round((Date.now() - CK.at) / 60000)) : ''; }
+function renderChecklist(){
+  var ov = $('.full[data-kind="waiting"]'); if (!ov) return; var box = $('.ck-list', ov), sum = $('#cksum', ov); if (!box) return;
+  if (!CK.data) {
+    if (CK.err) { box.innerHTML = '<p class="none">Could not load the checklist.</p><div class="acts"><button type="button" class="btn ghost-b" data-ckretry>Try again</button></div>'; if (sum) sum.textContent = ''; }
+    else { box.innerHTML = '<div class="ck-skel"><div class="skrow"></div><div class="skrow short"></div></div><div class="ck-skel"><div class="skrow"></div><div class="skrow short"></div></div><div class="ck-skel"><div class="skrow"></div><div class="skrow short"></div></div>'; if (sum) sum.textContent = 'Loading the checklist…'; }
+    return;
+  }
+  var d = CK.data, list = d.chefs || [], fresh = list.filter(function(c){ return c.group === 'new'; }), old = list.filter(function(c){ return c.group !== 'new'; });
+  var todo = 0, waiting = 0; list.forEach(function(c){ todo += c.todo; waiting += c.waiting; });
+  if (sum) sum.innerHTML = esc(plural(d.summary.chefs, 'chef') + ', newest first. Tap a chef to see every step' + (waiting ? ', ' + waiting + ' waiting on chefs' : '') + '.') + ' <span class="ck-upd">Updated ' + esc(ckAgo()) + (d.stale && d.stale.signwell ? '. SignWell status may be out of date' : '') + '.</span> <button type="button" class="link" data-ckretry>Refresh</button>';
+  var open = store.get('ckbefore', false) === true;
+  box.innerHTML = (fresh.length ? fresh.map(ckCard).join('') : '<p class="none">No chefs yet. New chefs show up here when they send the sign-up form.</p>') +
+    (old.length ? '<button type="button" class="ck-more" data-ckmore aria-expanded="' + open + '"><span>Started before the sign-up form (' + old.length + ')</span>' + ICON.chev + '</button><div class="ck-old ck-list"' + (open ? '' : ' hidden') + '>' + old.map(ckCard).join('') + '</div>' : '');
+}
+function ckStepHTML(c, s){
+  var busy = CK.busy[c.id + ':' + s.key];
+  var act = busy ? '<span class="spin" role="status" aria-label="Saving"></span>' :
+    s.canUndo ? '<button type="button" class="link ck-undo" data-ckundo="' + esc(s.key) + '" data-ckfor="' + esc(c.id) + '">Undo</button>' :
+    s.manual ? '<button type="button" class="btn ghost-b ck-mark" data-ckmark="' + esc(s.key) + '" data-ckfor="' + esc(c.id) + '">' + (s.sent ? 'Mark sent' : 'Mark done') + '</button>' : '';
+  return '<li class="ck-step" data-ckstep="' + esc(s.key) + '" tabindex="-1"><span class="ck-ic ck-s-' + esc(s.state) + '" aria-hidden="true">' + (s.state === 'done' ? ICON.check : '') + '</span>' +
+    '<div class="ck-body"><div class="ck-lbl">' + esc(s.label) + '</div><div class="ck-pl">' + ckPill(s, c.firstName) + '</div>' + (s.detail ? '<div class="ck-det">' + esc(s.detail) + '</div>' : '') + (s.warn ? '<div class="ck-warn">' + esc(s.warn) + '</div>' : '') + '</div>' +
+    (act ? '<div class="ck-act">' + act + '</div>' : '') + '</li>';
+}
+function ckSheetHTML(c){
+  var groups = []; c.steps.forEach(function(s){ var g = groups.filter(function(x){ return x.name === s.group; })[0]; if (!g) { g = {name:s.group, steps:[]}; groups.push(g); } g.steps.push(s); });
+  return '<h3>' + esc(c.name) + '</h3><p class="sub">' + esc(c.sourceLabel) + (c.email ? '<span class="ck-mail">' + esc(c.email) + '</span>' : '') + '</p>' + ckBar(c) +
+    '<p class="ck-sum">' + esc(c.done + ' of ' + c.total + ' done. ' + plural(c.todo, 'step') + ' for you, ' + c.waiting + ' waiting on ' + c.firstName + '.') + '</p>' +
+    (c.flags && c.flags.length ? '<div class="expect ck-flags"><b>To check</b><ul>' + c.flags.map(function(f){ return '<li>' + esc(f.text) + '</li>'; }).join('') + '</ul></div>' : '') +
+    groups.map(function(g){ return '<div class="ck-gh">' + esc(g.name) + '</div><ol class="ck-steps">' + g.steps.map(function(s){ return ckStepHTML(c, s); }).join('') + '</ol>'; }).join('') +
+    (c.contactId ? '<p class="fine ck-foot">Every tick adds a note to ' + esc(c.firstName) + '’s contact in GoHighLevel.</p>' : '<p class="fine ck-foot">' + esc(c.firstName) + ' has no contact in GoHighLevel, so ticks are saved in NI Today only.</p>');
+}
+function openChefCheck(id){
+  var c = ckChef(id); if (!c) return;
+  var sh = openSheet(ckSheetHTML(c)); sh.ckid = id;
+  sh.refill = function(){ var cc = ckChef(id); if (cc && !sh.closed) sh.setBody(ckSheetHTML(cc)); };
+}
+function ckRefreshSheets(){ sheets.slice().forEach(function(o){ if (o.ckid && o.refill) o.refill(); }); }
+function ckFocus(key){ setTimeout(function(){ var top = sheets[sheets.length - 1]; var el = top && top.el ? top.el.querySelector('[data-ckstep="' + key + '"]') : null; if (el) try { el.focus({preventScroll:true}); } catch (e) {} }, 60); }
+function ckConfirm(chefId, key, done){
+  var c = ckChef(chefId); if (!c) return; var s = c.steps.filter(function(x){ return x.key === key; })[0]; if (!s) return;
+  var title = done ? (s.sent ? 'Mark as sent?' : 'Mark as done?') : (s.sent ? 'Mark as not sent?' : 'Mark as not done?');
+  var body = s.label + ', for ' + c.name + '. ' + (c.contactId ? 'This adds a note to ' + c.firstName + '’s contact in GoHighLevel.' : 'This is saved in NI Today.');
+  var sh = openSheet('<h3>' + esc(title) + '</h3><p class="sub">' + esc(body) + '</p><div class="acts"><button type="button" class="btn" data-ckyes>' + esc(done ? (s.sent ? 'Mark sent' : 'Mark done') : 'Undo') + '</button><button type="button" class="btn ghost-b" data-close>Cancel</button></div>');
+  sh.el.querySelector('[data-ckyes]').addEventListener('click', function(){ sh.close(); ckSave(chefId, key, done); });
+}
+function ckSave(chefId, key, done){
+  var k = chefId + ':' + key, c0 = ckChef(chefId), s0 = c0 ? c0.steps.filter(function(x){ return x.key === key; })[0] : null, lbl = s0 ? s0.label : 'Step';
+  CK.busy[k] = true; ckRefreshSheets();
+  api('chefs/check' + (chefId === 'zztest-chef' ? '?test=1' : ''), {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chefId:chefId, step:key, done:done})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
+    delete CK.busy[k];
+    if (!(x.d && x.d.ok)) { ckRefreshSheets(); toast('Could not save. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); return; }
+    if (x.d.chef && CK.data) CK.data.chefs = CK.data.chefs.map(function(c){ return c.id === chefId ? x.d.chef : c; });
+    renderChecklist(); ckRefreshSheets(); ckFocus(key);
+    var msg = x.d.unchanged ? 'Already saved.' : (done ? (s0 && s0.sent ? 'Marked sent: ' : 'Marked done: ') : 'Undone: ') + lbl + '.';
+    if (x.d.note === false) msg += ' The GoHighLevel note did not go through.';
+    toast(msg, (done && !x.d.unchanged) ? function(){ ckSave(chefId, key, false); } : null, 8000);
+  }).catch(function(e){ delete CK.busy[k]; ckRefreshSheets(); if (e.message !== 'locked') toast('Could not save. Check your connection.'); });
+}
 function renderNotes(){
   var open = notes.filter(function(n){ return n.st === 'open'; });
   $('#notes').innerHTML = open.length ? open.map(function(n){
@@ -1084,9 +1221,10 @@ function fullHTML(kind, arg){
   }
   if (kind === 'waiting') {
     return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +
-      '<div class="seg" role="tablist" aria-label="Show"><button role="tab" data-tab="wait" aria-selected="true">Waiting (<span id="tabwaitn">' + waitingList().length + '</span>)</button><button role="tab" data-tab="chefs" aria-selected="false">All chefs (' + chefNames().length + ')</button></div>' +
+      '<div class="seg" role="tablist" aria-label="Show"><button role="tab" data-tab="wait" aria-selected="true">Waiting (<span id="tabwaitn">' + waitingList().length + '</span>)</button><button role="tab" data-tab="chefs" aria-selected="false">Chefs (' + chefNames().length + ')</button><button role="tab" data-tab="check" aria-selected="false">Checklist</button></div>' +
       '<div class="tab-wait"><div class="full-list"></div></div>' +
-      '<div class="tab-chefs" hidden><p class="overview"><span id="chefsum"></span></p><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button></div>';
+      '<div class="tab-chefs" hidden><p class="overview"><span id="chefsum"></span></p><ul id="fchefs"></ul><button class="morechefs" id="morechefs" hidden></button></div>' +
+      '<div class="tab-check" hidden><p class="overview" id="cksum"></p><div class="ck-list" aria-live="polite"></div></div>';
   }
   var upcoming = DATA ? DATA.calls.filter(function(c){ return c.dayKey >= DATA.today; }) : [];
   var days = []; upcoming.forEach(function(c){ if (days.indexOf(c.day) < 0) days.push(c.day); });
@@ -1095,12 +1233,15 @@ function fullHTML(kind, arg){
 }
 function showTab(ov, tab){
   if (!ov) return;
-  var chefs = tab === 'chefs', w = ov.querySelector('.tab-wait'), c = ov.querySelector('.tab-chefs');
+  var T = {wait:{panel:'.tab-wait', title:'Waiting for a chef', sub:'Pick a chef and their intake and menu go out.'}, chefs:{panel:'.tab-chefs', title:'All chefs', sub:'Who cooks for whom, from the Assigned Chef field in GoHighLevel.'}, check:{panel:'.tab-check', title:'Chef checklist', sub:'Every step of getting a chef started, newest chef first.'}};
+  if (!T[tab]) tab = 'wait';
   ov.querySelectorAll('.seg [data-tab]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
-  w.hidden = chefs; c.hidden = !chefs;
-  ov.querySelector('#fh3').textContent = chefs ? 'All chefs' : 'Waiting for a chef';
-  ov.querySelector('#fhp').textContent = chefs ? 'Who cooks for whom, from the Assigned Chef field in GoHighLevel.' : 'Pick a chef and their intake and menu go out.';
-  if (!RM) (chefs ? c : w).animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:280, easing:'ease-out'});
+  Object.keys(T).forEach(function(k){ var p = ov.querySelector(T[k].panel); if (p) p.hidden = k !== tab; });
+  ov.querySelector('#fh3').textContent = T[tab].title;
+  ov.querySelector('#fhp').textContent = T[tab].sub;
+  var cur = ov.querySelector(T[tab].panel);
+  if (!RM && cur) cur.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:280, easing:'ease-out'});
+  if (tab === 'check') loadChecklist();
 }
 function clipFor(r){ return 'inset(' + r.top + 'px ' + (window.innerWidth - r.right) + 'px ' + (window.innerHeight - r.bottom) + 'px ' + r.left + 'px round 16px)'; }
 function openFull(kind, tile, tab, arg){
@@ -1283,6 +1424,11 @@ document.addEventListener('click', function(e){
   if ((t = e.target.closest('[data-closefull]'))) return closeFull();
   if ((t = e.target.closest('.tile[data-full]'))) return openFull(t.dataset.full, t);
   if ((t = e.target.closest('[data-openstage]'))) return openFull('stage', t, null, t.dataset.openstage);
+  if ((t = e.target.closest('[data-ckchef]'))) return openChefCheck(t.dataset.ckchef);
+  if ((t = e.target.closest('[data-ckmark]'))) return ckConfirm(t.dataset.ckfor, t.dataset.ckmark, true);
+  if ((t = e.target.closest('[data-ckundo]'))) return ckConfirm(t.dataset.ckfor, t.dataset.ckundo, false);
+  if ((t = e.target.closest('[data-ckmore]'))) { var ckOpen = t.getAttribute('aria-expanded') !== 'true'; store.set('ckbefore', ckOpen); t.setAttribute('aria-expanded', String(ckOpen)); var ckNx = t.nextElementSibling; if (ckNx) ckNx.hidden = !ckOpen; return; }
+  if ((t = e.target.closest('[data-ckretry]'))) return ckFetch(true);
   if ((t = e.target.closest('.seg [data-tab]'))) return showTab(t.closest('.full'), t.dataset.tab);
   if ((t = e.target.closest('[data-openfull]'))) { var k = t.dataset.openfull, tb = t.dataset.tab; if ($('.full')) { closeFull(); setTimeout(function(){ openFull(k, $('.tile[data-full="' + k + '"]'), tb); }, 420); return; } return openFull(k, $('.tile[data-full="' + k + '"]'), tb); }
   if ((t = e.target.closest('#morechefs'))) { chefsAll = !chefsAll; var before = $$('#fchefs .chef').length; renderChefs(); if (!RM) $$('#fchefs .chef').slice(before).forEach(function(li, i){ li.animate([{opacity:0, transform:'translateY(8px)'},{opacity:1, transform:'none'}], {duration:300, delay:i * 40, easing:'ease-out', fill:'backwards'}); }); return; }

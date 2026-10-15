@@ -174,6 +174,7 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .clegend .lsw.cli{background:var(--bar)}
 .cgroup{margin:var(--s4) 0 0}
 .cgroup .jhead{margin-bottom:var(--s1)}
+.cnote{font-size:var(--fs-14);line-height:1.45;color:var(--soft);margin:0 0 var(--s2);max-width:60ch}
 .cgroup .jhead .hint{font-family:var(--display);font-weight:300;font-size:var(--fs-22);color:var(--head)}
 .month .chart{margin-top:var(--s2)}
 .month .ccap{margin-bottom:var(--s2)}
@@ -1280,8 +1281,8 @@ function toggleChef(li){
 }
 
 /* ---------------- full screens morphing out of a number box ---------------- */
-function cgroup(title, arr, empty){
-  return '<section class="journey cgroup"><div class="jhead"><h2 class="ct">' + esc(title) + '</h2><span class="hint">' + arr.length + '</span></div><ul class="full-list">' + (arr.length ? arr.map(clientRow).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul></section>';
+function cgroup(title, arr, empty, note){
+  return '<section class="journey cgroup"><div class="jhead"><h2 class="ct">' + esc(title) + '</h2><span class="hint">' + arr.length + '</span></div>' + (note && arr.length ? '<p class="cnote">' + esc(note) + '</p>' : '') + '<ul class="full-list">' + (arr.length ? arr.map(clientRow).join('') : '<li><p class="none">' + esc(empty) + '</p></li>') + '</ul></section>';
 }
 function clientRow(c){
   var hay = [c.name, c.chef, c.area, c.diet, (c.allergies || []).join(' '), stageLabel(c)].join(' ').toLowerCase();
@@ -1291,10 +1292,10 @@ function fullHTML(kind, arg){
   var x = '<button class="x" data-closefull aria-label="Close">' + ICON.x + '</button>';
   if (kind === 'stage') return stageHTML(arg, x);
   if (kind === 'clients') {
-    var all = clients(), withChef = all.filter(function(c){ return c.hasChef && !c.isNew && c.stage !== 'past'; }), noChef = all.filter(function(c){ return !c.hasChef && !c.isNew && c.stage !== 'past'; }), newer = all.filter(function(c){ return c.isNew; }), past = all.filter(function(c){ return c.stage === 'past'; });
-    return '<div class="full-h"><div><h3>Clients</h3><p>' + all.length + ' in GHL · ' + withChef.length + ' with a chef · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet · ' + past.length + ' past</p></div>' + x + '</div>' +
+    var all = clients(), withChef = all.filter(function(c){ return c.hasChef && c.chef && !c.isNew && c.stage !== 'past'; }), noRecord = all.filter(function(c){ return c.hasChef && !c.chef && !c.isNew && c.stage !== 'past'; }), noChef = all.filter(function(c){ return !c.hasChef && !c.isNew && c.stage !== 'past'; }), newer = all.filter(function(c){ return c.isNew; }), past = all.filter(function(c){ return c.stage === 'past'; });
+    return '<div class="full-h"><div><h3>Clients</h3><p>' + all.length + ' in GHL · ' + withChef.length + ' with a chef · ' + noRecord.length + ' chef not recorded · ' + noChef.length + ' waiting · ' + newer.length + ' not signed yet · ' + past.length + ' past</p></div>' + x + '</div>' +
       '<input class="search" id="csearch" type="search" placeholder="Search a name, chef, area or allergy" aria-label="Search clients">' +
-      cgroup('With a chef', withChef, 'No one yet.') + cgroup('Waiting for a chef', noChef, 'No one waiting.') + cgroup('Not signed yet', newer, 'Nobody pending.') + cgroup('Past clients and leads', past, 'None.');
+      cgroup('With a chef', withChef, 'No one yet.') + cgroup('Chef not recorded', noRecord, 'None.', 'These clients already had a chef before the app, but the chef’s name was never saved. Open a client and pick their chef to record it. No email is sent.') + cgroup('Waiting for a chef', noChef, 'No one waiting.') + cgroup('Not signed yet', newer, 'Nobody pending.') + cgroup('Past clients and leads', past, 'None.');
   }
   if (kind === 'waiting') {
     return '<div class="full-h"><div><h3 id="fh3">Waiting for a chef</h3><p id="fhp">Pick a chef and their intake and menu go out.</p></div>' + x + '</div>' +

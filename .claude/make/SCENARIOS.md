@@ -340,6 +340,17 @@ tag and note are still written (alert + email say otherwise).
 
 ---
 
+### Chef signed: Gusto hand-off to finance (2026-10-15)
+Scenario **6642770**, webhook **2937816** (SignWell account hook ea0c36e3). Separate from the client flows. On a SignWell
+document_completed for the Independent Contractor Agreement (template 4c022280, or a name with "Independent" + "Contractor"): find the
+chef's GHL contact by the signer email, email the details (name, email, phone, signed date, Gusto link) from Amber's Gmail to
+`financeEmail` (module 2; amber@nutritionintuitionaz.com with "Forward to finance" until Amber gives finance's address; fixture signers
+go to Jay), push Amber (bell kind signed), and write "GUSTO HAND-OFF SENT" on the chef's contact (the NI Today Chef checklist reads it
+as "Details sent to finance to add in Gusto"). Client agreements and other events stop at module 2 (1 operation). Contract:
+`VALIDATION_CONTRACT_chef-gusto-handoff.md`. To set the finance address: edit module 2 `financeEmail` (and `forwardMode` turns "no").
+
+---
+
 ## Complete Phase Flow
 
 ```

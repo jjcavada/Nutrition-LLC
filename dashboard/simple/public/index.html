@@ -293,7 +293,8 @@ li:last-child>.row{border-bottom:0}
 .ck-upd{color:var(--faint)}
 .ck-mail{display:block;font-size:var(--fs-13);color:var(--faint);margin-top:2px;word-break:break-all}
 .ck-sum{font-size:var(--fs-14);color:var(--soft);margin:var(--s2) 0 var(--s3)}
-.ck-flags ul{margin:var(--s1) 0 0;padding-left:18px;list-style:disc}
+.ck-flags ul{margin:var(--s1) 0 0;padding-left:0;list-style:none}
+.ck-flags b{display:block}
 .ck-flags li{font-size:var(--fs-14);color:var(--warn-fg);margin:2px 0}
 .ck-gh{font:600 var(--fs-12)/1 var(--text);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:var(--s5) 0 var(--s1)}
 .ck-steps{display:grid;margin:0;padding:0;list-style:none}
@@ -419,7 +420,8 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
 /* toast */
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:80;background:var(--btn);color:var(--btn-fg);border-radius:999px;padding:11px 8px 11px 18px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;box-shadow:0 12px 30px -12px rgba(0,0,0,.45);max-width:calc(100% - 32px)}
 .toast[hidden]{display:none}
-.toast button{color:var(--btn-fg);background:rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;font-weight:700}
+#cksum .link,.ck-undo{min-height:44px;padding:0 var(--s1);font-weight:700;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.toast button{color:var(--btn-fg);background:rgba(255,255,255,.16);border-radius:999px;padding:6px 14px;font-weight:700;min-height:44px;min-width:44px}
 .toast .msg{min-width:0;padding-right:10px}
 
 .foot{margin-top:var(--s7);padding-top:var(--s4);border-top:1px solid var(--hair);display:flex;justify-content:space-between;gap:10px 24px;flex-wrap:wrap;color:var(--soft);font-size:var(--fs-13)}
@@ -819,12 +821,12 @@ function renderWaiting(){
 var CK = {data:null, at:0, err:'', loading:false, busy:{}};
 function ckTestQ(){ return store.get('testview', false) === true; }
 function ckFetch(force){
-  if (CK.loading) return; CK.loading = true; CK.err = ''; if (!CK.data) renderChecklist();
+  if (CK.loading) { if (force) CK.again = true; return; } CK.loading = true; CK.err = ''; if (!CK.data) renderChecklist(); // a Refresh tap during a load runs right after it
   var q = []; if (ckTestQ()) q.push('test=1'); if (force) q.push('fresh=1');
   api('chefs/checklist' + (q.length ? '?' + q.join('&') : '')).then(function(r){ return r.json(); }).then(function(d){
     CK.loading = false; if (!d || !d.ok || !d.chefs) throw new Error((d && d.error) || 'bad data');
-    CK.data = d; CK.at = Date.now(); renderChecklist(); ckRefreshSheets();
-  }).catch(function(e){ CK.loading = false; if (e.message === 'locked') return; CK.err = 'x'; renderChecklist(); if (force) toast('Could not refresh the checklist. Try again.', null, 5000); });
+    CK.data = d; CK.at = Date.now(); renderChecklist(); ckRefreshSheets(); if (CK.again) { CK.again = false; ckFetch(true); }
+  }).catch(function(e){ CK.loading = false; CK.again = false; if (e.message === 'locked') return; CK.err = 'x'; renderChecklist(); if (force) toast('Could not refresh the checklist. Try again.', null, 5000); });
 }
 function loadChecklist(){ if (!CK.data || Date.now() - CK.at > 120000) ckFetch(false); else renderChecklist(); }
 function ckChef(id){ return CK.data ? (CK.data.chefs || []).filter(function(c){ return c.id === id; })[0] : null; }
@@ -842,7 +844,7 @@ function ckCard(c){
     (c.flags && c.flags.length ? '<span class="ck-flag">' + esc(plural(c.flags.length, 'thing') + ' to check') + '</span>' : '') +
     '</button></div>';
 }
-function ckAgo(){ return CK.at ? ago(Math.round((Date.now() - CK.at) / 60000)) : ''; }
+function ckAgo(){ var g = CK.data && Date.parse(CK.data.generatedAt); var t = g || CK.at; return t ? ago(Math.max(0, Math.round((Date.now() - t) / 60000))) : ''; }
 function renderChecklist(){
   var ov = $('.full[data-kind="waiting"]'); if (!ov) return; var box = $('.ck-list', ov), sum = $('#cksum', ov); if (!box) return;
   if (!CK.data) {
@@ -852,7 +854,7 @@ function renderChecklist(){
   }
   var d = CK.data, list = d.chefs || [], fresh = list.filter(function(c){ return c.group === 'new'; }), old = list.filter(function(c){ return c.group !== 'new'; });
   var todo = 0, waiting = 0; list.forEach(function(c){ todo += c.todo; waiting += c.waiting; });
-  if (sum) sum.innerHTML = esc(plural(d.summary.chefs, 'chef') + ', newest first. Tap a chef to see every step' + (waiting ? ', ' + waiting + ' waiting on chefs' : '') + '.') + ' <span class="ck-upd">Updated ' + esc(ckAgo()) + (d.stale && d.stale.signwell ? '. SignWell status may be out of date' : '') + '.</span> <button type="button" class="link" data-ckretry>Refresh</button>';
+  if (sum) sum.innerHTML = esc(plural(d.summary.chefs, 'chef') + ', newest first. Tap a chef to see every step' + (waiting ? ', ' + waiting + ' waiting on chefs' : '') + '.') + ' <span class="ck-upd">Updated ' + esc(ckAgo()) + (d.stale && d.stale.ghl ? '. GoHighLevel did not answer, some steps may be out of date' : '') + (d.stale && d.stale.website ? '. The website did not answer, website steps may be out of date' : '') + (d.stale && d.stale.signwell ? '. SignWell status may be out of date' : '') + '.</span> <button type="button" class="link" data-ckretry>Refresh</button>';
   var open = store.get('ckbefore', false) === true;
   box.innerHTML = (fresh.length ? fresh.map(ckCard).join('') : '<p class="none">No chefs yet. New chefs show up here when they send the sign-up form.</p>') +
     (old.length ? '<button type="button" class="ck-more" data-ckmore aria-expanded="' + open + '"><span>Started before the sign-up form (' + old.length + ')</span>' + ICON.chev + '</button><div class="ck-old ck-list"' + (open ? '' : ' hidden') + '>' + old.map(ckCard).join('') + '</div>' : '');
@@ -876,7 +878,7 @@ function ckSheetHTML(c){
 }
 function openChefCheck(id){
   var c = ckChef(id); if (!c) return;
-  var sh = openSheet(ckSheetHTML(c)); sh.ckid = id;
+  var sh = openSheet(ckSheetHTML(c)); sh.ckid = id; sh.findOpener = function(){ return document.querySelector('.full [data-ckchef="' + id + '"]'); }; // the card is rebuilt after a tick or refresh
   sh.refill = function(){ var cc = ckChef(id); if (cc && !sh.closed) sh.setBody(ckSheetHTML(cc)); };
 }
 function ckRefreshSheets(){ sheets.slice().forEach(function(o){ if (o.ckid && o.refill) o.refill(); }); }
@@ -961,7 +963,7 @@ function openSheet(html, onClose){
     if (fromPop !== true && history.state && history.state.ni === 'sheet') { try { history.back(); return; } catch (e) {} }
     api.closed = true;
     sheets = sheets.filter(function(s){ return s !== api; });
-    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full') && $('#lock').hidden) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } if (onClose) onClose(); try { var fb = (opener && opener.focus && document.contains(opener)) ? opener : ($('.full .x') || $('#hello')); if (fb) fb.focus({preventScroll:true}); } catch (e) {} }
+    function done(){ scrim.remove(); sh.remove(); if (!sheets.length && !$('.full') && $('#lock').hidden) { document.body.classList.remove('locked'); try { $('#page').inert = false; } catch (e) {} } if (onClose) onClose(); try { var again = api.findOpener ? api.findOpener() : null; var fb = (opener && opener.focus && document.contains(opener)) ? opener : (again || $('.full .x') || $('#hello')); if (fb) fb.focus({preventScroll:true}); } catch (e) {} }
     if (RM) return done();
     scrim.animate([{opacity:1},{opacity:0}], {duration:200, fill:'forwards'});
     var a = sh.animate(desktop ? [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},{opacity:0, transform:'translate(-50%,-46%) scale(.97)'}] : [{transform:'translateY(0)'},{transform:'translateY(100%)'}], {duration:260, easing:'ease-in', fill:'forwards'});
@@ -1071,7 +1073,7 @@ function confirmAssign(cid, chef, sel, recordOnly){
     var ro = !!recordOnly || !!(sh.el.querySelector('#recordonly') && sh.el.querySelector('#recordonly').checked);
     sent = true; sh.close();
     pending[cid] = {chef:chef}; renderWaiting();
-    api('assign', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:cid, chef:chef, clientName:w.name, recordOnly:ro})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
+    api('assign', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:cid, chef:chef, clientName:w.name, recordOnly:ro, expect:w.chef || ''})}).then(function(r){ return r.json().then(function(d){ return {status:r.status, d:d}; }); }).then(function(x){
       delete pending[cid];
       if (x.d && x.d.ok) {
         w.chef = chef; w.hasChef = true; w.chefKnown = true; w.waiting = false;
@@ -1081,6 +1083,7 @@ function confirmAssign(cid, chef, sel, recordOnly){
       } else if (x.d && x.d.reason === 'no-menu') { renderWaiting(); toast('No menu built yet for ' + w.name + '. Nothing was sent.', null, 6000); }
       else if (x.d && x.d.reason === 'not-sent') { renderWaiting(); toast('Nothing was sent to ' + first + '. See Needs attention on the home screen.', null, 7000); }
       else if (x.d && x.d.reason === 'already') { renderWaiting(); toast(w.name + ' is already with ' + chef + '. Nothing was sent again.', null, 6000); }
+      else if (x.d && x.d.reason === 'changed') { load(true); toast(x.d.now ? w.name + ' is now with ' + x.d.now + '. Nothing was sent. Check and try again.' : w.name + '’s chef changed. Nothing was sent. Check and try again.', null, 7000); }
       else if (x.d && x.d.reason === 'not-ready') { renderWaiting(); toast('Only signed clients with a live card can be assigned.', null, 6000); }
       else { renderWaiting(); toast('Could not send. ' + (x.d && x.d.error ? x.d.error : 'Try again.'), null, 6000); }
     }).catch(function(e){ delete pending[cid]; renderWaiting(); if (e.message !== 'locked') toast('Could not send. Check your connection.'); });

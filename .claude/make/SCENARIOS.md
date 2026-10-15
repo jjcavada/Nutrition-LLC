@@ -348,6 +348,15 @@ submissions no longer use the SignWell quota). Proven 14:49Z: test event inquiry
 event_inquiry + website_lead (removed again after). The website's general inquiry form now sends `formType: event` when "Intimate
 dinner or event" is chosen (event route above). Event planning calendar vj3iEVtjT9BNAnlUhKcW set to Google Meet (API PUT, previous
 settings in the session scratch `event_calendar_before.json`).
+**Round 2 (2026-10-15, after Inspector F):** m21 (email Amber, general) honors the test flag like m12
+(`{{if(1.test = "1"; Jay; Amber)}}`); m420/m430 tag failures now email Jay + raise an NI Today alert + Resume (handler chains 422-424
+and 432-434, copied from m14); m13's client confirmation says "If you did not pick a time for your planning call on our page, grab any
+15-minute slot on Amber's calendar:" (they book on the page now). **Outage 15:02:51Z to 15:08:33Z:** the first m13 edit used a regex
+that also ate the formula's closing `")}}`, so every run failed with BlueprintValidationError (0 operations) and Make switched the
+scenario off; only my own fixture tests hit it (2 failed runs, 1 queued event that ran on reactivation), no real inquiry was lost.
+Fixed 15:08:32Z, then proven: general 15:09:38Z (8 ops, status 1, Amber copy to Jay, tags added on top), event 15:18:46Z (11 ops,
+status 1, US date 12/5/2026 stored as 2026-12-05, "8 guests" as 8, a backslash in the location stored as "/"). GR-073 reinforced;
+pushes now run `_knowledge-base/platforms/make/tools/formula_check.py` first.
 
 ### Chef signed: Gusto hand-off to finance (2026-10-15)
 Scenario **6642770**, webhook **2937816** (SignWell account hook ea0c36e3). Separate from the client flows. On a SignWell

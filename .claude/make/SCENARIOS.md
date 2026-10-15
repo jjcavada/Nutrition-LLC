@@ -340,6 +340,15 @@ tag and note are still written (alert + email say otherwise).
 
 ---
 
+### Website forms 6248370: additive tags + test mode (2026-10-15)
+The contact upserts (m10 event, m20 general) REPLACED a contact's tags (proven on ZZTEST: intake_received/new_lead wiped), so a
+returning client who wrote in would lose agreement_signed etc. Fixed: no tags in the upserts; new m420 (event) / m430 (general)
+`POST /contacts/{id}/tags` add the inquiry tags (handler Resume). m11 SignWell draft: `test_mode` true when `1.test = "1"` (test
+submissions no longer use the SignWell quota). Proven 14:49Z: test event inquiry, 11 ops, ZZTEST kept its tags and gained
+event_inquiry + website_lead (removed again after). The website's general inquiry form now sends `formType: event` when "Intimate
+dinner or event" is chosen (event route above). Event planning calendar vj3iEVtjT9BNAnlUhKcW set to Google Meet (API PUT, previous
+settings in the session scratch `event_calendar_before.json`).
+
 ### Chef signed: Gusto hand-off to finance (2026-10-15)
 Scenario **6642770**, webhook **2937816** (SignWell account hook ea0c36e3). Separate from the client flows. On a SignWell
 document_completed for the Independent Contractor Agreement (template 4c022280, or a name with "Independent" + "Contractor"): find the

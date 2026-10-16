@@ -144,6 +144,18 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .evrow .when{display:grid;gap:2px;line-height:1.2;font-size:var(--fs-14)} .evrow .when b{font-size:var(--fs-16);font-weight:600;color:var(--head)}
 .evrow .nameline .ck-pill{margin-left:auto}
 .evnext{color:var(--head);font-weight:600;margin-top:2px} .evnext.hot{color:var(--warn-fg)}
+/* chef guide link on an event (2026-10-16) */
+.evg .btn svg{width:18px;height:18px;flex:none}
+.evg-open{width:100%;margin-top:var(--s1)}
+.evg-meta{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--s1);margin:var(--s1) 0 0;overflow-wrap:anywhere}
+.evg-link[aria-disabled="true"]{opacity:.45;pointer-events:none}
+.evg-link{min-height:44px;padding:0 var(--s2);background:none;border:0;color:var(--head);font-weight:600;font-size:var(--fs-13);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.evg-none{margin:0}
+.evg-err{color:var(--allergy);font-size:var(--fs-13);margin:calc(-1 * var(--s2)) 0 var(--s2)}
+.evg-form .tin{margin-bottom:var(--s2)}
+.evg-mk{display:flex;width:max-content;max-width:100%;align-items:center;gap:4px;margin:2px 0 0;color:var(--soft);font-weight:500}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.evg-mk svg{width:14px;height:14px;flex:none}
 .ck-pill.ck-s-urgent{background:var(--warn-bg);color:var(--warn-fg)} .ck-ic.ck-s-urgent{border:2px solid var(--warn-fg)}
 .evquote{white-space:pre-line;margin:0;font-size:var(--fs-16);overflow-wrap:anywhere}
 .evrow .who{min-width:0;overflow-wrap:anywhere} .sheet h3{overflow-wrap:anywhere}
@@ -636,7 +648,7 @@ function load(fresh){
   if (loading) return; loading = true; lastErr = ''; sync();
   api('today?' + (fresh ? 'fresh=1' : '') + (store.get('testview', false) === true ? '&test=1' : '')).then(function(r){ return r.json(); }).then(function(d){ // testview: inspector only, shows ZZTEST entries
     if (!d || !d.clients) throw new Error(d && d.error ? d.error : 'bad data');
-    DATA = d; saveSnap(d); loading = false; renderAll();
+    guideCarry(d); DATA = d; saveSnap(d); loading = false; renderAll(); // a link saved in the last 150 s survives an older snapshot
   }).catch(function(e){
     loading = false; lastErr = e.message === 'locked' ? '' : (navigator.onLine ? 'Could not load the latest. ' + (DATA ? 'Showing what loaded last time.' : '') : 'You are offline. ' + (DATA ? 'Showing what loaded last time.' : '')); renderAll();
   });
@@ -837,6 +849,119 @@ function renderWaiting(){
 var evPast = store.get('evpast', false) === true;
 function evList(){ return DATA && DATA.events ? DATA.events : []; }
 function evById(id){ return evList().filter(function(e){ return e.id === id; })[0] || null; }
+/* chef guide (Amber, 2026-10-16): the Google Doc she writes for the chefs, linked on the event (GHL contact field "Event Chef Guide").
+   A just-saved link wins over any snapshot built less than 150 s after the save (GHL's contact list lags ~16 s and server copies live 2 min);
+   both times are server times. The map rides inside the encrypted offline copy (DATA._guide): it survives a reload and is wiped by Lock.
+   Fix rounds 1-3 (inspectors S, U, C rounds 1-3). */
+var GBUSY = {}; // contactId -> a change is saving: one at a time per event
+var GDRAFT = {}; // contactId -> a link typed but not saved yet (kept in memory only, until a save or Cancel)
+var GFOCUS = {}; // contactId -> the save was started from inside the chef guide block (only then may its end move focus)
+function guideSafeC(v){ var s = String(v == null ? '' : v).trim(); return /^https:\/\/\S+$/i.test(s) ? s : ''; } // only an https link is ever shown as a link
+function guideMap(){ if (!DATA) return {}; return DATA._guide || (DATA._guide = {}); }
+function guideFresh(o, gen){ return !!o && !(Date.parse(gen) >= o.at + 150000) && Date.now() - (o.local || o.at) < 86400000; }
+function evGuide(e){ var o = guideMap()[e.id]; return guideFresh(o, DATA && DATA.generatedAt) ? guideSafeC(o.url) : guideSafeC(e.guide); }
+function guideCarry(d){ var m = DATA && DATA._guide; if (!m) return; var keep = {}, n = 0; Object.keys(m).forEach(function(id){ if (guideFresh(m[id], d.generatedAt)) { keep[id] = m[id]; n++; } }); if (n) d._guide = keep; }
+function guideRemember(id, url, at){ var g = DATA && Date.parse(DATA.generatedAt); guideMap()[id] = {url: guideSafeC(url), at: typeof at === 'number' ? at : (g > 0 ? g : Date.now()), local: Date.now()}; } // server time; the phone clock only for the 24 h cap
+function guideHost(u){ var x; try { x = new URL(u); } catch (y) { return ''; } var q = x.searchParams.get('q'); if (/(^|\.)google\.com$/i.test(x.hostname) && x.pathname === '/url' && q) { try { var z = new URL(q); if (z.hostname) x = z; } catch (y) {} } return x.hostname.replace(/^www\./, ''); } // a Gmail redirect shows the real host
+var GUIDE_TOO_LONG = 'That link is too long. Copy it again from the Share button in Google Docs.';
+function guideProblem(raw){ // same checks and words as the server
+  if (raw.length > 600) return GUIDE_TOO_LONG;
+  if (/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/.test(raw)) return 'That link has a hidden character in it. Copy it again from the Share button in Google Docs.';
+  if (!/^https:\/\//i.test(raw)) return 'Paste a link that starts with https://';
+  if (/\s/.test(raw)) return 'That link has a space in it. Copy it again from the Share button in Google Docs.';
+  if (/[^\x21-\x7e]/.test(raw)) return 'That link has a hidden character in it. Copy it again from the Share button in Google Docs.'; // Docs share links are plain ASCII
+  if (/(^|[^=])https?:\/\//i.test(raw.slice(8))) return 'That looks like two links pasted together. Paste just one.';
+  var u = null; try { u = new URL(raw); } catch (x) { u = null; }
+  if (!u || u.protocol !== 'https:' || !/^https:\/\/[^/?#\s]+\.[^/?#\s]+/i.test(raw) || !/\./.test(u.hostname)) return 'That link does not look complete. Copy it again from the Share button in Google Docs.';
+  if (u.username || u.password) return 'Paste the link without a user name or password.';
+  return u.href.length > 600 ? GUIDE_TOO_LONG : '';
+}
+function guideBox(e, editing, err, typed){
+  var url = evGuide(e), busy = !!GBUSY[e.id], dis = busy ? ' aria-disabled="true"' : '';
+  var wait = busy ? '<p class="fine" role="status">Saving the change. One moment.</p>' : '';
+  if (editing) return '<form class="evg-form" data-guide-form="' + esc(e.id) + '" novalidate><label class="fine" for="evgin">Link to the Google Doc for this event</label>' +
+    '<input class="tin" id="evgin" type="url" inputmode="url" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://docs.google.com/..." value="' + esc(typed != null ? typed : url) + '"' + (err ? ' aria-invalid="true" aria-describedby="evgerr"' : '') + '>' +
+    (err ? '<p class="evg-err" id="evgerr" role="alert">' + esc(err) + '</p>' : '') +
+    '<div class="acts"><button class="btn" type="submit">Save</button><button class="btn ghost-b" type="button" data-guide-cancel="' + esc(e.id) + '">Cancel</button></div></form>';
+  if (url) return '<a class="btn evg-open" href="' + esc(url) + '" target="_blank" rel="noopener">' + ICON.doc + 'Open chef guide<span class="vh"> (opens in a new tab)</span></a>' +
+    '<p class="fine evg-meta"><span>' + esc(guideHost(url)) + '</span><button type="button" class="evg-link" data-guide-edit="' + esc(e.id) + '"' + dis + '>Change link<span class="vh"> for the chef guide</span></button><button type="button" class="evg-link" data-guide-remove="' + esc(e.id) + '"' + dis + '>Remove<span class="vh"> the chef guide link</span></button></p>' + wait;
+  return '<p class="ck-det evg-none">Paste the link to the Google Doc you write for the chefs, and it opens from here.</p><div class="acts"><button type="button" class="btn ghost-b" data-guide-edit="' + esc(e.id) + '"' + dis + '>' + ICON.doc + 'Add chef guide link</button></div>' + wait;
+}
+function guideBoxEl(id){ return document.querySelector('.evg[data-evg="' + id + '"]'); }
+// how: 'user' (she tapped Change/Add/Cancel or pressed Escape: focus follows), 'done' (a save ended: focus moves only if she is in the block)
+function guideRender(id, editing, err, typed, force, how){
+  if (GBUSY[id] && !force) return; // one change at a time: the in-flight save re-renders when it ends
+  var box = guideBoxEl(id), e = evById(id); if (!box || !e) return;
+  var act = document.activeElement, inBox = box.contains(act) || ((!act || act === document.body) && how !== 'done') || ((!act || act === document.body) && how === 'done' && GFOCUS[id]);
+  if (editing && typed == null && GDRAFT[id] != null) typed = GDRAFT[id]; // a link typed before the sheet closed
+  box.innerHTML = guideBox(e, editing, err, typed);
+  if (editing) {
+    var f = box.querySelector('#evgin'), form = box.querySelector('form');
+    form.addEventListener('keydown', function(k){ if (k.key === 'Escape') { k.preventDefault(); k.stopPropagation(); if (!GBUSY[id]) delete GDRAFT[id]; guideRender(id, false, null, null, false, 'cancel'); } }); // Escape cancels the edit, not the whole event
+    f.addEventListener('input', function(){ GDRAFT[id] = f.value; });
+    if (how === 'user' || inBox) { f.focus({preventScroll: how !== 'user'}); var n = f.value.length; if (err) f.setSelectionRange(n, n); else { f.select(); try { f.setSelectionRange(0, n); } catch (x) {} } } // a paste replaces the old link (iOS too)
+    return;
+  }
+  var target = how === 'cancel' ? (box.querySelector('[data-guide-edit]') || box.querySelector('.evg-open')) : (box.querySelector('.evg-open') || box.querySelector('[data-guide-edit]'));
+  if (target && (how === 'user' || how === 'cancel' || inBox)) target.focus({preventScroll: how === 'done'});
+}
+function guideBusy(id, on){
+  if (on) GBUSY[id] = 1; else delete GBUSY[id];
+  var box = guideBoxEl(id); if (box) [].forEach.call(box.querySelectorAll('button'), function(b){ if (on) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }); // aria-disabled keeps focus on the button
+}
+function guideSay(e, msg, undo, ms){ toast((guideBoxEl(e.id) ? '' : e.who + ': ') + msg, undo, ms); } // a toast names the event when its sheet is not open
+function guideSave(id, url, btn, fromForm, isUndo){
+  var e = evById(id); if (!e) { toast('This event request is no longer in the list.'); return; }
+  if (GBUSY[id]) { guideSay(e, 'Still saving the last change. Try again in a moment.', null, 4200); return; } // e.g. Undo tapped while a newer save runs
+  var prev = evGuide(e);
+  if (fromForm) {
+    if (!url) { guideRender(id, true, 'Paste the link first.', url, false, 'user'); return; }
+    var bad = guideProblem(url); if (bad) { guideRender(id, true, bad, url, false, 'user'); return; }
+  }
+  var box = guideBoxEl(id);
+  if (box) { var oldErr = box.querySelector('#evgerr'); if (oldErr) oldErr.remove(); var inp = box.querySelector('#evgin'); if (inp) { inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); } }
+  var bx0 = guideBoxEl(id); GFOCUS[id] = !!(bx0 && bx0.contains(document.activeElement));
+  var lbl = btn ? btn.innerHTML : ''; guideBusy(id, true); if (btn) btn.textContent = url ? 'Saving…' : 'Removing…';
+  function done(){ guideBusy(id, false); if (btn && btn.isConnected) btn.innerHTML = lbl; }
+  function refreshRows(){ var af = document.activeElement, row = af && af.dataset ? af.dataset.event : ''; renderEvents(); if (row) { var r = document.querySelector('.evrow[data-event="' + row + '"]'); if (r) r.focus({preventScroll: true}); } } // keep focus on a row the sheet just returned to
+  function failText(why){ if (/^(Could not|GoHighLevel|The link|The app|Another|This |Something|Paste|That )/.test(why)) return why; return url ? 'Could not save the link. Try again.' : 'Could not remove the link. Try again.'; } // no doubled "Could not", no raw server words
+  var slow = 'The app took too long to answer. Open the event again in a minute to see if it saved.';
+  var opts = {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({contactId:id, url:url})};
+  try { if (AbortSignal.timeout) opts.signal = AbortSignal.timeout(15000); } catch (x) {}
+  api('events/guide', opts).then(function(r){ return r.json().catch(function(){ return {gateway: true, status: r.status}; }); }).then(function(d){
+    done();
+    var truth = d && typeof d.guide === 'string' && !d.busy && (d.guide === '' || guideSafeC(d.guide)) ? guideSafeC(d.guide) : null; // what GoHighLevel holds, https only
+    if (truth !== null && truth !== prev) { guideRemember(id, truth, d.at); e.guide = truth; saveSnap(DATA); refreshRows(); }
+    var open = guideBoxEl(id);
+    if (!(d && d.ok)) {
+      var why = d && d.gateway ? (d.status === 502 || d.status === 504 ? slow : 'Something went wrong in the app. Open the event again in a minute to see if it saved.') : (d && d.error ? d.error : 'Could not save. Try again.');
+      var formOpen = !!(open && open.querySelector('form'));
+      if (fromForm && truth !== null && truth !== url && truth !== prev) why += truth ? ' GoHighLevel holds a different link now.' + (formOpen ? ' Cancel to see it.' : '') : ' GoHighLevel holds no link now.';
+      if (fromForm && open && open.querySelector('form')) guideRender(id, true, why, url, true, 'done'); // she is still on the form: the reason sits under the field
+      else { if (open) guideRender(id, false, null, null, true, 'done'); guideSay(e, failText(why), null, 8000); } // sheet closed or reopened: a toast, never silent, no keyboard pop
+      return;
+    }
+    delete GDRAFT[id];
+    guideRemember(id, truth || '', d.at); e.guide = truth || ''; saveSnap(DATA);
+    guideRender(id, false, null, null, true, 'done'); refreshRows();
+    var miss = d.side && d.side.note === 'failed' ? ' The note in GoHighLevel did not go through.' : '';
+    if (prev === (truth || '')) { guideSay(e, 'No change. That link was already saved.' + miss, null, miss ? 10000 : 4200); return; }
+    if (isUndo) { guideSay(e, 'Chef guide link restored.' + miss, null, miss ? 10000 : 4200); return; }
+    var undo = prev ? function(){ guideSave(id, prev, null, false, true); } : null;
+    var msg = !truth ? 'Chef guide link removed.' : prev ? 'Chef guide link changed.' : 'Chef guide linked.';
+    guideSay(e, msg + miss, undo, miss ? 10000 : undo ? 8000 : 4200);
+  }).catch(function(x){
+    done();
+    if (x && x.message === 'locked') return;
+    var why = x && x.name === 'TimeoutError' ? slow : 'Could not reach the app. Check your connection.';
+    var open = guideBoxEl(id);
+    if (fromForm && open && open.querySelector('form')) guideRender(id, true, why, url, true, 'done'); else { if (open) guideRender(id, false, null, null, true, 'done'); guideSay(e, failText(why), null, 8000); } // no stale "Saving" line
+  });
+}
+document.addEventListener('submit', function(ev){
+  var f = ev.target.closest && ev.target.closest('[data-guide-form]'); if (!f) return;
+  ev.preventDefault(); var inp = f.querySelector('#evgin'); guideSave(f.dataset.guideForm, (inp && inp.value || '').trim(), f.querySelector('[type=submit]'), true);
+});
 function evPill(e){
   var map = {new:[e.urgent ? 'Call needed' : 'New request', e.urgent ? 'urgent' : 'todo'], call:['Planning call', 'waiting'], sent:['Agreement sent', 'waiting'], signed:['Signed', 'done'], past:e.agreement && e.agreement.state === 'signed' ? ['Done', 'done'] : ['Past', 'before']}; // urgency in words, not colour only
   var p = map[e.stage] || map.new;
@@ -850,7 +975,7 @@ function evWhen(e){
 function evRow(e){
   return '<li><button type="button" class="row evrow" data-event="' + esc(e.id) + '"><span class="when"><b>' + esc(e.dayShort || ' ') + '</b>' + esc(e.dateShort) + '</span>' +
     '<span class="nameline"><span class="who">' + esc(e.who) + '</span>' + evPill(e) + '</span>' +
-    '<span class="what">' + esc([e.occasion, e.guests ? e.guests + ' guests' : '', evWhen(e)].filter(Boolean).join(' · ')) + '</span>' +
+    '<span class="what">' + esc([e.occasion, e.guests ? e.guests + ' guests' : '', evWhen(e)].filter(Boolean).join(' · ')) + (evGuide(e) ? '<span class="evg-mk">' + ICON.doc + 'Chef guide</span>' : '') + '</span>' +
     '<span class="what evnext' + (e.urgent ? ' hot' : '') + '">' + esc(e.next) + '</span></button></li>';
 }
 function renderEvents(){
@@ -878,6 +1003,7 @@ function eventSheet(e){
     evStep('Event day', day, e.dateLabel + (evWhen(e) ? ' (' + evWhen(e).toLowerCase() + ')' : ''));
   return '<h3>' + esc(e.who) + '</h3><p class="sub">' + esc([e.occasion, e.dateLabel, e.guests ? e.guests + ' guests' : ''].filter(Boolean).join(' · ')) + '</p>' +
     (e.urgent ? '<div class="expect ck-flags"><b>Coming up soon</b><ul><li>' + esc(e.next) + '</li></ul></div>' : '') +
+    '<div class="ck-gh">Chef guide</div><div class="evg" data-evg="' + esc(e.id) + '">' + guideBox(e) + '</div>' +
     '<div class="ck-gh">Where it stands</div><ol class="ck-steps">' + steps + '</ol>' +
     '<div class="ck-gh">From the event form</div>' +
     factsHTML([['Event', esc(e.occasion)], ['Date', esc(e.date ? e.dateLabel : '')], ['Guests', esc(e.guests)], ['Location', esc(e.location)], ['Budget', esc(e.budget)], ['Dietary', esc(e.dietary)], ['Referred by', esc(e.referred)], ['Phone', esc(nicePhone(e.phone))], ['Email', esc(e.email)]]) +
@@ -1115,6 +1241,9 @@ document.addEventListener('click', function(e){
   if ((t = e.target.closest('[data-archive]'))) { openArchive(t.dataset.archive, t.closest('.sheet')); return; }
   if ((t = e.target.closest('[data-unarchive]'))) { var cu = findClient(t.dataset.unarchive); if (cu) { var shu = sheetApiOf(t.closest('.sheet')); if (shu) shu.close(); unarchive(cu, null); } return; }
   if ((t = e.target.closest('[data-dismiss]'))) { readAlerts.push(t.dataset.dismiss); store.set('readAlerts', readAlerts.slice(-50)); if (readNotif.indexOf(t.dataset.dismiss) < 0) { readNotif.push(t.dataset.dismiss); store.set('readNotif', readNotif.slice(-100)); } renderAlerts(); renderBell(); var nx = $('.alert-item .dismiss') || $('#bell'); if (nx) try { nx.focus({preventScroll:true}); } catch (x) {} toast('Dismissed on this phone.'); return; }
+  if ((t = e.target.closest('[data-guide-edit]'))) { guideRender(t.dataset.guideEdit, true, null, null, false, 'user'); return; }
+  if ((t = e.target.closest('[data-guide-cancel]'))) { if (!GBUSY[t.dataset.guideCancel]) delete GDRAFT[t.dataset.guideCancel]; guideRender(t.dataset.guideCancel, false, null, null, false, 'cancel'); return; }
+  if ((t = e.target.closest('[data-guide-remove]'))) { guideSave(t.dataset.guideRemove, '', t, false); return; }
   if ((t = e.target.closest('[data-event]'))) { openEvent(t.dataset.event); return; }
   if ((t = e.target.closest('[data-evpast]'))) { evPast = !evPast; store.set('evpast', evPast); renderEvents(); return; }
   if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.evalert) { openEvent(t.dataset.evalert); return; } if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }

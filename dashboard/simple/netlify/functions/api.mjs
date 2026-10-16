@@ -10,6 +10,8 @@
 //   POST scan                                      -> looks for new consultation bookings (also runs every 5 min from scan.mjs)
 //   GET  chefs/checklist[?fresh=1][&test=1]        -> every chef's onboarding steps with proof, newest first (test adds the ZZTEST Chef)
 //   POST chefs/check {chefId, step, done}          -> Amber ticks a manual step (Blobs ni-cache/chefcheck + a GHL note on the chef)
+//   POST events/guide {contactId, url}             -> Amber links her chef prep guide (a Google Doc) to an event: contact field Event Chef Guide + a CRM note; url '' removes it;
+//                                                     one save per event at a time (409 busy); the answer's guide is what GHL holds
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -596,6 +598,38 @@ function evSignwell(id) { // agreement status only; good reads cached 10 min, fa
 }
 const evDay = (ymd, opts) => fmt(opts).format(new Date(ymd + 'T12:00:00-07:00'));
 const evRealDate = (d) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return ''; const t = new Date(d + 'T12:00:00Z'); return !isNaN(t) && t.toISOString().slice(0, 10) === d ? d : ''; }; // 2026-02-30 is not a date
+const evGuide = (c) => guideSafe(cf(c.customFields, cfg.fields.eventGuide)); // only an https link is ever shown as a link
+const GUIDE_TOO_LONG = 'That link is too long. Copy it again from the Share button in Google Docs.';
+const guideSafe = (v) => { const s = String(v == null ? '' : v).trim(); return /^https:\/\/\S+$/i.test(s) ? s : ''; }; // every guide that leaves the server
+function guideLinkProblem(raw) { // the reason in Amber's words, or '' when the link is fine (the app runs the same checks)
+  if (raw.length > 600) return GUIDE_TOO_LONG;
+  if (/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/.test(raw)) return 'That link has a hidden character in it. Copy it again from the Share button in Google Docs.'; // zero-width spaces from WhatsApp and rich text
+  if (!/^https:\/\//i.test(raw)) return 'Paste a link that starts with https://';
+  if (/\s/.test(raw)) return 'That link has a space in it. Copy it again from the Share button in Google Docs.';
+  if (/[^\x21-\x7e]/.test(raw)) return 'That link has a hidden character in it. Copy it again from the Share button in Google Docs.'; // Docs share links are plain ASCII
+  if (/(^|[^=])https?:\/\//i.test(raw.slice(8))) return 'That looks like two links pasted together. Paste just one.'; // a link as a query value (?q=https://...) is fine
+  let u = null; try { u = new URL(raw); } catch (e) { u = null; }
+  if (!u || u.protocol !== 'https:' || !/^https:\/\/[^/?#\s]+\.[^/?#\s]+/i.test(raw) || !/\./.test(u.hostname)) return 'That link does not look complete. Copy it again from the Share button in Google Docs.';
+  if (u.username || u.password) return 'Paste the link without a user name or password.';
+  return '';
+}
+// one save per event at a time. guideLock answers {state:'held', etag} only when this request's compare-and-set write landed (Blobs
+// answers {modified:true} for any non-412 status, so an etag is required), 'busy' when a lock younger than 15 s exists, 'unknown' otherwise.
+async function guideLock(ls, key) {
+  if (!ls) return { state: 'unknown' };
+  for (let i = 0; i < 2; i++) {
+    let cur = null, etag = null;
+    try { const r = await ls.getWithMetadata(key, { type: 'json' }); if (r) { cur = r.data; etag = r.etag || null; } } catch (e) { return { state: 'unknown' }; }
+    if (cur && typeof cur.t === 'number' && Date.now() - cur.t < 15000) return { state: 'busy' };
+    let w = null; try { w = await ls.set(key, JSON.stringify({ t: Date.now() }), etag ? { onlyIfMatch: etag } : { onlyIfNew: true }); } catch (e) { return { state: 'unknown' }; }
+    if (w && w.modified === true && w.etag) return { state: 'held', etag: w.etag };
+    if (!(w && w.modified === false)) return { state: 'unknown' };
+  }
+  return { state: 'busy' }; // lost the compare-and-set twice: someone else just took it
+}
+// release only the lock this request holds: t:0 counts as stale, and a late or repeated release gets 412 instead of freeing another holder's lock
+const guideUnlock = (ls, key, etag) => (ls && etag ? ls.set(key, JSON.stringify({ t: 0 }), { onlyIfMatch: etag }).catch(() => {}) : Promise.resolve());
+const capped = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, ms))]); // a Blobs retry (5 s) never delays an answer
 function evWho(c) { const raw = String(c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Event request').trim();
   return /[A-Z]/.test(raw) ? raw : raw.replace(/\b\w/g, (ch) => ch.toUpperCase()); } // the form stores lowercase names
 async function eventOf(c, todayKey) {
@@ -642,19 +676,19 @@ async function eventOf(c, todayKey) {
     occasion: f.event || 'Event', date, dateLabel: date ? evDay(date, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No date given',
     dayShort: date ? evDay(date, { weekday: 'short' }) : '', dateShort: date ? evDay(date, { month: 'short', day: 'numeric' }) : 'No date', daysUntil,
     guests: f.guests || '', location: f.location || '', budget: f.budget || '', dietary: f.dietary || '', referred: f['referred by'] || '', words,
-    call, agreement, stage, next, urgent, partial: false };
+    call, agreement, stage, next, urgent, guide: evGuide(c), partial: false };
   mem.evRows = mem.evRows || {}; mem.evRows[c.id] = row; return row;
 }
 async function eventRow(c, todayKey) { // one time budget per row; on failure the last good row (flagged) or an honest minimal row, never a missing one
   try { return await Promise.race([eventOf(c, todayKey), evWait(EV_BUDGET).then(() => { throw new Error('took longer than ' + EV_BUDGET + ' ms'); })]); }
   catch (e) {
     console.error('event row', c.id, e && e.message);
-    const last = (mem.evRows || {})[c.id]; if (last) return Object.assign({}, last, { partial: true });
+    const last = (mem.evRows || {})[c.id]; if (last) return Object.assign({}, last, { partial: true, guide: evGuide(c) }); // the contact list is fresh even when the row is not
     const who = evWho(c);
     return { id: c.id, who, first: firstName(who), phone: c.phone || '', email: c.email || '', receivedAt: c.dateAdded || '', received: c.dateAdded ? longDate(new Date(c.dateAdded)) : '',
       occasion: 'Event request', date: '', dateLabel: 'Not loaded', dayShort: '', dateShort: 'Not loaded', daysUntil: null, guests: '', location: '', budget: '', dietary: '', referred: '', words: '',
       call: { state: 'unknown', label: 'Could not check the calendar' }, agreement: { state: 'unknown', label: 'Could not check SignWell' }, stage: 'new',
-      next: 'Could not load this request right now. Tap Refresh in a minute.', urgent: false, partial: true };
+      next: 'Could not load this request right now. Tap Refresh in a minute.', urgent: false, guide: evGuide(c), partial: true };
   }
 }
 
@@ -791,7 +825,7 @@ function stageLabel(c) {
 }
 
 /* ---------- handlers ---------- */
-export default async (req) => {
+export default async (req, context) => {
   const url = new URL(req.url);
   const route = url.pathname.replace(/^\/(\.netlify\/functions\/api|api)\/?/, '').replace(/\/+$/, '');
   const key = req.headers.get('x-ni-key') || '';
@@ -936,6 +970,91 @@ export default async (req) => {
         : 'ARCHIVED (NI Today) by Amber on ' + when + ': ' + reason + (note ? '\n' + note : '') + (pick ? '\nThe client left the journey (opportunity set to Lost, stage unchanged). Undo from the app, or set the opportunity back to Open in GoHighLevel.' : '\nThere was no pipeline card for this client, so only the contact is marked archived.') }) }); side.note = 'ok'; } catch (e) { side.note = 'failed'; console.error('archive note', e && e.message); }
       mem.snapshot = null; if (store('ni-cache')) { try { await store('ni-cache').delete('snapshot'); if (pick) await store('ni-cache').delete('opp:' + pick.id); } catch (e) {} }
       return json({ ok: true, oppId: pick ? pick.id : '', status: pick ? (undo ? backTo : 'lost') : 'none', archived: text, side });
+    }
+    if (route === 'events/guide' && req.method === 'POST') {
+      // Amber's chef prep guide for an event (a Google Doc she keeps writing in Docs) linked to the event request: the contact field
+      // "Event Chef Guide" + a CRM note. Only event requests (tag event_inquiry) and the ZZTEST fixture (by id). One save per event at a
+      // time; 2.5 s per GHL call and an 8 s budget from the start of the request (the deadline aborts what is left); ok only after the
+      // read-back matches; every answer's guide is what GHL holds (https only) with the server time (GR-003). Fix rounds 1-3 (2026-10-16).
+      const t0 = Date.now();
+      const b = await req.json().catch(() => null);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ ok: false, error: 'bad request' }, 400);
+      if (typeof b.contactId !== 'string' || !/^[A-Za-z0-9]{10,40}$/.test(b.contactId) || typeof b.url !== 'string') return json({ ok: false, error: 'bad request' }, 400); // a missing url never means "remove"
+      const contactId = b.contactId;
+      if (!cfg.fields.eventGuide) return json({ ok: false, error: 'The chef guide field is not set up.' }, 500);
+      const raw = b.url.trim(); if (!raw && b.url !== '') return json({ ok: false, error: 'bad request' }, 400); // only an exact '' removes
+      let link = '';
+      if (raw) {
+        const bad = guideLinkProblem(raw); if (bad) return json({ ok: false, error: bad }, 400);
+        link = new URL(raw).href; // normalized: the length rule applies to what is stored
+        if (link.length > 600) return json({ ok: false, error: GUIDE_TOO_LONG }, 400);
+      }
+      const ls = strongStore('ni-cache'), lockKey = 'guidelock:' + contactId;
+      const bg = (p) => { const q = Promise.resolve(p).catch(() => {}); try { if (context && typeof context.waitUntil === 'function') context.waitUntil(q); } catch (e) {} return q; }; // work after the answer: Netlify keeps it alive
+      const lockP = guideLock(ls, lockKey); let gaveUp = false;
+      const got = await Promise.race([lockP, new Promise((r) => setTimeout(() => r({ state: 'slow' }), 1500))]);
+      if (got.state === 'slow') { gaveUp = true; bg(lockP.then((g) => { if (gaveUp && g && g.state === 'held') return guideUnlock(ls, lockKey, g.etag); })); } // a lock taken after we answered frees itself
+      if (got.state === 'busy') return json({ ok: false, busy: true, error: 'Another change to this link is still saving. Try again in a few seconds.' }, 409);
+      if (got.state !== 'held') return json({ ok: false, error: 'Could not check for another save. Try again.' }, 503);
+      const ctrl = new AbortController();
+      const sig = () => (AbortSignal.any ? AbortSignal.any([ctrl.signal, AbortSignal.timeout(2500)]) : AbortSignal.timeout(2500));
+      const G = (p, init = {}) => (ctrl.signal.aborted ? Promise.reject(new Error('aborted')) : ghl(p, Object.assign({ signal: sig() }, init)));
+      let lastSeen = null, saved = false, workDone = false; // lastSeen: what GHL showed last (the deadline answer reports it)
+      const work = (async () => {
+        let c;
+        try { c = (await G('/contacts/' + contactId)).contact || {}; } catch (e) { return json({ ok: false, error: 'Could not read GoHighLevel. Try again.' }, 502); }
+        if (!(c.tags || []).includes('event_inquiry') && !(cfg.testEventContact && contactId === cfg.testEventContact)) return json({ ok: false, error: 'This is not an event request.' }, 403);
+        const before = String(cf(c.customFields, cfg.fields.eventGuide) || ''); lastSeen = before;
+        const JH = { 'Content-Type': 'application/json' }; let putFailed = false;
+        if (before !== link) {
+          if (ctrl.signal.aborted) return null;
+          try { await G('/contacts/' + contactId, { method: 'PUT', headers: JH, body: JSON.stringify({ customFields: [{ id: cfg.fields.eventGuide, field_value: link }] }) }); }
+          catch (e) { putFailed = true; console.error('guide field', e && e.message); } // GHL may have applied it anyway: the read-back decides
+        }
+        let stored = null; // read it back: a write is done only when GoHighLevel returns it (GR-003)
+        for (let i = 0; i < 3 && stored !== link; i++) { if (i) await new Promise((r) => setTimeout(r, 700)); try { stored = String(cf(((await G('/contacts/' + contactId)).contact || {}).customFields, cfg.fields.eventGuide) || ''); lastSeen = stored; } catch (e) { stored = null; } }
+        if (stored !== link) {
+          console.error('guide read-back', contactId, stored === null ? 'unreadable' : 'differs');
+          return json({ ok: false, error: putFailed ? 'GoHighLevel may not have saved the link. Try again.' : 'The link did not stick in GoHighLevel. Try again.', guide: guideSafe(stored === null ? before : stored), at: Date.now() }, 502);
+        }
+        if (ctrl.signal.aborted) return null;
+        // the visible CRM note follows the NEWEST chef guide note, so a note lost by an earlier attempt (LINKED or REMOVED) is written now
+        const side = {}; const when = longDate(new Date());
+        let needNote = before !== link, trailLink = '';
+        if (!needNote) {
+          try {
+            const ns = ((await G('/contacts/' + contactId + '/notes')).notes || []).filter((n) => /^CHEF GUIDE (LINKED|LINK REMOVED) \(NI Today\)/.test(n.body || ''))
+              .sort((x, y) => String(y.dateAdded || '').localeCompare(String(x.dateAdded || '')));
+            const top = ns[0]; const topLinked = !!top && /^CHEF GUIDE LINKED/.test(top.body || ''); trailLink = topLinked ? (String(top.body).split('\n')[1] || '').trim() : '';
+            needNote = link ? !(topLinked && trailLink === link) : topLinked; // removing: only when the trail still says linked
+          } catch (e) { needNote = true; side.noteCheck = 'failed'; } // a possible duplicate note beats a missing one
+        }
+        if (needNote) {
+          if (ctrl.signal.aborted) return null;
+          const was = before || trailLink;
+          try { await G('/contacts/' + contactId + '/notes', { method: 'POST', headers: JH, body: JSON.stringify({ userId: cfg.ghlUser, body: link
+            ? 'CHEF GUIDE LINKED (NI Today) by Amber on ' + when + ':\n' + link + (before && before !== link ? '\nIt replaces:\n' + before : '')
+            : 'CHEF GUIDE LINK REMOVED (NI Today) by Amber on ' + when + (was ? '. It was:\n' + was : '.') }) }); side.note = 'ok'; }
+          catch (e) { side.note = 'failed'; console.error('guide note', e && e.message); }
+        } else side.note = 'unchanged';
+        if (ctrl.signal.aborted) return null;
+        const shown = guideSafe(stored); saved = true;
+        if (mem.evRows && mem.evRows[contactId]) mem.evRows[contactId].guide = shown; // this instance shows it at once
+        if (mem.snapshot && Array.isArray(mem.snapshot.events)) mem.snapshot.events.forEach((e) => { if (e.id === contactId) e.guide = shown; });
+        return json({ ok: true, guide: shown, at: Date.now(), side });
+      })();
+      work.then(() => { workDone = true; }, () => { workDone = true; });
+      let timer, resp;
+      try {
+        resp = await Promise.race([work, new Promise((r) => { timer = setTimeout(() => { ctrl.abort(); r(json(Object.assign({ ok: false, error: 'GoHighLevel is slow right now. Open the event again in a minute to see if the link saved.' }, lastSeen === null ? {} : { guide: guideSafe(lastSeen), at: Date.now() }), 502)); }, Math.max(4000, 8000 - (Date.now() - t0))); })]);
+      } catch (e) {
+        console.error('guide', contactId, e && e.message); resp = json({ ok: false, error: 'Could not save the link. Try again.' }, 502);
+      } finally { clearTimeout(timer); }
+      await Promise.resolve(); // let the workDone flag settle when the work won the race
+      if (saved && workDone && store('ni-cache')) await capped(store('ni-cache').delete('snapshot'), 500); // other instances rebuild; the app keeps the link until a newer snapshot
+      if (workDone) await capped(guideUnlock(ls, lockKey, got.etag), 500); // released before the answer leaves (Netlify may freeze right after)
+      else { const rel = () => guideUnlock(ls, lockKey, got.etag); bg(work.then(rel, rel)); } // the deadline answered: release when the work really ends
+      return resp || json({ ok: false, error: 'Could not save the link. Try again.' }, 502);
     }
     if (route === 'chefs/checklist' && req.method === 'GET') {
       const test1 = url.searchParams.get('test') === '1'; let timer;

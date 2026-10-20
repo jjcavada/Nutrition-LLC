@@ -1,0 +1,4 @@
+"Inspired" by Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0 License
+http://creativecommons.org/licenses/by/4.0/
+Trimmed to 135 s and loudness-normalized to -20 LUFS for use as a background bed. Credit line appears on the video's end card.

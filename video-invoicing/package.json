@@ -1,0 +1,20 @@
+{
+  "name": "ni-invoicing-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nutrition Intuition: how the weekly invoicing bot works (explainer for Amber), Remotion + Edge TTS",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts Main",
+    "render": "remotion render src/index.ts Main out/ni-invoicing.mp4 --concurrency=4",
+    "frames": "node frames.js"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.536",
+    "@remotion/media": "^4.0.536",
+    "@remotion/renderer": "^4.0.536",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.536"
+  }
+}

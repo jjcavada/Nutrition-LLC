@@ -875,11 +875,13 @@ export default async (req, context) => {
     }
     /* ---------- weekly invoicing (Amber, 2026-10-20): Make reads QuickBooks, this plans the invoices, Make creates them unsent; secret-gated like notify (above the app-key gate) ---------- */
     if (route === 'invoices/plan' && req.method === 'POST') {
-      const b = await req.json().catch(() => null);
-      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ ok: false, error: 'bad request' }, 400);
-      if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
-      const entries = Array.isArray(b.entries) ? b.entries : null, customers = Array.isArray(b.customers) ? b.customers : [];
-      if (!entries) return json({ ok: false, error: 'entries must be a list' }, 400);
+      const rawText = await req.text().catch(() => ''); let b = null; try { b = JSON.parse(rawText); } catch (e) { b = null; }
+      const lastCall = async (info) => { try { if (store('ni-cache')) await store('ni-cache').setJSON('invoices:lastcall', Object.assign({ at: new Date().toISOString(), bytes: rawText.length, ua: (req.headers.get('user-agent') || '').slice(0, 60) }, info)); } catch (e) {} }; // what the last caller sent (Make debugging)
+      if (!b || typeof b !== 'object' || Array.isArray(b)) { await lastCall({ error: 'not a JSON object', shape: rawText.replace(/"secret"s*:s*"[^"]*"/g, '"secret":"***"').replace(/[^{}[],:"a-zA-Z ]/g, '').slice(0, 120) }); return json({ ok: false, error: 'bad request' }, 400); } // never the raw body (it carries the secret)
+      if (!safeEq(b.secret, cfg.notifySecret)) { await lastCall({ error: 'wrong secret' }); return json({ ok: false }, 401); }
+      const entries = Array.isArray(b.entries) ? b.entries : (b.entries == null ? [] : null), customers = Array.isArray(b.customers) ? b.customers : []; // a week with no entries is an empty list, not an error
+      if (!entries) { await lastCall({ error: 'entries not a list', entriesType: typeof b.entries }); return json({ ok: false, error: 'entries must be a list' }, 400); }
+      await lastCall({ mode: b.mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: entries.length, customers: customers.length, recent: Array.isArray(b.recentDocNumbers) ? b.recentDocNumbers.length : 'none' });
       const mode = b.mode === 'live' ? 'live' : 'dry'; const cb = cfg.clientBilling || {};
       const nk = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
       const rates = {}; Object.keys(cb.rates || {}).forEach((n) => { rates[nk(n)] = Number(cb.rates[n]); });
@@ -921,7 +923,7 @@ export default async (req, context) => {
       }
       if (!ok) return json({ ok: false, error: 'could not record the invoices, try again' }, 503);
       // the card shows the invoice numbers and ids
-      try { const s = store('ni-cache'); const latest = s ? await s.get('invoices:latest', { type: 'json' }) : null;
+      try { const s = strongStore('ni-cache') || store('ni-cache'); const latest = s ? await s.get('invoices:latest', { type: 'json' }) : null;
         if (latest && (!b.runId || latest.runId === b.runId)) { for (const it of items) { const row = (latest.rows || []).find((r) => (it.docNumber && r.docNumber === String(it.docNumber)) || (it.customerId && r.customerId === String(it.customerId))); if (row) { row.invoiceId = String(it.invoiceId || ''); row.docNumber = String(it.docNumber || row.docNumber || ''); } }
           latest.created = (latest.created || 0) + items.length; latest.createdAt = at; await s.setJSON('invoices:latest', latest); } } catch (e) { console.error('invoices latest', e && e.message); }
       return json({ ok: true, recorded: items.reduce((n, it) => n + (it.timeActivityIds || []).length, 0) });
@@ -1114,8 +1116,10 @@ export default async (req, context) => {
       return resp || json({ ok: false, error: 'Could not save the link. Try again.' }, 502);
     }
     if (route === 'invoices/latest' && req.method === 'GET') {
-      let latest = null; try { latest = store('ni-cache') ? await store('ni-cache').get('invoices:latest', { type: 'json' }) : null; } catch (e) { latest = null; }
-      return json({ ok: true, latest, mode: cfg.invoiceMode || 'dry', qboInvoicesUrl: (cfg.clientBilling || {}).qboInvoicesUrl || 'https://qbo.intuit.com/app/invoices' });
+      const rs = strongStore('ni-cache') || store('ni-cache'); // strong read: the card must show the run that just finished, not a stale copy
+      let latest = null; try { latest = rs ? await rs.get('invoices:latest', { type: 'json' }) : null; } catch (e) { latest = null; }
+      let lastCall = null; try { lastCall = rs ? await rs.get('invoices:lastcall', { type: 'json' }) : null; } catch (e) { lastCall = null; }
+      return json({ ok: true, latest, lastCall, mode: cfg.invoiceMode || 'dry', qboInvoicesUrl: (cfg.clientBilling || {}).qboInvoicesUrl || 'https://qbo.intuit.com/app/invoices' });
     }
     if (route === 'chefs/checklist' && req.method === 'GET') {
       const test1 = url.searchParams.get('test') === '1'; let timer;

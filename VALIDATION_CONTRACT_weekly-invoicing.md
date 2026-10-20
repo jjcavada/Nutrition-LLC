@@ -29,3 +29,19 @@ the review sheet for tests is named with "ZZTEST"; the notify secret and QBO dat
 live batch. Inspector reports in Part 3.
 
 ## Part 3: inspector reports
+
+### Builder proof so far (2026-10-20, dry mode)
+- Planner harness (`invoicing.mjs` on the real Oct 12 to 17 entries vs her Oct 19 invoices): 37 of 43 identical to the cent (32 fully, 5
+  only her memo typo), 2 flagged, 6 differences all hers (3 taxable Half Hour slips = $3.60 each, 2 round-ups, 1 typo). Checks 23/23.
+- Routes harness (real `api.mjs`, Blobs fake): refusals (401/400), dry plan, rate table (synthetic Tracy Thomas $45 + card fee), live
+  numbering 4487.., mark two invoices, re-plan skips the marked entries, latest for the card. 12/12.
+- Live, production: Make scenario 6700872 "NI Invoices - Weekly build" (webhook 2957765) fired in dry mode for Oct 12 to 17: 10 steps,
+  status 1, payload 49 KB (51 entries, 181 customers, 30 recent invoice numbers) -> the app stored run `dry-2026-10-17-mvg8euce`
+  (43 invoices, $23,067.79, 2 flagged, 2 event entries skipped). Nothing created in QuickBooks. GR-074 smoke after each deploy: 200,
+  63 clients. The Invoices card shows the run (screenshot in the session). Sunday trigger `invoices-trigger.mjs` deployed, mode "dry".
+- Found and fixed on the way: Make's `toString()` is not JSON for arrays of records (json:TransformToJSON in front of every array);
+  the first dry-run notify pushed a "dry run" line to Amber's phone (removed: dry runs are silent, the card is the record); a
+  diagnostics record briefly stored the first 160 characters of the request body, which carries the secret (fixed within minutes,
+  record overwritten; the notify secret has also appeared in this session's logs: rotate it when convenient, see the plan); the card
+  must read the run with strong consistency (eventual reads returned the previous run for about a minute).
+- Not yet: fresh inspector round (after Amber's answers), the LinkedTxn probe on a ZZTEST customer, the supervised live batch.

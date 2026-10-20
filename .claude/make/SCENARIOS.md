@@ -1145,3 +1145,14 @@ All automation steps running (QB customer, menu, consultation invite).
   use the http search by contact + open-card variables (432 / 520); Phase 3 has router 433 [no-card alert | 5 | 6,7,8,11]. Phase 4
   restructured so the invite, tag and note still go out when the card is missing (router 31 route 3, OR filter: no card, or card at
   15 Item Menu). Search modules throw on non-2xx. Contract `VALIDATION_CONTRACT_phase-card-lookup.md` round 2.
+
+## NI Invoices - Weekly build — scenario **6700872**, hook 2957765 — LIVE in DRY mode 2026-10-20
+Turns the week's QuickBooks Time entries (synced into QBO as TimeActivity) into Amber's invoices. Built from `build_make.py` (session
+scratch; blueprint copy `invoices_blueprint.live.json`). Flow: 1 webhook {mode, weekStart, weekEnd} (the app's `invoices-trigger.mjs`
+posts Sunday 7 pm Phoenix; Jay can post by hand) -> 2 week/mode vars -> 3 QBO TimeActivity query -> 4 QBO active customers -> 5 latest
+30 invoice numbers -> 14/15/16 json:TransformToJSON (Make's toString is NOT JSON for arrays) -> 6 POST ni-today /api/invoices/plan
+(secret = notify secret) -> router: dry -> 8 no-op; live -> 9 iterate invoices -> 17/18 JSON -> 10 QBO POST /invoice (requestid
+ni-<weekEnd>-<customerId>-<docNumber>, unsent, online payments off) -> 11 POST /api/invoices/mark -> 12 array aggregator -> 13 app push
+"N invoices ready to review". Every read/plan error: email Jay + app alert + Commit; create/mark errors: email + alert + Resume.
+Rules and the rate table live in the app (`invoicing.mjs`, config `clientBilling`), not in Make. Plan `PLAN_weekly-invoicing-automation.md`,
+contract `VALIDATION_CONTRACT_weekly-invoicing.md`. Switch to live = config `invoiceMode: "live"` + redeploy (after the ZZTEST probe).

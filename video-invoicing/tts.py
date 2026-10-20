@@ -11,13 +11,14 @@ VOICE = os.environ.get("VO_VOICE", "en-US-AvaMultilingualNeural")  # warm, clear
 
 # (scene id, narration, rate, pitch)
 SCRIPT = [
-    ("s1", "Hi Amber. Every Monday morning you open QuickBooks and type around fifty invoices by hand. Two hours, every week. Here's how that stops.", "-4%", "+0Hz"),
-    ("s2", "Nothing changes for your chefs. They clock in on the Workforce app, pick the client, and put the receipt and the grocery total in the note, exactly like today.", "-3%", "+0Hz"),
-    ("s3", "Sunday at seven, once the week's hours are in, the bot reads them from QuickBooks and builds every invoice the way you would. Chef hours to the nearest half hour. Groceries from the chef's note. The twenty-five dollar shopping fee. And the card fee where it applies.", "-4%", "+0Hz"),
-    ("s4", "They land in QuickBooks, unsent. Nothing goes to a client until you say so.", "-5%", "+0Hz"),
-    ("s5", "Monday, your app shows what's ready and what needs a look: a note with no grocery amount, a note with two. You check those few, then select all and send. Minutes, not two hours.", "-3%", "+0Hz"),
-    ("s6", "We tested it on your real week of October twelfth. Thirty-seven of your forty-three invoices came out identical, to the cent. The other six were small slips the old way let through: a half hour left taxable, a total rounded up, a typo in a grocery amount. And two it flagged for you to check.", "-4%", "+0Hz"),
-    ("s7", "Your Mondays, back. The first batch runs Sunday, October twenty-sixth. You review, you send, and we watch the first ones with you.", "-5%", "+0Hz"),
+    ("s1", "Hi Amber. Here's your Monday morning. QuickBooks Time on one side, a blank invoice on the other. Hours, groceries, the shopping fee, the date, review and send. And again. Forty-three times last week. Two hours, every week.", "-4%", "+0Hz"),
+    ("s2", "Here's the whole loop, and where every piece lives. Your chefs clock in on the Workforce app, like today. You approve the hours in QuickBooks Time, like today. Sunday at seven, the bot builds the invoices and puts them in QuickBooks, unsent. Monday morning, the NI Today app shows you the week and what needs a look. And you send them, from QuickBooks. Nothing new to learn. One chore gone.", "-3%", "+0Hz"),
+    ("s3", "For the chefs, nothing changes. Pick the client, clock in, put the receipt and the grocery total in the note. Exactly like today.", "-3%", "+0Hz"),
+    ("s4", "Sunday at seven, once the week's hours are approved, the bot reads them from QuickBooks and builds each invoice the way you do. Hours to the nearest half hour. Groceries from the chef's note. The twenty-five dollar shopping fee. And the three percent card fee, only for your card clients.", "-4%", "+0Hz"),
+    ("s5", "They land in QuickBooks as regular invoices, with one difference: not sent. Nothing reaches a client until you say so.", "-5%", "+0Hz"),
+    ("s6", "Monday, open NI Today. The Invoices card is right on your home screen: how many, the total, and the few that need a look, with the reason. A note with no grocery amount, for example. Tap Open invoices in QuickBooks, fix those two, then select all, batch actions, send. The app never sends. You do.", "-3%", "+0Hz"),
+    ("s7", "We tested it on your real week of October twelfth. Thirty-seven of your forty-three invoices came out identical, to the cent. The other six were small slips the old way let through: a half hour left taxable, a total rounded up, a typo in a grocery amount. And two it flagged for you to check.", "-4%", "+0Hz"),
+    ("s8", "Your Mondays, back. The first batch builds Sunday, October twenty-sixth, at seven. You review, you send, and we watch the first ones with you.", "-5%", "+0Hz"),
 ]
 VO = "public/vo"
 
@@ -40,7 +41,7 @@ async def speak(out, text, voice, rate, pitch, tries=4):
                     elif chunk["type"] == "WordBoundary":
                         words.append({"t": round(chunk["offset"] / 1e7, 3), "d": round(chunk["duration"] / 1e7, 3), "w": chunk["text"]})
             expected = len(text.split())
-            if os.path.getsize(out) > 1000 and len(words) >= expected * 0.8:
+            if os.path.getsize(out) > 1000 and len(words) >= expected * 0.95:
                 return words
             last = RuntimeError(f"truncated stream: {len(words)} of ~{expected} words")
             print(f"  retry {attempt + 1}: {last}")

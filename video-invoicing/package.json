@@ -12,6 +12,8 @@
   "dependencies": {
     "@remotion/cli": "^4.0.536",
     "@remotion/media": "^4.0.536",
+    "@remotion/motion-blur": "^4.0.536",
+    "@remotion/paths": "^4.0.536",
     "@remotion/renderer": "^4.0.536",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

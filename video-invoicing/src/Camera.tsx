@@ -1,7 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, useCurrentFrame} from 'remotion';
-// motion blur dropped for this project (no @remotion/motion-blur dependency)
-const CameraMotionBlur: React.FC<{shutterAngle?: number; samples?: number; children: React.ReactNode}> = ({children}) => <>{children}</>;
+import {CameraMotionBlur} from '@remotion/motion-blur';
 
 /**
  * v12 camera rig. A scene declares camera keys on its narration cues; the camera eases between them.

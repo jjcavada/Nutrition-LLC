@@ -2,8 +2,8 @@ import React from 'react';
 import {AbsoluteFill, Composition, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {Audio} from '@remotion/media';
 import {ensureFonts} from './fonts';
-import {FPS, LEAD, sceneFrames, scenes, totalFrames} from './timing';
-import {S1, S2, S3, S4, S5, S6, S7} from './scenes';
+import {FPS, LEAD, sceneFrames, scenes, totalFrames, wordFrame} from './timing';
+import {S1, S2, S3, S4, S5, S6, S7, S8} from './scenes';
 import {Lead, LeadSpec} from './Lead';
 import {Stage, stageColor} from './ui';
 
@@ -13,26 +13,29 @@ import {Stage, stageColor} from './ui';
 /** The @remotion/media path renders the voice about 3 dB hotter than the old tag did (measured on the UKW video). */
 const VOICE = 0.72;
 
-const byId: Record<string, React.FC<{s: any}>> = {s1: S1, s2: S2, s3: S3, s4: S4, s5: S5, s6: S6, s7: S7};
+const byId: Record<string, React.FC<{s: any}>> = {s1: S1, s2: S2, s3: S3, s4: S4, s5: S5, s6: S6, s7: S7, s8: S8};
 
 /** Stage per scene (must match each scene's <Shell bg>): the protagonist dot floods the NEXT stage colour on every cut. */
-export const STAGE: Record<string, Stage> = {s1: 'green', s2: 'cream', s3: 'green', s4: 'accent', s5: 'cream', s6: 'green', s7: 'cream'};
-/** Where the dot sits in each scene (frame px): beside the section word. */
+export const STAGE: Record<string, Stage> = {s1: 'green', s2: 'cream', s3: 'accent', s4: 'green', s5: 'accent', s6: 'cream', s7: 'green', s8: 'cream'};
+/** Where the dot sits in each scene (frame px): beside the section word, or beside the logo on the logo rows. */
 const HOME: Record<string, {x: number; y: number}> = {
-  s1: {x: 92, y: 128}, // logo row
+  s1: {x: 92, y: 128},
   s2: {x: 92, y: 104},
   s3: {x: 92, y: 104},
   s4: {x: 92, y: 104},
   s5: {x: 92, y: 104},
   s6: {x: 92, y: 104},
-  s7: {x: 92, y: 128}, // logo row
+  s7: {x: 92, y: 104},
+  s8: {x: 92, y: 128},
 };
 const leadSpecs = (): LeadSpec[] => {
   const specs: LeadSpec[] = [];
   let f = 0;
   for (const s of scenes) {
     const len = sceneFrames(s);
-    specs.push({id: s.id, start: f, len, color: stageColor(STAGE[s.id] ?? 'green'), home: HOME[s.id] ?? {x: 92, y: 104}});
+    const spec: LeadSpec = {id: s.id, start: f, len, color: stageColor(STAGE[s.id] ?? 'green'), home: HOME[s.id] ?? {x: 92, y: 104}};
+    if (s.id === 's2') spec.hideAfter = wordFrame(s, 'chefs') - 2; // the scene's own dot travels the loop under the camera
+    specs.push(spec);
     f += len;
   }
   return specs;

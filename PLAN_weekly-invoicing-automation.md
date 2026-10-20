@@ -105,4 +105,5 @@ invoices; QBO "Automatically send imported invoices" must be OFF (checked before
   the next sheet as "changed after billing".
 - Custom invoice numbers: computed as max + 1, sequential processing, `requestid` idempotency.
 - Sales tax: lines use NON like hers; AST ignores it anyway; events stay manual.
-- Intuit's "Automatically send imported invoices" setting could email drafts: verified OFF before the first live batch.
+- Intuit can auto-email API-created invoices that have online payments on; her invoices have online card/ACH payment OFF (104 of 105), so
+  the bot sets AllowOnlineCreditCardPayment and AllowOnlineACHPayment to false, same as hers, and nothing can go out by itself.

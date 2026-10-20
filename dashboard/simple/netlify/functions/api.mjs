@@ -10,12 +10,16 @@
 //   POST scan                                      -> looks for new consultation bookings (also runs every 5 min from scan.mjs)
 //   GET  chefs/checklist[?fresh=1][&test=1]        -> every chef's onboarding steps with proof, newest first (test adds the ZZTEST Chef)
 //   POST chefs/check {chefId, step, done}          -> Amber ticks a manual step (Blobs ni-cache/chefcheck + a GHL note on the chef)
+//   POST invoices/plan {secret, entries, customers, weekStart, weekEnd, mode, nextDocNumber} -> the week's invoices as QBO bodies (Make builds them; never sends)
+//   POST invoices/mark {secret, runId, items}      -> records created invoices + billed time entry ids (never billed twice)
+//   GET  invoices/latest                           -> the last invoice run (Invoices card)
 //   POST events/guide {contactId, url}             -> Amber links her chef prep guide (a Google Doc) to an event: contact field Event Chef Guide + a CRM note; url '' removes it;
 //                                                     one save per event at a time (409 busy); the answer's guide is what GHL holds
 import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import cfg from './config.secret.json' with { type: 'json' }; // git-ignored, bundled server-side only
+import { planInvoices } from './invoicing.mjs';
 
 const GHL = 'https://services.leadconnectorhq.com';
 const H = { Authorization: 'Bearer ' + cfg.ghlPit, Version: '2021-07-28', Accept: 'application/json' };
@@ -869,6 +873,59 @@ export default async (req, context) => {
       await dropSnapshot();
       return json({ ok: true, sent: r.sent, dead: r.dead, kind, quiet: !!r.quiet });
     }
+    /* ---------- weekly invoicing (Amber, 2026-10-20): Make reads QuickBooks, this plans the invoices, Make creates them unsent; secret-gated like notify (above the app-key gate) ---------- */
+    if (route === 'invoices/plan' && req.method === 'POST') {
+      const b = await req.json().catch(() => null);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
+      const entries = Array.isArray(b.entries) ? b.entries : null, customers = Array.isArray(b.customers) ? b.customers : [];
+      if (!entries) return json({ ok: false, error: 'entries must be a list' }, 400);
+      const mode = b.mode === 'live' ? 'live' : 'dry'; const cb = cfg.clientBilling || {};
+      const nk = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+      const rates = {}; Object.keys(cb.rates || {}).forEach((n) => { rates[nk(n)] = Number(cb.rates[n]); });
+      const card = new Set((cb.cardFee || []).map(nk)), events = new Set((cb.events || []).map(nk));
+      const seen = new Set(); const clients = [];
+      const addClient = (id, name, email) => { const k = nk(name); if (!k || seen.has(k + '|' + id)) return; seen.add(k + '|' + id);
+        clients.push({ id: String(id || ''), name, email: email || '', rate: k in rates ? rates[k] : (cb.defaultRate || 90), cardFee: card.has(k), events: events.has(k) }); };
+      customers.forEach((c) => addClient(c.Id || c.id, c.DisplayName || c.name, ((c.PrimaryEmailAddr || {}).Address) || c.email));
+      entries.forEach((t) => { const cr = t.CustomerRef || {}; if (cr.value && !clients.some((c) => c.id === String(cr.value))) addClient(cr.value, cr.name, ''); }); // a customer missing from the list still gets planned (flagged by name match)
+      let billed = {}; const st = strongStore('ni-cache');
+      if (st) { try { billed = (await st.get('invoiced-time', { type: 'json' })) || {}; } catch (e) { billed = {}; } }
+      const recent = (Array.isArray(b.recentDocNumbers) ? b.recentDocNumbers : []).map((x) => parseInt(String(x).replace(/D/g, ''), 10)).filter((n) => n > 0); // Make passes the latest invoice numbers; next = max + 1
+      const nextDoc = b.nextDocNumber ? parseInt(b.nextDocNumber, 10) : (recent.length ? Math.max(...recent) + 1 : null);
+      if (mode === 'live' && !nextDoc) return json({ ok: false, error: 'live mode needs the latest invoice numbers' }, 400);
+      const plan = planInvoices(entries, clients, { weekStart: b.weekStart, weekEnd: b.weekEnd, invoiceDate: b.invoiceDate, nextDocNumber: mode === 'live' ? nextDoc : null,
+        rounding: cb.rounding || 'half', rate: cb.defaultRate || 90, shoppingFee: cb.shoppingFee || 25, cardFeeRate: cb.cardFeeRate || 0.03, excludeCustomers: cb.events || ['Event Event'],
+        alreadyBilled: Object.keys(billed), builtOn: b.builtOn || longDate(new Date()) });
+      const runId = (mode + '-' + (b.weekEnd || 'week') + '-' + Date.now().toString(36)).replace(/[^A-Za-z0-9-]/g, '');
+      const slim = { runId, at: new Date().toISOString(), mode, weekStart: b.weekStart || '', weekEnd: b.weekEnd || '', summary: plan.summary,
+        rows: plan.invoices.map((i) => ({ customer: i.customer, customerId: i.customerId, memo: i.memo, visits: i.visitDays.length, hoursExact: i.hoursExact, hoursBilled: i.hoursBilled, groceries: i.groceries, groceriesUnknown: i.groceriesUnknown, cardFee: i.cardFee, total: i.total, flags: i.flags, docNumber: i.docNumber, invoiceId: '' })),
+        skipped: plan.skipped.map((s) => ({ customer: s.customer, date: s.date, chef: s.chef, reason: s.reason })) };
+      if (store('ni-cache')) { try { await store('ni-cache').setJSON('invoices:latest', slim); await store('ni-cache').setJSON('invoices:run:' + runId, slim); } catch (e) { console.error('invoices store', e && e.message); } }
+      return json({ ok: true, runId, mode, summary: plan.summary, invoices: plan.invoices.map((i) => ({ customer: i.customer, customerId: i.customerId, docNumber: i.docNumber, memo: i.memo, total: i.total, flags: i.flags, timeActivityIds: i.visits.map((v) => v.id), qbo: i.qbo })), skipped: plan.skipped });
+    }
+    if (route === 'invoices/mark' && req.method === 'POST') {
+      const b = await req.json().catch(() => null);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
+      const items = Array.isArray(b.items) ? b.items : (b.docNumber || b.invoiceId ? [b] : null);
+      if (!items || !items.length) return json({ ok: false, error: 'items must be a list' }, 400);
+      const st = strongStore('ni-cache'); if (!st) return json({ ok: false, error: 'no store' }, 503);
+      let ok = false; const at = new Date().toISOString();
+      for (let i = 0; i < 12 && !ok; i++) { // compare-and-set on the billed map (GR-075)
+        let cur = {}, etag = null;
+        try { const r = await st.getWithMetadata('invoiced-time', { type: 'json' }); if (r) { cur = r.data || {}; etag = r.etag || null; } } catch (e) { cur = {}; etag = null; }
+        for (const it of items) for (const id of (it.timeActivityIds || [])) cur[String(id)] = { inv: String(it.invoiceId || ''), doc: String(it.docNumber || ''), at, customer: String(it.customer || '').slice(0, 80) };
+        try { const w = await st.set('invoiced-time', JSON.stringify(cur), etag ? { onlyIfMatch: etag } : { onlyIfNew: true }); ok = !!(w && w.modified !== false); } catch (e) { ok = false; }
+        if (!ok) await new Promise((r) => setTimeout(r, 60 + Math.floor(Math.random() * 120)));
+      }
+      if (!ok) return json({ ok: false, error: 'could not record the invoices, try again' }, 503);
+      // the card shows the invoice numbers and ids
+      try { const s = store('ni-cache'); const latest = s ? await s.get('invoices:latest', { type: 'json' }) : null;
+        if (latest && (!b.runId || latest.runId === b.runId)) { for (const it of items) { const row = (latest.rows || []).find((r) => (it.docNumber && r.docNumber === String(it.docNumber)) || (it.customerId && r.customerId === String(it.customerId))); if (row) { row.invoiceId = String(it.invoiceId || ''); row.docNumber = String(it.docNumber || row.docNumber || ''); } }
+          latest.created = (latest.created || 0) + items.length; latest.createdAt = at; await s.setJSON('invoices:latest', latest); } } catch (e) { console.error('invoices latest', e && e.message); }
+      return json({ ok: true, recorded: items.reduce((n, it) => n + (it.timeActivityIds || []).length, 0) });
+    }
     if (!authed) { // a wrong key is a guess at the passcode: count it like the unlock route does (inspector B: 1e6 keys, no limit)
       if (key) { const KW = 15 * 60000, now = Date.now(), ip = String(req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'na').split(',')[0].trim();
         const st = strongStore('ni-cache'); const perIp = await bump(st, 'badkey:' + ip.replace(/[^A-Za-z0-9.:]/g, '_'), now, KW); const all = await bump(st, 'badkey:all', now, KW);
@@ -1055,6 +1112,10 @@ export default async (req, context) => {
       if (workDone) await capped(guideUnlock(ls, lockKey, got.etag), 500); // released before the answer leaves (Netlify may freeze right after)
       else { const rel = () => guideUnlock(ls, lockKey, got.etag); bg(work.then(rel, rel)); } // the deadline answered: release when the work really ends
       return resp || json({ ok: false, error: 'Could not save the link. Try again.' }, 502);
+    }
+    if (route === 'invoices/latest' && req.method === 'GET') {
+      let latest = null; try { latest = store('ni-cache') ? await store('ni-cache').get('invoices:latest', { type: 'json' }) : null; } catch (e) { latest = null; }
+      return json({ ok: true, latest, mode: cfg.invoiceMode || 'dry', qboInvoicesUrl: (cfg.clientBilling || {}).qboInvoicesUrl || 'https://qbo.intuit.com/app/invoices' });
     }
     if (route === 'chefs/checklist' && req.method === 'GET') {
       const test1 = url.searchParams.get('test') === '1'; let timer;

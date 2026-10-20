@@ -144,6 +144,17 @@ button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
 .evrow .when{display:grid;gap:2px;line-height:1.2;font-size:var(--fs-14)} .evrow .when b{font-size:var(--fs-16);font-weight:600;color:var(--head)}
 .evrow .nameline .ck-pill{margin-left:auto}
 .evnext{color:var(--head);font-weight:600;margin-top:2px} .evnext.hot{color:var(--warn-fg)}
+/* invoices card (2026-10-20) */
+.inv-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3);margin:var(--s1) 0 var(--s3)}
+.inv-sum b{font-family:var(--display);font-weight:300;font-size:var(--fs-28);line-height:1;color:var(--head)}
+.inv-sum .fine{margin:0}
+.invlist{list-style:none;margin:0;padding:0}
+.invrow{display:grid;grid-template-columns:1fr auto;gap:2px var(--s3);padding:var(--s3) 0;border-top:1px solid var(--hair);font-size:var(--fs-14);color:var(--soft)}
+.invrow .who{color:var(--head);font-weight:600;font-size:var(--fs-16);overflow-wrap:anywhere}
+.invrow .amt{font-variant-numeric:tabular-nums;color:var(--head);font-weight:600;text-align:right;white-space:nowrap}
+.invrow .why{grid-column:1 / -1;color:var(--warn-fg);font-weight:500;overflow-wrap:anywhere}
+.invrow .meta{grid-column:1 / -1}
+.inv-acts{margin-top:var(--s3)}
 /* chef guide link on an event (2026-10-16) */
 .evg .btn svg{width:18px;height:18px;flex:none}
 .evg-open{width:100%;margin-top:var(--s1)}
@@ -518,6 +529,12 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
           <div id="events"></div>
         </div>
       </section>
+      <section aria-labelledby="h-invoices">
+        <div class="journey invoices">
+          <div class="jhead"><h2 id="h-invoices" class="ct">Invoices</h2><span class="hint" id="invhint"></span></div>
+          <div id="invoices"></div>
+        </div>
+      </section>
       <section aria-labelledby="h-today">
         <div class="journey calls">
           <div class="jhead"><h2 id="h-today" class="ct">Calls this week</h2><div class="segs" role="tablist" aria-label="Which calls"><button type="button" role="tab" aria-selected="true" data-cf="all">All</button><button type="button" role="tab" aria-selected="false" data-cf="weekly">Weekly</button><button type="button" role="tab" aria-selected="false" data-cf="event">Event</button></div></div>
@@ -653,7 +670,7 @@ function load(fresh){
     loading = false; lastErr = e.message === 'locked' ? '' : (navigator.onLine ? 'Could not load the latest. ' + (DATA ? 'Showing what loaded last time.' : '') : 'You are offline. ' + (DATA ? 'Showing what loaded last time.' : '')); renderAll();
   });
 }
-document.addEventListener('click', function(e){ if (e.target.closest('#retry') || e.target.closest('#refresh')) load(true); });
+document.addEventListener('click', function(e){ if (e.target.closest('#retry') || e.target.closest('#refresh')) { load(true); if (KEY) invFetch(true); } });
 document.addEventListener('visibilitychange', function(){ if (!document.hidden && KEY && DATA && Date.now() - new Date(DATA.generatedAt).getTime() > 3 * 60000) load(false); });
 setInterval(function(){ if (!document.hidden && KEY) load(false); }, 5 * 60000);
 
@@ -1016,6 +1033,45 @@ function openEvent(id){
   var e = evById(id); if (!e) { toast('This event request is no longer in the list.'); return; }
   var sh = openSheet(eventSheet(e)); sh.findOpener = function(){ return document.querySelector('.evrow[data-event="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); };
 }
+/* ---------------- invoices (Amber, 2026-10-20): the weekly invoice bot's last run; she reviews and sends in QuickBooks ---------------- */
+var INV = {data:null, at:0, err:'', loading:false, all:false};
+function invFetch(force){
+  if (INV.loading) return; if (!force && INV.data && Date.now() - INV.at < 120000) { renderInvoices(); return; }
+  INV.loading = true; INV.err = ''; if (!INV.data) renderInvoices();
+  api('invoices/latest').then(function(r){ return r.json(); }).then(function(d){
+    INV.loading = false; if (!d || !d.ok) throw new Error((d && d.error) || 'bad data');
+    INV.data = d; INV.at = Date.now(); renderInvoices();
+  }).catch(function(e){ INV.loading = false; if (e.message !== 'locked') INV.err = 'Could not load the invoice run.'; renderInvoices(); });
+}
+function invMoney(n){ return '$' + (Math.round((n || 0) * 100) / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function invWeek(l){ if (!l || !l.weekStart) return ''; var a = new Date(l.weekStart + 'T12:00:00Z'), b = new Date((l.weekEnd || l.weekStart) + 'T12:00:00Z'); var f = function(d, m){ return new Intl.DateTimeFormat('en-US', {month: m ? 'short' : undefined, day: 'numeric', timeZone: 'UTC'}).format(d); }; return f(a, true) + ' to ' + f(b, a.getUTCMonth() !== b.getUTCMonth()); }
+function invRow(r, full){
+  var why = (r.flags || []).join('; ');
+  return '<li class="invrow"><span class="who">' + esc(r.customer) + '</span><span class="amt">' + invMoney(r.total) + '</span>' +
+    (why ? '<span class="why">' + esc(why) + '</span>' : '') +
+    (full ? '<span class="meta">' + esc([r.memo, r.hoursBilled + ' h', r.groceries ? 'groceries ' + invMoney(r.groceries) : (r.groceriesUnknown ? 'groceries unknown' : 'no groceries'), r.cardFee ? 'card fee' : '', r.docNumber ? '#' + r.docNumber : ''].filter(Boolean).join(' · ')) + '</span>' : '') + '</li>';
+}
+function renderInvoices(){
+  var box = $('#invoices'), hint = $('#invhint'); if (!box) return;
+  var d = INV.data, l = d && d.latest;
+  if (!d && INV.loading) { if (hint) hint.textContent = ''; box.innerHTML = '<div class="skrow"></div><div class="skrow short"></div>'; return; }
+  if (!d) { if (hint) hint.textContent = ''; box.innerHTML = '<p class="none">' + esc(INV.err || 'Could not load the invoice run.') + ' <button type="button" class="evg-link" data-invretry>Retry</button></p>'; return; }
+  if (!l) { if (hint) hint.textContent = ''; box.innerHTML = '<p class="none">No invoice run yet. The first one builds Sunday evening, and you review and send on Monday.</p>'; return; }
+  var rows = l.rows || [], flagged = rows.filter(function(r){ return r.flags && r.flags.length; }), s = l.summary || {};
+  if (hint) hint.textContent = 'Week of ' + invWeek(l);
+  var pill = l.mode === 'dry' ? '<span class="ck-pill ck-s-before">Dry run, nothing created</span>' : (l.created ? '<span class="ck-pill ck-s-done">Created in QuickBooks, not sent</span>' : '<span class="ck-pill ck-s-todo">Planned</span>');
+  box.innerHTML = '<div class="inv-sum"><b>' + rows.length + '</b><span class="fine">' + esc((rows.length === 1 ? 'invoice' : 'invoices') + ' for ' + invMoney(s.total) + (flagged.length ? ', ' + flagged.length + ' need a look' : ', nothing to check')) + '</span>' + pill + '</div>' +
+    (flagged.length ? '<div class="ck-gh">Need a look</div><ul class="invlist">' + flagged.map(function(r){ return invRow(r, true); }).join('') + '</ul>' : '') +
+    (rows.length ? '<button type="button" class="ck-more" data-invall aria-expanded="' + INV.all + '"><span>All ' + rows.length + ' invoices</span>' + ICON.chev + '</button><ul class="invlist"' + (INV.all ? '' : ' hidden') + '>' + rows.map(function(r){ return invRow(r, true); }).join('') + '</ul>' : '') +
+    ((l.skipped || []).length ? '<p class="fine">Not invoiced: ' + esc(l.skipped.map(function(x){ return x.customer + ' (' + x.reason + ')'; }).join(', ')) + '.</p>' : '') +
+    '<div class="acts inv-acts"><a class="btn ghost-b" href="' + esc(d.qboInvoicesUrl || 'https://qbo.intuit.com/app/invoices') + '" target="_blank" rel="noopener">Open invoices in QuickBooks<span class="vh"> (opens in a new tab)</span></a></div>' +
+    '<p class="fine">' + esc(l.mode === 'dry' ? 'A dry run only shows what the bot would build. Nothing was created in QuickBooks.' : 'The bot never sends. Check the flagged ones in QuickBooks, then select all and send.') + (l.at ? ' Built ' + new Intl.DateTimeFormat('en-US', {weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix'}).format(new Date(l.at)) + '.' : '') + '</p>';
+}
+document.addEventListener('click', function(e){
+  var t;
+  if ((t = e.target.closest('[data-invall]'))) { INV.all = !INV.all; renderInvoices(); return; }
+  if ((t = e.target.closest('[data-invretry]'))) { invFetch(true); return; }
+});
 /* ---------------- chef checklist (Jay, 2026-10-15): third tab on the Waiting screen ---------------- */
 var CK = {data:null, at:0, err:'', loading:false, busy:{}};
 function ckTestQ(){ return store.get('testview', false) === true; }
@@ -1123,7 +1179,7 @@ function renderNotes(){
   }
   if (!window.Sortable) { $$('.grip').forEach(function(g){ g.style.visibility = 'hidden'; }); $('#notehelp').textContent = 'Swipe left to finish or archive.'; }
 }
-function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderMonth(); renderCalls(); renderEvents(); renderChefs(); renderWaiting(); renderNotes(); }
+function renderAll(){ sync(); renderTiles(); renderAlerts(); renderNew(); renderBell(); renderPipeline(); renderHomeChefs(); renderMonth(); renderCalls(); renderEvents(); if (KEY) invFetch(false); renderChefs(); renderWaiting(); renderNotes(); }
 
 /* ---------------- day / night ---------------- */
 var themeQ = window.matchMedia('(prefers-color-scheme: dark)');

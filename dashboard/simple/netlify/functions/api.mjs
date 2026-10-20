@@ -877,7 +877,7 @@ export default async (req, context) => {
     if (route === 'invoices/plan' && req.method === 'POST') {
       const rawText = await req.text().catch(() => ''); let b = null; try { b = JSON.parse(rawText); } catch (e) { b = null; }
       const lastCall = async (info) => { try { if (store('ni-cache')) await store('ni-cache').setJSON('invoices:lastcall', Object.assign({ at: new Date().toISOString(), bytes: rawText.length, ua: (req.headers.get('user-agent') || '').slice(0, 60) }, info)); } catch (e) {} }; // what the last caller sent (Make debugging)
-      if (!b || typeof b !== 'object' || Array.isArray(b)) { await lastCall({ error: 'not a JSON object', shape: rawText.replace(/"secret"s*:s*"[^"]*"/g, '"secret":"***"').replace(/[^{}[],:"a-zA-Z ]/g, '').slice(0, 120) }); return json({ ok: false, error: 'bad request' }, 400); } // never the raw body (it carries the secret)
+      if (!b || typeof b !== 'object' || Array.isArray(b)) { await lastCall({ error: 'not a JSON object', startsWith: rawText.trimStart().charAt(0) }); return json({ ok: false, error: 'bad request' }, 400); } // no part of the body is ever stored (it carries the secret)
       if (!safeEq(b.secret, cfg.notifySecret)) { await lastCall({ error: 'wrong secret' }); return json({ ok: false }, 401); }
       const entries = Array.isArray(b.entries) ? b.entries : (b.entries == null ? [] : null), customers = Array.isArray(b.customers) ? b.customers : []; // a week with no entries is an empty list, not an error
       if (!entries) { await lastCall({ error: 'entries not a list', entriesType: typeof b.entries }); return json({ ok: false, error: 'entries must be a list' }, 400); }

@@ -25,16 +25,18 @@ for the invoicing piece ("it's a go on my end"). Transcripts: `_transcripts/2026
 - Her invoices: 52 on Oct 12, 51 on Oct 19, numbers 4381 to 4486 (custom numbering ON, so the bot sets the next number), all NON tax
   code except event invoices, all "Due on receipt", all emailed the same morning (07:00 to 07:35).
 - Rules recovered by matching her Oct 19 invoices to the Oct 12 to 17 entries:
-  - one invoice per client per week; two visits in a week are combined (hours and groceries added, ONE shopping fee);
-  - hours rounded to the NEAREST half hour (40 of 43 clients; she rounded up twice; rounding up as a rule would miss 16 of 43);
+  - one invoice per client per week; each visit day gets its own Chef Hours / Half Hour / Groceries lines, then ONE Shopping/ Menu Fee
+    line with quantity = number of visit days ($25 per visit), then the card fee (3% of everything else, unit price to 4 decimals);
+  - hours rounded per visit to the NEAREST half hour (she rounded up twice; rounding up as a rule would miss 16 of 43);
   - groceries = the amount in the note, "total" wins when the note has several ("Grocery $150.72 & 49 $157.23 total");
     formats seen: `173.90`, `$270.23`, `Groceries $235.61`, `$157,22` (comma decimal), `$5.44 + 53.17 + 39 =$97.6`, `No groceries`, `.`;
   - rate $90 for everyone except Tracy Thomas ($45); Amber says a second client also differs (name needed);
   - 3% card fee on 21 clients' invoices (list below), 3 of them inconsistently;
   - events ("Event Event" time entries, Per Head Cost invoices) are separate and stay manual.
-- Simulation of those rules against her real week: **37 of 43 invoices identical**, 3 flagged for review (unreadable or multi-receipt
-  notes), 1 her typo ($179.90 billed on a $173.90 note), 2 rounding-up cases. Per-minute billing (her alternative) would change
-  almost every invoice slightly, so it is her call (section 6).
+- The planner (`dashboard/simple/netlify/functions/invoicing.mjs`) run on her real week: **37 of 43 invoices identical to the cent**
+  (5 of those differ only in her memo, where she typed the wrong date), 2 flagged for review; the 6 others are hers: 3 where she left
+  the Half Hour line taxable ($3.60 of tax charged by mistake), 2 she rounded up, 1 typo ($179.90 billed on a $173.90 note). Report:
+  `DRYRUN_invoices_2026-10-12_to_17.md`. Per-minute billing (her alternative) would change almost every invoice slightly (section 6).
 
 ## 3. Design (Make.com, Amber's existing QuickBooks connection 7302963; no new logins for Phase 1)
 
@@ -90,8 +92,8 @@ invoices; QBO "Automatically send imported invoices" must be OFF (checked before
    Jenny Wright, John Matthews, Jules Koechling, Kelly Klose, Kimberly Neihaus, Lucy Caldwell, Monroe Peters, Nancy Pohl, Natalie
    Taute, Pele Fischer, Rachel Troyan, Samantha Robson, Shari Shipley, Tara Mackenzie, Tracy Thomas. (Annie Toon, Tara Mackenzie and
    Tracy Thomas got it on some invoices but not others.)
-4. Confirm: one invoice per client per week with one $25 fee even when the chef came twice (what she does), invoice dated Monday,
-   memo = the visit dates.
+4. Confirm: one invoice per client per week, $25 fee per visit (two visits = qty 2, what she does), invoice dated Monday, memo = the
+   visit dates.
 5. When a note has no amount or says "No groceries": no grocery line, flagged for her (she billed $0 for those).
 6. Hours must be approved by Sunday 6 pm Phoenix (the build runs at 7 pm); otherwise she taps "Build now" after approving.
 7. Phase 2 only: create the QuickBooks Time API token.

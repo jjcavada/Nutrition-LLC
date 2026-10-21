@@ -1,7 +1,7 @@
 # NI weekly invoicing explainer (video for Amber)
 
 Built 2026-10-20 with the hub's `video-motion` pipeline (Remotion + Edge TTS, house style v2), cloned from the
-Uni K Wax board video (`clients/Uni-K-Wax/build/video/`). 138 s (v2; v1 was 89 s), 1920x1080, narrated (en-US-AvaMultilingualNeural),
+Uni K Wax board video (`clients/Uni-K-Wax/build/video/`). 151 s (v3; v2 was 138 s, v1 89 s), 1920x1080, narrated (en-US-AvaMultilingualNeural),
 music bed "Inspired" by Kevin MacLeod (CC BY 4.0, credited on the end card). Brand tokens are the NI Today app's
 `:root` (cream paper, dark olive ink, sage accent, Fraunces display + Figtree body), logo from the website.
 
@@ -20,7 +20,8 @@ dot = one invoice) performing every cut:
    "Open invoices in QuickBooks" button; then the QuickBooks illustration: select all, Batch actions, Send invoices.
    "The app never sends. You do."
 7. `s7` ink: the test, 37 of 43 identical, the six slips, the two flags.
-8. `s8` paper: your Mondays back, first batch Sunday Oct 26, 7 pm.
+8. `s8` olive: Later (Jay, Oct 21): once a few clean weeks are behind us, invoices that line up with nothing flagged can be sent for her; flagged ones still wait. A future step, not built.
+9. `s9` paper: your Mondays back, first batch Sunday Oct 26, 7 pm.
 
 Every number on screen comes from `../DRYRUN_invoices_2026-10-12_to_17.md` (QuickBooks read only, Oct 20, 2026) or
 Amber's own words (voice notes, Oct 19); each scene's footnote names the source. Illustrations (the Workforce screen,
@@ -35,8 +36,8 @@ node frames.js          # scene frame map for the storyboard
 npx remotion still src/index.ts Main out/sb/s3_end.png --frame=1153
 node shots.cjs          # real app screens (needs the local stub: node scratchpad/guide_stub.mjs, port 8789)
 npx remotion render src/index.ts Main out/v3.mp4 --concurrency=4 --crf 23
-py -3 master.py out/v3.mp4 NI_invoicing_explainer_v2.mp4      # -10.5 LUFS, limiter -1 dBFS
-ffmpeg -i NI_invoicing_explainer_v2.mp4 -vf "fps=1/3,scale=480:-1,tile=6x5" out/contact.png
+py -3 master.py out/v3.mp4 NI_invoicing_explainer_v3.mp4      # -10.5 LUFS, limiter -1 dBFS
+ffmpeg -i NI_invoicing_explainer_v3.mp4 -vf "fps=1/3,scale=480:-1,tile=6x5" out/contact.png
 ```
 `npm install` first (remotion 4.0.536, react 19). Fonts are local woff2 in `public/fonts/` (Google css2 pulled with a
 browser UA, latin subset). `out/`, `node_modules/`, the narration clips, the music bed (copy `bed.mp3` + `LICENSE.txt` from the UKW video project into `public/music/`) and the delivered MP4 are git-ignored; the MP4 lives next to this file and in Jay's chat with Amber.

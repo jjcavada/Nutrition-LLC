@@ -1610,6 +1610,209 @@
   {
    "id": "s8",
    "file": "vo/s8.mp3",
+   "text": "And later, once a few clean weeks are behind us, the next step is simple. When every invoice lines up and nothing is flagged, the bot can send them for you. The flagged ones still wait for your eyes.",
+   "duration": 12.432,
+   "words": [
+    {
+     "t": 0.091,
+     "d": 0.169,
+     "w": "And"
+    },
+    {
+     "t": 0.273,
+     "d": 0.43,
+     "w": "later"
+    },
+    {
+     "t": 0.951,
+     "d": 0.26,
+     "w": "once"
+    },
+    {
+     "t": 1.224,
+     "d": 0.065,
+     "w": "a"
+    },
+    {
+     "t": 1.302,
+     "d": 0.299,
+     "w": "few"
+    },
+    {
+     "t": 1.602,
+     "d": 0.326,
+     "w": "clean"
+    },
+    {
+     "t": 1.94,
+     "d": 0.312,
+     "w": "weeks"
+    },
+    {
+     "t": 2.266,
+     "d": 0.13,
+     "w": "are"
+    },
+    {
+     "t": 2.409,
+     "d": 0.417,
+     "w": "behind"
+    },
+    {
+     "t": 2.839,
+     "d": 0.299,
+     "w": "us"
+    },
+    {
+     "t": 3.372,
+     "d": 0.091,
+     "w": "the"
+    },
+    {
+     "t": 3.477,
+     "d": 0.312,
+     "w": "next"
+    },
+    {
+     "t": 3.789,
+     "d": 0.286,
+     "w": "step"
+    },
+    {
+     "t": 4.089,
+     "d": 0.104,
+     "w": "is"
+    },
+    {
+     "t": 4.206,
+     "d": 0.508,
+     "w": "simple"
+    },
+    {
+     "t": 5.117,
+     "d": 0.247,
+     "w": "When"
+    },
+    {
+     "t": 5.378,
+     "d": 0.299,
+     "w": "every"
+    },
+    {
+     "t": 5.69,
+     "d": 0.417,
+     "w": "invoice"
+    },
+    {
+     "t": 6.12,
+     "d": 0.339,
+     "w": "lines"
+    },
+    {
+     "t": 6.471,
+     "d": 0.221,
+     "w": "up"
+    },
+    {
+     "t": 6.758,
+     "d": 0.13,
+     "w": "and"
+    },
+    {
+     "t": 6.901,
+     "d": 0.273,
+     "w": "nothing"
+    },
+    {
+     "t": 7.188,
+     "d": 0.13,
+     "w": "is"
+    },
+    {
+     "t": 7.331,
+     "d": 0.469,
+     "w": "flagged"
+    },
+    {
+     "t": 8.099,
+     "d": 0.091,
+     "w": "the"
+    },
+    {
+     "t": 8.19,
+     "d": 0.221,
+     "w": "bot"
+    },
+    {
+     "t": 8.425,
+     "d": 0.13,
+     "w": "can"
+    },
+    {
+     "t": 8.568,
+     "d": 0.234,
+     "w": "send"
+    },
+    {
+     "t": 8.802,
+     "d": 0.13,
+     "w": "them"
+    },
+    {
+     "t": 8.945,
+     "d": 0.13,
+     "w": "for"
+    },
+    {
+     "t": 9.089,
+     "d": 0.312,
+     "w": "you"
+    },
+    {
+     "t": 9.818,
+     "d": 0.078,
+     "w": "The"
+    },
+    {
+     "t": 9.909,
+     "d": 0.573,
+     "w": "flagged"
+    },
+    {
+     "t": 10.495,
+     "d": 0.299,
+     "w": "ones"
+    },
+    {
+     "t": 10.807,
+     "d": 0.247,
+     "w": "still"
+    },
+    {
+     "t": 11.055,
+     "d": 0.221,
+     "w": "wait"
+    },
+    {
+     "t": 11.289,
+     "d": 0.104,
+     "w": "for"
+    },
+    {
+     "t": 11.393,
+     "d": 0.13,
+     "w": "your"
+    },
+    {
+     "t": 11.536,
+     "d": 0.534,
+     "w": "eyes"
+    }
+   ]
+  },
+  {
+   "id": "s9",
+   "file": "vo/s9.mp3",
    "text": "Your Mondays, back. The first batch builds Sunday, October twenty-sixth, at seven. You review, you send, and we watch the first ones with you.",
    "duration": 9.84,
    "words": [

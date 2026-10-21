@@ -18,7 +18,8 @@ SCRIPT = [
     ("s5", "They land in QuickBooks as regular invoices, with one difference: not sent. Nothing reaches a client until you say so.", "-5%", "+0Hz"),
     ("s6", "Monday, open NI Today. The Invoices card is right on your home screen: how many, the total, and the few that need a look, with the reason. A note with no grocery amount, for example. Tap Open invoices in QuickBooks, fix those two, then select all, batch actions, send. The app never sends. You do.", "-3%", "+0Hz"),
     ("s7", "We tested it on your real week of October twelfth. Thirty-seven of your forty-three invoices came out identical, to the cent. The other six were small slips the old way let through: a half hour left taxable, a total rounded up, a typo in a grocery amount. And two it flagged for you to check.", "-4%", "+0Hz"),
-    ("s8", "Your Mondays, back. The first batch builds Sunday, October twenty-sixth, at seven. You review, you send, and we watch the first ones with you.", "-5%", "+0Hz"),
+    ("s8", "And later, once a few clean weeks are behind us, the next step is simple. When every invoice lines up and nothing is flagged, the bot can send them for you. The flagged ones still wait for your eyes.", "-4%", "+0Hz"),
+    ("s9", "Your Mondays, back. The first batch builds Sunday, October twenty-sixth, at seven. You review, you send, and we watch the first ones with you.", "-5%", "+0Hz"),
 ]
 VO = "public/vo"
 

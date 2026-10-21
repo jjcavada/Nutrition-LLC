@@ -3,7 +3,7 @@ import {AbsoluteFill, Composition, Sequence, staticFile, useCurrentFrame} from '
 import {Audio} from '@remotion/media';
 import {ensureFonts} from './fonts';
 import {FPS, LEAD, sceneFrames, scenes, totalFrames, wordFrame} from './timing';
-import {S1, S2, S3, S4, S5, S6, S7, S8} from './scenes';
+import {S1, S2, S3, S4, S5, S6, S7, S8, S9} from './scenes';
 import {Lead, LeadSpec} from './Lead';
 import {Stage, stageColor} from './ui';
 
@@ -13,10 +13,10 @@ import {Stage, stageColor} from './ui';
 /** The @remotion/media path renders the voice about 3 dB hotter than the old tag did (measured on the UKW video). */
 const VOICE = 0.72;
 
-const byId: Record<string, React.FC<{s: any}>> = {s1: S1, s2: S2, s3: S3, s4: S4, s5: S5, s6: S6, s7: S7, s8: S8};
+const byId: Record<string, React.FC<{s: any}>> = {s1: S1, s2: S2, s3: S3, s4: S4, s5: S5, s6: S6, s7: S7, s8: S8, s9: S9};
 
 /** Stage per scene (must match each scene's <Shell bg>): the protagonist dot floods the NEXT stage colour on every cut. */
-export const STAGE: Record<string, Stage> = {s1: 'green', s2: 'cream', s3: 'accent', s4: 'green', s5: 'accent', s6: 'cream', s7: 'green', s8: 'cream'};
+export const STAGE: Record<string, Stage> = {s1: 'green', s2: 'cream', s3: 'accent', s4: 'green', s5: 'accent', s6: 'cream', s7: 'green', s8: 'accent', s9: 'cream'};
 /** Where the dot sits in each scene (frame px): beside the section word, or beside the logo on the logo rows. */
 const HOME: Record<string, {x: number; y: number}> = {
   s1: {x: 92, y: 128},
@@ -26,7 +26,8 @@ const HOME: Record<string, {x: number; y: number}> = {
   s5: {x: 92, y: 104},
   s6: {x: 92, y: 104},
   s7: {x: 92, y: 104},
-  s8: {x: 92, y: 128},
+  s8: {x: 92, y: 104},
+  s9: {x: 92, y: 128},
 };
 const leadSpecs = (): LeadSpec[] => {
   const specs: LeadSpec[] = [];

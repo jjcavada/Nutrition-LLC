@@ -757,8 +757,104 @@ export const S7: React.FC<{s: Scene}> = ({s}) => {
   );
 };
 
-/* ───────────── S8 · Close: your Mondays, back ───────────── */
+/* ───────────── S8 · Later: clean weeks send themselves (a future step, Jay 2026-10-21) ───────────── */
+const Tiles: React.FC<{n: number; at: number; color: string; checkAt?: number; cols?: number}> = ({n, at, color, checkAt, cols = 11}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  return (
+    <div style={{display: 'grid', gridTemplateColumns: `repeat(${cols}, 34px)`, gap: 10}}>
+      {Array.from({length: n}).map((_, i) => {
+        const d = at + Math.floor(i / cols) * 2 + (i % cols);
+        const p = frame < d ? 0 : spring({frame: frame - d, fps, config: {damping: 20, stiffness: 170}});
+        const ck = checkAt != null && frame >= checkAt + i;
+        return (
+          <div key={i} style={{width: 34, height: 42, borderRadius: 5, background: color, opacity: p, transform: `translateY(${(1 - p) * 10}px)`, position: 'relative'}}>
+            {ck ? <div style={{position: 'absolute', left: 11, top: 9, width: 8, height: 16, borderRight: `3px solid ${C.ink}`, borderBottom: `3px solid ${C.ink}`, transform: 'rotate(45deg)'}} /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const S8: React.FC<{s: Scene}> = ({s}) => {
+  const frame = useCurrentFrame();
+  const later = wordFrame(s, 'later');
+  const simple = wordFrame(s, 'simple');
+  const lines = wordFrame(s, 'lines');
+  const nothing = wordFrame(s, 'nothing');
+  const send = wordFrame(s, 'send');
+  const flagged = wordFrame(s, 'flagged', 1); // 'nothing is flagged' comes first; the lane fires on 'The flagged ones'
+  const wait = wordFrame(s, 'wait');
+  const dim = interpolate(frame, [simple - 8, simple + 4], [1, 0], CL);
+  return (
+    <Shell bg="accent" foot={<Footnote light at={later + 10}>A later step, only after you say so and after the first weeks run clean. Flagged invoices always wait for you.</Footnote>}>
+      <Camera keys={[{at: send - 4, scale: 1.06, focus: {x: 1380, y: 420}, to: {x: 1380, y: 420}, dur: 30, ease: 'out'}, {at: wait + 10, scale: 1, dur: 40}]}>
+        <AbsoluteFill style={PAD}>
+          <div style={{position: 'absolute', left: 140, top: 250, width: 820}}>
+            <div style={{position: 'relative', minHeight: 250}}>
+              <div style={{position: 'absolute', left: 0, top: 0, opacity: frame < later ? 0 : dim}}>
+                <Words at={later} text={'After a few\nclean weeks,'} size={72} color={C.headDark} stagger={3} />
+              </div>
+              <div style={{position: 'absolute', left: 0, top: 0, opacity: frame >= simple ? 1 : 0}}>
+                <Hero at={simple} text={'Clean weeks\nsend themselves.'} size={94} color={C.headDark} hi={{themselves: {color: C.sage}}} letterStagger={1.5} />
+              </div>
+            </div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 16, marginTop: 10}}>
+              <Item at={lines} dark>
+                Every invoice lines up
+              </Item>
+              <Item at={nothing} dark>
+                Nothing flagged
+              </Item>
+              <Item at={send} dark>
+                Sent for you, Monday morning
+              </Item>
+              <Item at={flagged} dark>
+                Flagged ones still wait for you
+              </Item>
+            </div>
+          </div>
+          {/* the two lanes */}
+          <div style={{position: 'absolute', left: 1000, top: 250, width: 800}}>
+            <Reveal at={lines} dy={16}>
+              <div style={{borderRadius: 18, background: 'rgba(251,248,241,0.07)', padding: '22px 26px 24px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16}}>
+                  <div style={{fontFamily: F.body, fontWeight: 800, fontSize: 20, letterSpacing: 2.5, textTransform: 'uppercase', color: C.headDark}}>41 line up</div>
+                  <Reveal at={send} dx={10} dy={0}>
+                    <div style={{fontFamily: F.body, fontWeight: 800, fontSize: 20, color: C.ink, background: C.sage, padding: '6px 14px', borderRadius: 6}}>Sent for you</div>
+                  </Reveal>
+                </div>
+                <Tiles n={41} at={lines} color="rgba(251,248,241,0.85)" checkAt={nothing} />
+              </div>
+            </Reveal>
+            <Reveal at={flagged} dy={16} style={{marginTop: 22}}>
+              <div style={{borderRadius: 18, background: 'rgba(251,248,241,0.07)', padding: '22px 26px 24px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16}}>
+                  <div style={{fontFamily: F.body, fontWeight: 800, fontSize: 20, letterSpacing: 2.5, textTransform: 'uppercase', color: C.amber}}>2 flagged</div>
+                  <Reveal at={wait} dx={10} dy={0}>
+                    <div style={{fontFamily: F.body, fontWeight: 800, fontSize: 20, color: C.ink, background: C.amber, padding: '6px 14px', borderRadius: 6}}>Waits for you</div>
+                  </Reveal>
+                </div>
+                <Tiles n={2} at={flagged} color={C.amber} />
+              </div>
+            </Reveal>
+          </div>
+        </AbsoluteFill>
+      </Camera>
+      <AbsoluteFill style={{pointerEvents: 'none'}}>
+        <div style={{position: 'absolute', left: 140, top: 96}}>
+          <Reveal at={lead}>
+            <Eyebrow color={C.headDark}>Later</Eyebrow>
+          </Reveal>
+        </div>
+      </AbsoluteFill>
+    </Shell>
+  );
+};
+
+/* ───────────── S9 · Close: your Mondays, back ───────────── */
+export const S9: React.FC<{s: Scene}> = ({s}) => {
   const mondays = wordFrame(s, 'Mondays');
   const sunday = wordFrame(s, 'Sunday');
   const review = wordFrame(s, 'review');

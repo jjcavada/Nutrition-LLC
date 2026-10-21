@@ -363,7 +363,7 @@ function ckRoster(inp) { // cfg.chefs + contacts tagged chef + live contractor c
   const alias = {}; // GoHighLevel spellings of chefs whose email is on file ("Viana Nguyen")
   const sameName = (n) => alias[ckNorm(n)] || list.find((x) => ckNorm(x.name) === ckNorm(n) || ((seed[x.name] || {}).webNames || []).some((w) => ckNorm(w) === ckNorm(n)));
   const add = (name, email, from) => {
-    const e = String(email || '').toLowerCase(); if (!name || /^zztest/i.test(name)) return;
+    const e = String(email || '').toLowerCase(); if (!name || /^zztest/i.test(name) || (cfg.chefChecklistSkip || []).some((x) => ckNorm(x) === ckNorm(name))) return; // Amber herself is on the roster (she cooks too) but not a contractor to onboard (2026-10-22)
     if (e && byEmail[e]) return byEmail[e];
     if (from !== 'roster') { const twin = sameName(name) || (ckSlug(name) ? list.find((x) => x.id === ckSlug(name)) : null); if (twin) { if (e && !(twin.unmatched || []).some((u) => u.email === e)) (twin.unmatched = twin.unmatched || []).push({ name, email: e }); return twin; } }
     const extra = (seed[name] && seed[name].emails) || [];

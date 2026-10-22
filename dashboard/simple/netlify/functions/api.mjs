@@ -156,7 +156,7 @@ function restrictionsOf(text) {
   return out;
 }
 // Amber's own GHL notes on the contact (anything the automations did not write), newest first, so what she types in GHL shows on the card
-const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|CHEF CHECKLIST|GUSTO HAND-OFF|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
+const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|CHEF CHANGED|CHEF CHECKLIST|GUSTO HAND-OFF|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
 function humanNotes(notes) {
   return (notes || []).filter((n) => n.body && !AUTOMATION_NOTE.test(n.body)).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 5)
     .map((n) => ({ id: n.id, when: n.dateAdded || '', body: String(n.body).trim().slice(0, 1200) }));
@@ -936,7 +936,7 @@ export default async (req, context) => {
 
     if (route === 'today' && req.method === 'GET') { const snap = await getSnapshot(url.searchParams.get('fresh') === '1');
       if (url.searchParams.get('test') === '1') return json(Object.assign({}, snap, { clients: (snap.clients || []).concat(snap.testClients || []) }));
-      return json(Object.assign({}, snap, { testClients: undefined, calls: (snap.calls || []).filter((c) => !/^zztest/i.test(c.who || '')), newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')), alerts: (snap.alerts || []).filter((a) => !/zztest/i.test((a.title || '') + ' ' + (a.body || ''))) })); } // test fixtures never reach Amber's view
+      return json(Object.assign({}, snap, { testClients: undefined, testChef: undefined, calls: (snap.calls || []).filter((c) => !/^zztest/i.test(c.who || '')), newItems: (snap.newItems || []).filter((n) => !/zztest/i.test(n.who || '')), alerts: (snap.alerts || []).filter((a) => !/zztest/i.test((a.title || '') + ' ' + (a.body || ''))) })); } // test fixtures never reach Amber's view
     if (route === 'scan' && req.method === 'POST') return json(await scanBookings(nameFromGhl));
     if (route === 'alerts/clear' && req.method === 'POST') { // test clean-up: drop stored Make alerts whose title or body contains `match`
       const b = await req.json().catch(() => ({})); const match = String(b.match || '').toLowerCase(); if (match.length < 3) return json({ ok: false, error: 'match too short' }, 400);
@@ -972,15 +972,17 @@ export default async (req, context) => {
       const client = (snap.clients || []).concat(snap.testClients || []).find((c) => c.id === contactId);
       if (!((snap.chefOptions || []).includes(chef) || chef === cfg.testChef)) return json({ ok: false, error: 'bad request' }, 400);
       if (!client || client.stage === 'past' || client.isNew) return json({ ok: false, reason: 'not-ready', error: 'only signed clients with a live card can be assigned' }, 409);
+      if (client.oppId) { try { const d = await ghl('/opportunities/' + client.oppId); const live = cf((d.opportunity || {}).customFields, cfg.chefField) || ''; client.chef = live === 'tbd' ? '' : live; } catch (e) {} } // the snapshot can be up to 120 s old on another instance: a switch right after a switch must see the chef GoHighLevel holds NOW (inspector finding 2, 2026-10-22)
       if (client.chef === chef && !b.force) return json({ ok: false, reason: 'already', error: 'already with ' + chef }, 409); // no second email to the chef on a double tap
       if (typeof b.expect === 'string' && (client.chef || '') !== b.expect && !b.force) return json({ ok: false, reason: 'changed', now: client.chef || '', error: 'The chef on this client changed' }, 409); // the screen was stale or partial: never email a second chef by mistake
-      const oppId = client ? client.oppId : '';
+      const oppId = client ? client.oppId : ''; const prev = client.chef || ''; const switching = !!prev && prev !== chef; // Amber picked a different chef for a client who already has one (2026-10-22)
       if (b.recordOnly === true) { // the chef already has the menu (assigned before the app, or by hand): write the name, no email
         if (!oppId) return json({ ok: false, error: 'no card' }, 409);
         try { await ghl('/opportunities/' + oppId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customFields: [{ id: cfg.chefField, field_value: chef }] }) }); } catch (e) { return json({ ok: false, error: 'GoHighLevel refused the change' }, 502); }
-        try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: cfg.ghlUser, body: 'CHEF RECORDED (NI Today) by Amber on ' + longDate(new Date()) + ': ' + chef + '. No email was sent (the chef already had the menu).' }) }); } catch (e) {}
+        let noteOk = true;
+        try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: cfg.ghlUser, body: switching ? 'CHEF CHANGED (NI Today) by Amber on ' + longDate(new Date()) + ': ' + prev + ' -> ' + chef + '. No email was sent (the chef already had the menu). ' + prev + ' was not told automatically.' : 'CHEF RECORDED (NI Today) by Amber on ' + longDate(new Date()) + ': ' + chef + '. No email was sent (the chef already had the menu).' }) }); } catch (e) { noteOk = false; }
         await dropSnapshot(); if (store('ni-cache')) { try { await store('ni-cache').delete('opp:' + oppId); } catch (e) {} }
-        return json({ ok: true, recorded: chef }); }
+        return json({ ok: true, recorded: chef, switched: switching ? prev : '', noteOk }); }
       // opportunityId is passed explicitly: the Make scenario otherwise takes the contact's FIRST opportunity (listOpportunities limit 1), which can be an old/abandoned one
       const r = await fetch(cfg.assignHook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId, opportunityId: oppId, chefName: chef, clientName: client ? client.name : (b.clientName || ''), source: 'NI Today app' }) });
       const t = (await r.text()).trim();
@@ -994,7 +996,9 @@ export default async (req, context) => {
       let fieldOk = false;
       if (oppId) { try { const u = await ghl('/opportunities/' + oppId, { method: 'PUT', body: JSON.stringify({ customFields: [{ id: cfg.chefField, field_value: chef }] }) }); fieldOk = !!(u && (u.opportunity || u.succeded || u.succeeded)); } catch (e) { fieldOk = false; } }
       if (store('ni-cache')) { try { await store('ni-cache').delete('opp:' + oppId); } catch (e) {} }
-      return json({ ok: true, chef, contactId, oppId, fieldOk });
+      let noteOk = false; // the visible artifact of a switch: who had the client, who has it now, who was emailed
+      if (switching) { try { await ghl('/contacts/' + contactId + '/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: cfg.ghlUser, body: 'CHEF CHANGED (NI Today) by Amber on ' + longDate(new Date()) + ': ' + prev + ' -> ' + chef + '. ' + chef + ' was sent the intake and menu. ' + prev + ' was not told automatically.' }) }); noteOk = true; } catch (e) { noteOk = false; } }
+      return json({ ok: true, chef, contactId, oppId, fieldOk, switched: switching ? prev : '', noteOk });
     }
     if (route === 'archive' && req.method === 'POST') {
       // Amber's "not continuing": the live opportunity becomes lost (GHL native, no stage move, nothing is sent), the reason lives in

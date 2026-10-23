@@ -7,7 +7,7 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 - Everything below is BUILT and runs every Sunday already, in **dry mode**: it builds the list in the app and creates nothing in
   QuickBooks. Verified live: Netlify scheduled function `invoices-trigger` (cron `0 2 * * 1` = Sunday 7:00 pm Phoenix), Make
   scenario 6700872 "NI Invoices - Weekly build" active on its webhook.
-- To make Sunday Oct 26 the first REAL batch, three things must happen before Sunday 6 pm Phoenix, in this order:
+- To make **Sunday Oct 25** (7 pm Phoenix, bills Oct 18 to 24; Amber sends Monday Oct 26) the first REAL batch, three things must happen before Sunday 6 pm Phoenix, in this order:
   1. **Jay's go for the QuickBooks test records** (fixtures only, GR-070): I create a test customer "ZZTEST Invoice Bot", one test time
      entry and one test invoice linked to it, prove the hours flip to "billed", then void and delete all three. Nothing of Amber's is
      touched. Needs Jay's word because it writes to her QuickBooks.

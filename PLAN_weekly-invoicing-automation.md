@@ -81,7 +81,7 @@ invoices; QBO "Automatically send imported invoices" must be OFF (checked before
    difference explained), show Amber.
 3. API probe on ONE test invoice for a test customer (ZZTEST customer in QBO) to confirm the `LinkedTxn` shape, then void it.
 4. Fresh-context inspector on the scenario (reads only, fixture customer only).
-5. First live batch Sunday 2026-10-26 (unsent), Amber reviews Monday 2026-10-27 with Jay watching; then hands-off.
+5. First live batch Sunday 2026-10-25 (unsent), Amber reviews Monday 2026-10-26 with Jay watching; then hands-off.
 
 ## 6. Answers needed from Amber (short)
 

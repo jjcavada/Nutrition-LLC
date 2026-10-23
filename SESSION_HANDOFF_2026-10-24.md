@@ -23,7 +23,7 @@ No secrets in this file. Credentials live in `JJ Work/_credentials/` (not on Git
 - **Amber's answers (WhatsApp 2026-10-20):** Tracy Thomas $45, Rachel Troyan $85 (both in config `clientBilling.rates`); hours approved
   by **Sunday 6 pm** ("Yes Sunday at 6 is great"); rounding stays nearest half hour; she has her own card-fee list, **not received yet**
   (config holds the 21 names her October invoices show; not blocking).
-- **Three gates before the first LIVE batch (Sunday 2026-10-26 if done by Saturday):**
+- **Three gates before the first LIVE batch (Sunday 2026-10-25, 7 pm Phoenix, if done by Saturday; it bills Oct 18 to 24 and Amber sends Monday 2026-10-26. Earlier notes and the video said "Sunday the 26th": wrong, the 26th is a Monday):**
   1. **Jay's "go"** to create test records in her QuickBooks (customer "ZZTEST Invoice Bot", one time entry, one invoice linked to it),
      prove the hours flip to billed, then void and delete all three. Nothing is created without that word. **STILL PENDING.**
   2. A fresh-context inspector round on the live path (contract `VALIDATION_CONTRACT_weekly-invoicing.md`, fixtures only).
@@ -81,7 +81,7 @@ This is so amazing").
 ## Open items, by who is blocking
 - **Jay:** "go" for the QuickBooks test records (blocks the live switch); the handoff ownership decisions.
 - **Amber:** credit-card fee list; Microsoft 365 login in Make (optional); new contract wording from her attorney.
-- **Next session (no one blocking):** after Jay's go: test records, inspector, flip to live, watch Sunday 10/26 7 pm and Monday 10/27;
+- **Next session (no one blocking):** after Jay's go: test records, inspector, flip to live, watch Sunday 10/25 7 pm and Monday 10/26;
   watch the next real signing for the briefing change (B-7); delete Make connection 7320382 when convenient.
 
 ## Rules that are binding for this client

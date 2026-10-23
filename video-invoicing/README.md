@@ -21,7 +21,7 @@ dot = one invoice) performing every cut:
    "The app never sends. You do."
 7. `s7` ink: the test, 37 of 43 identical, the six slips, the two flags.
 8. `s8` olive: Later (Jay, Oct 21): once a few clean weeks are behind us, invoices that line up with nothing flagged can be sent for her; flagged ones still wait. A future step, not built.
-9. `s9` paper: your Mondays back, first batch Sunday Oct 26, 7 pm.
+9. `s9` paper: your Mondays back, first batch Sunday Oct 26, 7 pm (WRONG WEEKDAY in v3: Oct 26 is a Monday; the real first run is Sunday Oct 25. Fix tts.py s9 + scenes.tsx S9 card before any re-render).
 
 Every number on screen comes from `../DRYRUN_invoices_2026-10-12_to_17.md` (QuickBooks read only, Oct 20, 2026) or
 Amber's own words (voice notes, Oct 19); each scene's footnote names the source. Illustrations (the Workforce screen,

@@ -161,6 +161,18 @@ function humanNotes(notes) {
   return (notes || []).filter((n) => n.body && !AUTOMATION_NOTE.test(n.body)).sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '')).slice(0, 5)
     .map((n) => ({ id: n.id, when: n.dateAdded || '', body: String(n.body).trim().slice(0, 1200) }));
 }
+// The Phase 3 note "AI MENU & CHEF BRIEFING GENERATED" (OpenAI HTML) as plain lines, newest note wins (Amber, 2026-10-23: the app replaces
+// the briefing email). "## " section, "### " sub-section, "- " list item, anything else a paragraph. No HTML reaches the app.
+function briefingOf(notes) {
+  const n = (notes || []).filter((x) => /^\s*AI MENU & CHEF BRIEFING GENERATED/i.test(x.body || '')).sort((p, q) => String(q.dateAdded || '').localeCompare(String(p.dateAdded || '')))[0];
+  if (!n) return null;
+  let t = String(n.body).replace(/^\s*AI MENU & CHEF BRIEFING GENERATED\s*=*\s*/i, '');
+  t = t.replace(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi, '\n## $1\n').replace(/<h[3-6][^>]*>([\s\S]*?)<\/h[3-6]>/gi, '\n### $1\n')
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1\n').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|ol|ul|tr)>/gi, '\n')
+    .replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
+  t = t.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l && !/^=+$/.test(l)).join('\n');
+  return { text: t.slice(0, 20000), at: n.dateAdded ? longDate(new Date(n.dateAdded)) : '' };
+}
 function intakeText(body) { return String(body || '').replace(/^\s*=== INTAKE FORM DATA ===\s*/i, '').split(/=== END INTAKE DATA ===/i)[0].trim(); }
 function parseInquiry(body) { // "WEBSITE EVENT INQUIRY" notes: Label: value lines
   const facts = []; String(body || '').split('\n').forEach((l) => { const m = l.match(/^([A-Za-z][A-Za-z /]{1,30}):\s*(.+)$/); if (m && !/^(Received|Name|Email|Phone|Contact ID|Source)$/i.test(m[1].trim())) facts.push([m[1].trim(), m[2].trim()]); });
@@ -960,7 +972,7 @@ export default async (req, context) => {
         label: fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(ev.startTime)) + ' at ' + timeOf(new Date(ev.startTime)) } : null;
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
-        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')),
+        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')), briefing: briefingOf(notes),
         intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '', signedOn: cf(f, cfg.fields.signedOn) || '', consult });
     }
     if (route === 'assign' && req.method === 'POST') {

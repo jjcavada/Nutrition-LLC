@@ -462,6 +462,16 @@ select{appearance:none;-webkit-appearance:none;width:100%;border:1px solid var(-
 .foot .link{min-height:44px;font-weight:600;color:var(--soft);text-decoration:underline;text-underline-offset:3px}
 .lockbtn{min-height:44px;padding:0 16px;border:1px solid var(--hair);border-radius:999px;font-weight:600;color:var(--head)}
 .skel{color:var(--faint);font-size:14.5px;padding:12px 0}
+/* chef briefing + menu on the profile (2026-10-23) */
+.bf{margin:var(--s2) 0 0;background:var(--tile);border-radius:12px;padding:var(--s2) var(--s3) var(--s3);max-height:60vh;max-height:60dvh;overflow:auto}
+.bf>.fine{margin:var(--s1) 0 0}
+.bf-h{font:400 var(--fs-18)/1.25 var(--display);color:var(--head);margin:var(--s4) 0 var(--s1)}
+.bf .ck-gh{padding:var(--s3) 0 var(--s1)}
+.bf-p{margin:0 0 6px;font-size:var(--fs-14);line-height:1.5;color:var(--ink);overflow-wrap:anywhere}
+.bf-p b,.bf-list b{color:var(--head);font-weight:600}
+.bf-p.warn,.bf-p.warn b{color:var(--warn-fg)}
+.bf-list{margin:0 0 var(--s2);padding-left:1.4em;font-size:var(--fs-14);line-height:1.5;color:var(--ink)}
+.bf-list li{margin:0 0 8px;overflow-wrap:anywhere}
 
 @media (min-width:761px){
   .sheet{left:50%;right:auto;bottom:auto;top:50%;width:min(560px,calc(100% - 48px));transform:translate(-50%,-50%);border-radius:24px;max-height:86vh;max-height:86dvh}
@@ -1261,14 +1271,30 @@ function personSheet(c, extra){
     factsHTML(facts) + restrictionsHTML(c) + notesHTML(c) + docsHTML(c) +
     ((c.phone || c.email) ? '<div class="acts">' + (c.phone ? '<a class="btn" href="' + tel(c.phone) + '">Call</a><a class="btn ghost-b" href="' + sms(c.phone) + '">Text</a>' : '') + (c.email ? '<a class="btn ghost-b" href="mailto:' + esc(c.email) + '">Email</a>' : '') + '</div>' : '') +
     '<div class="acts"><button class="btn ghost-b" data-intake="' + esc(c.id) + '">Read the full intake</button></div><div id="rawbox"></div>' +
+    (c.hasMenu === false || c.isNew ? '' : '<div class="acts"><button class="btn ghost-b" data-briefing="' + esc(c.id) + '" aria-expanded="false" aria-controls="briefbox">Chef briefing and menu</button></div><div id="briefbox"></div>') +
     (c.hasChef && !c.chef && c.stage !== 'past' ? '<div class="acts"><select aria-label="Record the chef for ' + esc(c.name) + '" data-record="' + esc(c.id) + '">' + chefOptions() + '</select></div><p class="arch-help">This client is at Chef Assigned but the chef was never recorded. Pick the chef here to record it. No email is sent.</p>' : '') +
     (c.chef && c.stage !== 'past' ? '<div class="acts"><select aria-label="Change the chef for ' + esc(c.name) + '" data-rechef="' + esc(c.id) + '">' + chefOptions('Change chef', c.chef) + '</select></div><p class="arch-help">Picked the wrong chef? Choose the right one here. The new chef gets the intake and menu, or just record them. ' + esc(c.chef) + ' is not told automatically, send them a quick text.</p>' : '') + archiveLinkHTML(c);
+}
+/* the chef briefing + 15-item menu: plain lines from the API ("## " section, "### " sub-section, "- " item), every piece through esc() */
+function bfLine(s){ var m = /^([^:]{2,48}):\s*(.*)$/.exec(s); return m ? '<b>' + esc(m[1]) + ':</b> ' + esc(m[2]) : esc(s); }
+function bfItem(s){ var i = s.indexOf(' - '); return i > 0 && i < 90 ? '<b>' + esc(s.slice(0, i)) + '</b> ' + esc(s.slice(i + 3)) : esc(s); }
+function briefingHTML(b){
+  var out = [], list = null;
+  function flush(){ if (list) { out.push('<ol class="bf-list">' + list.join('') + '</ol>'); list = null; } }
+  String(b.text || '').split('\n').forEach(function(l){
+    if (/^## /.test(l)) { flush(); out.push('<h4 class="bf-h">' + esc(l.slice(3)) + '</h4>'); return; }
+    if (/^### /.test(l)) { flush(); out.push('<div class="ck-gh">' + esc(l.slice(4)) + '</div>'); return; }
+    if (/^- /.test(l)) { (list = list || []).push('<li>' + bfItem(l.slice(2)) + '</li>'); return; }
+    flush(); out.push('<p class="bf-p' + (/allerg|avoid/i.test(l.split(':')[0]) && !/respected|verified|alternative/i.test(l.split(':')[0]) ? ' warn' : '') + '">' + bfLine(l) + '</p>');
+  });
+  flush();
+  return '<div class="bf">' + (b.at ? '<p class="fine">Made ' + esc(b.at) + ' when they signed. The chef gets this same menu when you assign them.</p>' : '') + out.join('') + '</div>';
 }
 function withDetails(c, cb){
   c.summaryObj = c.summaryObj || (c.summary ? {summary:c.summary, line:c.line, said:c.said} : null);
   api('contact/' + c.id).then(function(r){ return r.json(); }).then(function(d){
     if (d && d.summary) c.summaryObj = d.summary;
-    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.address = d.address; c.archived = d.archived || c.archived || ''; c.consult = d.consult || null; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
+    if (d) { c.restrictions = d.restrictions || []; c.notes = d.notes || []; c.intake = d.intake || ''; c.intakePdf = d.intakePdf || c.intakePdf; c.contractPdf = d.contractPdf || c.contractPdf; c.driveFolder = d.driveFolder || c.driveFolder; c.hasMenu = d.hasMenu; c.briefing = d.briefing || null; c.address = d.address; c.archived = d.archived || c.archived || ''; c.consult = d.consult || null; if (!c.phone) c.phone = d.phone; if (!c.email) c.email = d.email; }
     cb(c, true);
   }).catch(function(){ cb(c, false); });
 }
@@ -1304,6 +1330,14 @@ document.addEventListener('click', function(e){
   if ((t = e.target.closest('[data-event]'))) { openEvent(t.dataset.event); return; }
   if ((t = e.target.closest('[data-evpast]'))) { evPast = !evPast; store.set('evpast', evPast); renderEvents(); return; }
   if ((t = e.target.closest('[data-alert]'))) { if (t.dataset.evalert) { openEvent(t.dataset.evalert); return; } if (t.dataset.contact && findClient(t.dataset.contact)) openPerson(t.dataset.contact, 'Needs attention'); return; }
+  if ((t = e.target.closest('[data-briefing]'))) {
+    var cb0 = findClient(t.dataset.briefing), bbox = $('#briefbox', t.closest('.sheet')); if (!cb0 || !bbox) return;
+    if (bbox.innerHTML) { bbox.innerHTML = ''; t.textContent = 'Chef briefing and menu'; t.setAttribute('aria-expanded', 'false'); return; }
+    bbox.innerHTML = '<p class="skel">Loading…</p>';
+    var showB = function(){ var bx = document.getElementById('briefbox') || bbox, bt = document.querySelector('[data-briefing="' + cb0.id + '"]') || t; bx.innerHTML = cb0.briefing && cb0.briefing.text ? briefingHTML(cb0.briefing) : '<p class="none">No menu built yet for this client. It is made when they sign.</p>'; bt.textContent = 'Hide the briefing'; bt.setAttribute('aria-expanded', 'true'); }; // the profile redraws when its details arrive: write into the box that is on screen now
+    if (cb0.briefing !== undefined) showB(); else withDetails(cb0, showB);
+    return;
+  }
   if ((t = e.target.closest('[data-intake]'))) {
     var c = findClient(t.dataset.intake), box = $('#rawbox', t.closest('.sheet')); if (!c || !box) return;
     if (box.innerHTML) { box.innerHTML = ''; t.textContent = 'Read the full intake'; return; }

@@ -167,9 +167,11 @@ function briefingOf(notes) {
   const n = (notes || []).filter((x) => /^\s*AI MENU & CHEF BRIEFING GENERATED/i.test(x.body || '')).sort((p, q) => String(q.dateAdded || '').localeCompare(String(p.dateAdded || '')))[0];
   if (!n) return null;
   let t = String(n.body).replace(/^\s*AI MENU & CHEF BRIEFING GENERATED\s*=*\s*/i, '');
+  t = t.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '').replace(/^\s*```[a-z]*\s*$/gim, '');
   t = t.replace(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi, '\n## $1\n').replace(/<h[3-6][^>]*>([\s\S]*?)<\/h[3-6]>/gi, '\n### $1\n')
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1\n').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|ol|ul|tr)>/gi, '\n')
-    .replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
+    .replace(/<\/?[a-z][a-z0-9]*(\s[^<>]*)?\/?>/gi, '').replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&#x([0-9a-f]+);/gi, (m, x) => String.fromCodePoint(parseInt(x, 16)))
+    .replace(/&(rsquo|lsquo);/g, "'").replace(/&(rdquo|ldquo);/g, '"').replace(/&eacute;/g, 'é').replace(/&egrave;/g, 'è').replace(/&ntilde;/g, 'ñ').replace(/&hellip;/g, '...').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
   t = t.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l && !/^=+$/.test(l)).join('\n');
   return { text: t.slice(0, 20000), at: n.dateAdded ? longDate(new Date(n.dateAdded)) : '' };
 }

@@ -73,7 +73,7 @@ export function planInvoices(entries, clients, opts = {}) {
     const visits = g.entries.sort((a, b) => a.TxnDate.localeCompare(b.TxnDate)).map((t) => {
       const exact = (t.Hours || 0) + (t.Minutes || 0) / 60 + (t.Seconds || 0) / 3600;
       const gro = parseGroceries(t.Description);
-      return { id: String(t.Id), date: t.TxnDate, chef: ((t.VendorRef || t.EmployeeRef || {}).name) || '', hours: t.Hours || 0, minutes: t.Minutes || 0, exact: r2(exact), note: t.Description || '', groceries: gro.amount, groceriesWhy: gro.why, groceriesFlag: gro.flag };
+      return { id: String(t.Id), date: t.TxnDate, chef: ((t.VendorRef || t.EmployeeRef || {}).name) || '', hours: t.Hours || 0, minutes: t.Minutes || 0, exact: r2(exact), note: t.Description || '', billable: t.BillableStatus || '', groceries: gro.amount, groceriesWhy: gro.why, groceriesFlag: gro.flag };
     });
     // a visit = all of the client's entries on the same day (a chef who clocks out and back in is still one shopping trip)
     const days = {}; visits.forEach((v) => (days[v.date] = days[v.date] || []).push(v));
@@ -111,8 +111,9 @@ export function planInvoices(entries, clients, opts = {}) {
       CustomerRef: { value: g.customerId }, TxnDate: invoiceDate, CustomerMemo: { value: memo }, PrivateNote: privateNote.slice(0, 4000), SalesTermRef: { value: o.termsId },
       AllowOnlineCreditCardPayment: false, AllowOnlineACHPayment: false, AllowIPNPayment: false,
       Line: lines.map((l, i) => Object.assign({ LineNum: i + 1, DetailType: 'SalesItemLineDetail', Amount: r2(l.qty * l.price), SalesItemLineDetail: { ItemRef: { value: l.ref, name: l.item }, Qty: l.qty, UnitPrice: l.price, TaxCodeRef: { value: 'NON' } } }, l.desc ? { Description: l.desc } : {})),
-      LinkedTxn: visits.map((v) => ({ TxnId: v.id, TxnType: 'TimeActivity' })),
+      LinkedTxn: visits.filter((v) => v.billable === 'Billable').map((v) => ({ TxnId: v.id, TxnType: 'TimeActivity' })), // QBO refuses a link to a NotBillable entry
     };
+    if (!qbo.LinkedTxn.length) delete qbo.LinkedTxn;
     if (docNumber) qbo.DocNumber = docNumber;
     if (g.client && g.client.email) qbo.BillEmail = { Address: g.client.email };
     invoices.push({ customerId: g.customerId, customer: g.customer, docNumber, txnDate: invoiceDate, memo, visits, visitDays: perDay.map((d) => ({ date: d.date, exact: d.exact, billed: d.billed, groceries: d.groceries })), hoursExact: exact, hoursBilled: billed, rate, groceries, groceriesUnknown: unknown.length, cardFee, subtotal: base, total, lines, flags, qbo });

@@ -3,9 +3,10 @@
 Plain-language sequence for Jay (and for explaining to Amber). Technical detail: `PLAN_weekly-invoicing-automation.md`,
 `VALIDATION_CONTRACT_weekly-invoicing.md`, `.claude/make/SCENARIOS.md` (6700872).
 
-## State today (Thu Oct 23)
-- Everything below is BUILT and runs every Sunday already, in **dry mode**: it builds the list in the app and creates nothing in
-  QuickBooks. Verified live: Netlify scheduled function `invoices-trigger` (cron `0 15 * * 1` = Monday 8:00 am Phoenix since 2026-10-24; was Sunday 7 pm), Make
+## State (updated Sat Oct 24)
+- **LIVE since Sat 2026-10-24 (invoiceMode "live", deploy 6adc308a).** First real batch: **Monday 2026-10-26 8:00 am Phoenix**, bills
+  Oct 18 to 24, invoices dated Mon Oct 26 starting at number 4488, all unsent. Before that it ran in dry mode (list in the app, nothing in
+  QuickBooks). Verified live: Netlify scheduled function `invoices-trigger` (cron `0 15 * * 1` = Monday 8:00 am Phoenix since 2026-10-24; was Sunday 7 pm), Make
   scenario 6700872 "NI Invoices - Weekly build" active on its webhook.
 - **Why Monday 8 am (2026-10-24):** approved QuickBooks Time hours reach QBO only on Monday between 05:00 and 06:59 Phoenix (all 10 batches since Aug 10). A Sunday build found nothing.
 - To make **Monday Oct 26** (8 am Phoenix, bills Oct 18 to 24; Amber sends the same morning) the first REAL batch, three things must happen first, in this order:
@@ -73,12 +74,17 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 - Watch Amber's reply after she sends; any correction she makes by hand is a rule to add.
 
 ## If a batch is wrong
-- The invoices are unsent, so nothing reached a client. Void them in QuickBooks (or Jay voids them by API).
+- The invoices are unsent, so nothing reached a client. **Copy the time entry ids from each wrong invoice's private note FIRST**
+  ("from time entries <id> (m/d, chef, h:mm) ..."), then **DELETE** the invoices in QuickBooks. Do NOT void: a voided invoice keeps
+  its Billable hours marked HasBeenBilled, the planner then skips them and rebuilds only part of the week with no warning
+  (inspector round 3). Deleting returns them to Billable within a second.
 - Free their hours for a re-run: `POST https://ni-today.netlify.app/api/invoices/unmark` with `{"secret": <notify secret>,
   "timeActivityIds": [...]}` (the ids are in each bot invoice's private note "from time entries ..."). Without this the planner skips them.
-- Re-run with a NEW attempt number: post the Make hook 2957765 `{"mode": "live", "weekStart": "...", "weekEnd": "...", "attempt": 2}`
+- Wait at least 3 minutes after the last run (QuickBooks flips hours to billed 1 to 3 minutes after a create). Re-run with a NEW attempt number: post the Make hook 2957765 `{"mode": "live", "weekStart": "...", "weekEnd": "...", "attempt": 2}`
   (3, 4, ... for later re-runs). The QuickBooks request id includes the attempt, so a voided invoice is never handed back again
-  (inspector round 2: with the same id QuickBooks returned the voided invoice and created nothing).
+  (inspector round 2: with the same id QuickBooks returned the removed invoice and created nothing).
+- **A step failed half way** (Make emailed Jay, nothing deleted): re-run WITHOUT raising the attempt. The same id returns the invoices
+  already created and module 11 records them; only the missing ones get made.
 - A re-run that finds nothing new leaves the Invoices card as it was. Hours approved late (no invoices at 8 am): the app shows one
   "Invoices not built yet" alert; re-run with `{"mode": "live"}` once she has approved (no attempt number needed, nothing was created).
 

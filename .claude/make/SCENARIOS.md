@@ -1172,3 +1172,17 @@ contract `VALIDATION_CONTRACT_weekly-invoicing.md`. Switch to live = config `inv
   + app alert) and the next intake no AI summary. The menu behaviour test (A-6) waits for credits.
 - **Test lesson:** a throw-away copy of a live module copies its `onerror` route too. The Phase 3 module 3 copy emailed Jay twice from
   Amber's Gmail ("[Make ERROR] ... ZZTEST WontEat"). Strip `onerror` (and stub every HTTP/SignWell/notify module) in every throw-away copy.
+
+## AI provider switch: OpenAI -> Make's own AI (2026-10-24, Jay: "can you use the AI in make?")
+- **4082143 module 3** and **6561132 modules 26 / 34 / 70** now run `ai-local-agent:RunLocalAIAgent` v0 ("Run an agent") on Make's
+  AI Provider connection **8158583** (no API key; Amber's AI Assistant v2 already used it), model **gpt-5.4-mini**, reasoning low, NO
+  Conversation ID (stateless). Consumers map `N.response` (4082143: note module 6 + its error email 415; 6561132: 27 / 35 / 71).
+  Filters and error routes unchanged (error text now says "AI"). 4082143 renamed "GHL - Phase 3: AI Menu Generator (Make AI)".
+- Why not `ai-tools:Ask`: its fixed default model copied template examples into ITEMS TO AVOID and dropped allergy items run to run.
+- Prompt fixes that ship with it: Phase 3 brackets for ITEMS TO AVOID / Dietary Protocol / the ALLERGY slot reworded (no example foods,
+  every allergy with who it applies to, "None stated"), rule 16 (brackets are guidance, exactly 15 items, no em/en dashes); summary prompt
+  puts the Dislikes (never use) line into allergies + a FINAL CHECK sentence.
+- Cost: about 17 to 20 Make credits per menu run, 7 to 8 per summary run, about 10 to 19 s. Amber's plan: 10,000 credits a month, about
+  3,200 used; this adds roughly 350 to 400 a month.
+- Still on OpenAI 7520490 (no credits): 4539954 voice-note transcription (whisper), 5313458 (deactivated). Backups:
+  session scratch `wonteat/<sid>.pre_makeai.json`. Contract `VALIDATION_CONTRACT_make-ai-provider.md`.

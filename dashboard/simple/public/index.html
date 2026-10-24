@@ -700,11 +700,14 @@ function algs(a){ return (a || []).map(function(x){ return '<span class="alg">' 
    intake's "Dislikes (never use)" answer (Amber, 2026-10-24: one line of everything that absolutely shouldn't be used) */
 var DISLIKE_WORD = /\b(dislike[sd]?|avoid[sd]?|aversions?|hates?|won.?t eat|does not eat|doesn.?t eat|never use)\b/ig;
 var DISLIKE_TAG = /\s*\(([^()]*\b(dislike[sd]?|avoid[sd]?|aversions?|hates?|won.?t eat|does not eat|doesn.?t eat|never use)\b[^()]*)\)\s*$/i;
-function dislikeName(x){ var m = DISLIKE_TAG.exec(x); if (!m) return String(x).trim(); var who = m[1].replace(DISLIKE_WORD, '').replace(/\s+/g, ' ').trim(); return x.slice(0, m.index).trim() + (who ? ' (' + who + ')' : ''); }
-function algSplit(c){ var a = [], d = []; (c.allergies || []).forEach(function(x){ (DISLIKE_TAG.test(x) ? d : a).push(x); }); return {allergy: a, dislike: d}; }
+var SAFETY_WORD = /\b(allerg\w*|sensitiv\w*|intoleran\w*|celiac|coeliac|anaphyla\w*|limit\w*)\b/i;
+function isDislike(x){ return DISLIKE_TAG.test(x) && !SAFETY_WORD.test(x); } // the whole item: "nut allergy (avoids)" stays an allergy
+function dislikeName(x){ var m = DISLIKE_TAG.exec(x); if (!m) return String(x).trim(); var who = m[1].replace(DISLIKE_WORD, ' ').replace(/^\s*by\b/i, ' ').replace(/\s+/g, ' ').replace(/^[\s,;:&\/-]+|[\s,;:&\/-]+$/g, '').replace(/\s*,\s*(,\s*)+/g, ', '); return x.slice(0, m.index).trim() + (who ? ' (' + who + ')' : ''); }
+function algSplit(c){ var a = [], d = []; (c.allergies || []).forEach(function(x){ (isDislike(x) ? d : a).push(x); }); return {allergy: a, dislike: d}; }
+function saidHas(low, food){ var w = food.replace(/s$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return new RegExp('\\b' + w + '(s|es)?\\b', 'i').test(low); }
 function dislikesText(c){
   var said = String(c.wontEat || '').trim(), low = said.toLowerCase(), out = said ? [said] : [], seen = {};
-  algSplit(c).dislike.forEach(function(x){ var f = dislikeName(x), k = x.slice(0, DISLIKE_TAG.exec(x).index).trim().toLowerCase(); if (f && k && !seen[k] && low.indexOf(k) < 0) { seen[k] = 1; out.push(f); } });
+  algSplit(c).dislike.forEach(function(x){ var f = dislikeName(x), k = x.slice(0, DISLIKE_TAG.exec(x).index).trim().toLowerCase(); if (f && k && !seen[k] && !saidHas(low, k)) { seen[k] = 1; out.push(f); } });
   return out.join(', ');
 }
 function factsHTML(f){ return '<dl class="facts">' + f.filter(function(p){ return p[1]; }).map(function(p){ return '<dt>' + esc(p[0]) + '</dt><dd>' + p[1] + '</dd>'; }).join('') + '</dl>'; }

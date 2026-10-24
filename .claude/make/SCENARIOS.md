@@ -1156,3 +1156,19 @@ ni-<weekEnd>-<customerId>-<docNumber>, unsent, online payments off) -> 11 POST /
 "N invoices ready to review". Every read/plan error: email Jay + app alert + Commit; create/mark errors: email + alert + Resume.
 Rules and the rate table live in the app (`invoicing.mjs`, config `clientBilling`), not in Make. Plan `PLAN_weekly-invoicing-automation.md`,
 contract `VALIDATION_CONTRACT_weekly-invoicing.md`. Switch to live = config `invoiceMode: "live"` + redeploy (after the ZZTEST probe).
+
+## Dislikes (never use) + Didn't pick (2026-10-24, Amber)
+- Website intake: optional "Foods your family does not eat" textarea after the allergies box; payload key = that label.
+- **4082106 Phase 1 module 7** note line `- Dislikes (never use): {{1.`Foods your family does not eat`}}` right under
+  Allergies/Sensitivities (empty for old-form payloads). The intake PDF (website `intake-pdf`), the chef email (6116697) and the AI
+  summary (6561132) read the note, so they carry it with no change of their own.
+- **4082143 Phase 3 module 3**: CRITICAL RULE 15 (foods under "Dislikes (never use)", older "Won't eat", are hard exclusions, listed on the
+  briefing's Dislikes line and under ITEMS TO AVOID) + a bold red `Dislikes (never use):` line in the briefing template under Allergies.
+- App: `wontEat` / `notPicked` on `/api/contact`; profile Dislikes row + Didn't pick row (sw v57).
+- Backups of the blueprints before each push: session scratch `wonteat/` (`<sid>.orig.json`, `.live_after.json`, `.live_after2.json`).
+  Contract `VALIDATION_CONTRACT_wont-eat-and-not-picked.md`.
+- **2026-10-24: the OpenAI account behind connection 7520490 answers 429 "no credits".** Phase 3 (menus) and 6561132 (AI summaries,
+  modules 26/34/70) both use it; last green real run 2026-10-23 00:59Z. Until credits are added the next signing gets no menu (Jay emailed
+  + app alert) and the next intake no AI summary. The menu behaviour test (A-6) waits for credits.
+- **Test lesson:** a throw-away copy of a live module copies its `onerror` route too. The Phase 3 module 3 copy emailed Jay twice from
+  Amber's Gmail ("[Make ERROR] ... ZZTEST WontEat"). Strip `onerror` (and stub every HTTP/SignWell/notify module) in every throw-away copy.

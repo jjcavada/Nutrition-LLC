@@ -1,13 +1,14 @@
-# Weekly invoicing: what happens every Sunday (runbook, 2026-10-23)
+# Weekly invoicing: what happens every week (runbook, 2026-10-23, build moved to Monday 8 am on 2026-10-24)
 
 Plain-language sequence for Jay (and for explaining to Amber). Technical detail: `PLAN_weekly-invoicing-automation.md`,
 `VALIDATION_CONTRACT_weekly-invoicing.md`, `.claude/make/SCENARIOS.md` (6700872).
 
 ## State today (Thu Oct 23)
 - Everything below is BUILT and runs every Sunday already, in **dry mode**: it builds the list in the app and creates nothing in
-  QuickBooks. Verified live: Netlify scheduled function `invoices-trigger` (cron `0 2 * * 1` = Sunday 7:00 pm Phoenix), Make
+  QuickBooks. Verified live: Netlify scheduled function `invoices-trigger` (cron `0 15 * * 1` = Monday 8:00 am Phoenix since 2026-10-24; was Sunday 7 pm), Make
   scenario 6700872 "NI Invoices - Weekly build" active on its webhook.
-- To make **Sunday Oct 25** (7 pm Phoenix, bills Oct 18 to 24; Amber sends Monday Oct 26) the first REAL batch, three things must happen before Sunday 6 pm Phoenix, in this order:
+- **Why Monday 8 am (2026-10-24):** approved QuickBooks Time hours reach QBO only on Monday between 05:00 and 06:59 Phoenix (all 10 batches since Aug 10). A Sunday build found nothing.
+- To make **Monday Oct 26** (8 am Phoenix, bills Oct 18 to 24; Amber sends the same morning) the first REAL batch, three things must happen first, in this order:
   1. **Jay's go for the QuickBooks test records** (fixtures only, GR-070): I create a test customer "ZZTEST Invoice Bot", one test time
      entry and one test invoice linked to it, prove the hours flip to "billed", then void and delete all three. Nothing of Amber's is
      touched. Needs Jay's word because it writes to her QuickBooks.
@@ -15,14 +16,14 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
   3. **Flip `invoiceMode` to "live"** in the app config and redeploy (one line, one deploy, smoke test).
   Optional, not blocking: Amber's own credit-card list. The config holds the 21 names her October invoices show; her list replaces it
   when it arrives.
-- If any of the three has not happened by Sunday 6 pm, Sunday runs dry again (safe), Monday she types as before, and we go the
-  following Sunday.
+- If any of the three has not happened by Monday 7 am Phoenix, the run is dry again (safe), she types as before, and we go the following week.
+- **Done 2026-10-24:** (1) QuickBooks probe on "JJ Invoice Test" records (8/8, found + fixed the NotBillable link refusal); (2) inspector rounds.
 
 ## Through the week (nothing new)
 - Chefs clock in on the Workforce app per client, receipt photo and grocery total in the note. Amber approves the hours in QuickBooks
-  Time. Deadline agreed with Amber: **Sunday 6:00 pm Phoenix** ("Yes Sunday at 6 is great").
+  Time. Deadline agreed with Amber: **Sunday 6:00 pm Phoenix** ("Yes Sunday at 6 is great"); the bot reads QuickBooks Monday 8 am, so approving any time before then works.
 
-## Sunday 7:00 pm Phoenix: the build
+## Monday 8:00 am Phoenix: the build
 1. Netlify fires `invoices-trigger`. It works out the most recent completed Sunday-to-Saturday week and posts
    `{mode, weekStart, weekEnd}` to the Make webhook.
 2. Make 6700872 reads from QuickBooks, read-only: the week's time entries (the QuickBooks Time hours, with client, chef, minutes and
@@ -45,11 +46,13 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
    payments off, linked to the time entries (QuickBooks then shows those hours as billed). Each creation carries a request id, so a
    retry can never make the same invoice twice.
 7. Make tells the app which time entries are now invoiced (`POST /api/invoices/mark`). A re-run of the same week skips them.
-8. The app notifies Amber: a push to her phone plus the bell entry ("N invoices ready, k need a look").
+8. The app notifies Amber: a push to her phone ("N invoices ready"), only when at least one invoice was created.
+   **No approved hours at 8 am** (she approves later): nothing is created, the card is left alone, and the app shows ONE "Invoices not
+   built yet" alert. Jay re-runs it by posting the Make hook with `{mode, weekStart, weekEnd}` once she has approved.
 9. If a step fails, Make emails Jay and drops a "Needs attention" alert in the app. Invoices already created stay, unsent. After the
    fix, a re-run only creates what is missing.
 
-## Monday morning: Amber (about 10 minutes)
+## Monday morning after 8 am: Amber (about 10 minutes)
 1. Open NI Today. The Invoices card on the home screen shows the week: how many, the total, and the ones that need a look, each with
    the reason and the day it refers to.
 2. Tap "Open invoices in QuickBooks". Fix the flagged ones (usually a grocery line: type the amount from the receipt).
@@ -64,7 +67,7 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 - Receipt photos are not read (phase 2, needs a QuickBooks Time API token).
 
 ## Jay's Monday check, first three live weeks
-- Make 6700872: last run green, one execution around 7:00 pm Phoenix Sunday.
+- Make 6700872: last run green, one execution around 8:00 am Phoenix Monday.
 - App card count and total = QuickBooks "Not sent" invoices dated Monday.
 - Spot-check two invoices against the time entries (hours, groceries, fee, card fee).
 - Watch Amber's reply after she sends; any correction she makes by hand is a rule to add.

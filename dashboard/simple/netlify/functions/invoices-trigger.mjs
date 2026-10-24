@@ -1,4 +1,5 @@
-// NI weekly invoicing: Sunday 7 pm Phoenix (Monday 02:00 UTC; Phoenix has no DST) asks Make to build last week's invoices
+// NI weekly invoicing: Monday 8:00 am Phoenix (15:00 UTC; Phoenix has no DST) asks Make to build last week's invoices. Moved from Sunday
+// 7 pm on 2026-10-24: approved QuickBooks Time hours reach QBO on Monday 05:00 to 06:59 Phoenix, so a Sunday build found nothing.
 // (Sunday to Saturday). Make reads QuickBooks, calls /api/invoices/plan, and in live mode creates the invoices unsent.
 // Mode comes from config (invoiceMode: "dry" until Amber's go). PLAN_weekly-invoicing-automation.md.
 import cfg from './config.secret.json' with { type: 'json' };
@@ -18,4 +19,4 @@ export default async () => {
   console.log('invoices trigger', body, r.status, text.slice(0, 120));
   return new Response(JSON.stringify({ ok: r.ok, status: r.status, week: wk, mode: body.mode }), { headers: { 'Content-Type': 'application/json' } });
 };
-export const config = { schedule: '0 2 * * 1' };
+export const config = { schedule: '0 15 * * 1' };

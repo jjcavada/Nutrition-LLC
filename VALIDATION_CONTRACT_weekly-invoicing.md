@@ -45,3 +45,62 @@ live batch. Inspector reports in Part 3.
   record overwritten; the notify secret has also appeared in this session's logs: rotate it when convenient, see the plan); the card
   must read the run with strong consistency (eventual reads returned the previous run for about a minute).
 - Not yet: fresh inspector round (after Amber's answers), the LinkedTxn probe on a ZZTEST customer, the supervised live batch.
+
+### Builder proof, 2026-10-24: QuickBooks probe on test records (Jay's go: "you can touch her QuickBooks ... name it jjinvoice test")
+- Throw-away Make proxy (quickbooks:MakeApiCall v2 on QBO connection 7302963, same module + connection as 6700872 modules 3/4/5/10;
+  deleted after). Test records: customer "JJ Invoice Test" (QBO 555; a first attempt also left 554, both INACTIVE, note "Test record
+  from Jay"), vendor "JJ Invoice Test Chef" (556, INACTIVE), time entries dated 2026-10-10 (outside the Oct 18-24 run).
+- **Found: QBO REFUSES an invoice whose LinkedTxn points at a NotBillable TimeActivity** ("You've attempted to invoice for ... time ...
+  that does not exist or has already been invoiced"), and EVERY entry QuickBooks Time syncs into her QBO arrives `NotBillable`
+  (checked on the real Oct 11-17 entries, read-only). The live batch would have failed on every invoice. Fixed in `invoicing.mjs`
+  (`patch_invoice_linkedtxn_2026-10-24.cjs`): link only `Billable` entries, drop an empty LinkedTxn; NotBillable entries are invoiced
+  without the link and the app's `invoiced-time` store (POST /api/invoices/mark, Make module 11) keeps them from being billed twice
+  (W-3/W-9 fallback, as planned). Deployed, smoke 200, plan route 401 without secret.
+- Probe after the fix, the real planner + the same QBO module: 8/8 PASS. 2 visits (2 h 20 -> 2.5 h; 1 h), groceries 12.34 + 5, one
+  Shopping/Menu Fee line qty 2, total 382.34; invoice 23704 DocNumber "JJTEST1" (outside her sequence) created with EmailStatus NotSet,
+  online card + ACH off, terms Due on receipt; the same requestid again returned the same invoice (no duplicate); the Billable entry
+  flipped to HasBeenBilled, the NotBillable one stayed NotBillable. Cleanup: invoice + both entries deleted, customer + vendor inactive.
+- Planner harness on her real Oct 12-17 week after the fix: 23/23 (W-1 unchanged). Routes harness not re-run (its scratch customer
+  fixture is gone; routes code unchanged).
+- **Timing fact:** last week's entries were created in QBO all at once on Mon 2026-10-19 05:51 Phoenix, i.e. when Amber APPROVED in
+  QuickBooks Time. If she approves after Sunday 7 pm, the Sunday build finds no hours (0 invoices). Today (Fri Oct 23 evening Phoenix)
+  QBO holds 0 entries for Oct 18-24. Sunday Oct 25 is also the scheduled trigger's first real fire (deployed Oct 20).
+
+### Inspector, 2026-10-24 (pre-live) - fresh context, default FAIL, Amber's real QuickBooks touched only through "JJ Invoice Test"
+Method: a throw-away Make copy of the LIVE branch (modules 2, 7 router, 8, 9 feeder, 17, 18, 10 with the identical mapper incl. the `requestid`
+qs entry, 11 rendered not posted, 12) on QBO connection 7302963, fed an invoice produced by the REAL planner (invoicing.mjs) from my own
+test entries; a local copy of the real api.mjs (Blobs fake, no network) for the routes; the live app only for read-only GETs. Notify secret never printed.
+
+Created and removed: QBO invoices 23708 (JJTEST1), 23709 (JJTEST2), 23710 (JJTEST3), time entries 1073744768-71 (dated Oct 5-8): all DELETED,
+read back. Customer 555 / vendor 556 reactivated then INACTIVE again (555 kept a made-up BillAddr "1 Test Way, Phoenix AZ" on the inactive record).
+Make throw-aways, all deleted: scenarios 6757224 (QBO proxy), 6757245 (data path), 6757251 (zero bundles), 6757256 (empty live week), 6757287
+(live-branch replica); hooks 2976549, 2976560-63, 2976570, 2976572. Live scenario 6700872 untouched (last edit Oct 20, no new execution).
+
+| Assertion | Verdict | Evidence |
+|---|---|---|
+| W-1 | PASS | Harness 23/23. Real route (config table) on today's live Oct 12-17 entries: 43 invoices, $23,067.79, 35 identical to the cent; the 8 others: 6 are Amber's slips (3 taxable Half Hour, 2 round-ups, 1 typo) + Annie Toon (+$16.60) and Tara Mackenzie (+$12.08) because the config card list has them and Amber skipped the card fee on Oct 19 (list still unconfirmed by her). |
+| W-2 | PASS | Blueprint scan (36 modules incl. handlers): only QBO write is POST /invoice, no /send, mail modules go to jjcavada1 only. Real QBO: 3 invoices WITH a BillEmail (example.com) read back EmailStatus NotSet, no DeliveryInfo, online card/ACH/Affirm/PayPal/IPN all false, Due on receipt, still unsent 10 min later. |
+| W-3 | PASS with GAP | Same requestid (given as a `qs` entry like live) twice -> same invoice 23708, one invoice on the customer. Dry mode with an invoice in the payload -> nothing created. QBO refuses an invoice linking an already HasBeenBilled entry. App store: after the exact module-11 body, a re-plan of the week skips all 4 entries. GAP (MED): for NotBillable entries (no link) QBO has no guard and the requestid contains the docNumber, which changes on a re-run: invoice 23709 duplicated an entry already on 23708. A failed module 11 (Resume) followed by a re-run duplicates; the app store is the only guard and has NO reset/unmark route (runbook "I reset the memory" has no tool behind it). |
+| W-4 | PASS | 4 visits, rate 85, Half Hour 42.5, Groceries x3, Shopping/Menu Fee qty 4, Credit Card Fee unit 26.9997 -> Amount 27.00, all lines NON, memo "10/5-10/8", total 926.99 = planner. BillAddr inherits from the customer. |
+| W-5 | PASS | parse cases in the harness; real week flags 2 (Darin Granger ".", Mike Johnson "Grocery"). |
+| W-6 | PARTIAL FAIL (LOW) | Rate from the table, QBO HourlyRate ignored (120 and 95 entries billed at 90 / Rachel Troyan 85). "Client missing from the table gets a flag": no flag ever fires, the route adds every QBO customer with the default rate. |
+| W-7 | PASS | Event Event skipped (2 entries) on the live data. |
+| W-8 | PARTIAL | There is NO review sheet or "Not invoiced" tab in the build (no Sheets module); the Invoices card + skipped line replace it. Error handlers (email Jay + app alert) exist on modules 3,4,5,6,10,11 but were not fired (no notify allowed). A failed invoice is dropped from the aggregator (count 1 of 2 in my test), so "N of M built" is honest. Zero-entry week: see (b). |
+| W-9 | PASS | Billable entries (rate 95, 0 and 55, each with a TimeChargeId, like freshly synced ones) flipped to HasBeenBilled; the NotBillable one stayed NotBillable and is recorded by the store. Deleting the invoice returned the linked entries to Billable. Correction to the builder: fresh synced entries are Billable (97 of 105 on Oct 20); the same 105 entries read NotBillable today with unchanged SyncToken, so BOTH paths must work and both do. |
+| W-10 | PASS | Make modules 5+16 return the last 30 numbers (max 4487, an Oct 23 invoice that is not the bot's, no non-numeric); route numbers the real week 4488..4530 sequentially. |
+| W-11 | PASS | live: mark wrong secret 401, non-JSON 400, array body 400, latest without key 401; plan without secret 401 (I sent one such POST; it only rewrote the `invoices:lastcall` diagnostic). |
+| W-12 | PASS | fixtures only. Supervised real batch still to happen. |
+| W-13 | PASS | /api/today?fresh=1 -> 200, 64 clients. |
+
+(a) PASS. lastWeek() at Mon 2026-10-26 02:00:00Z (also 01:59:59 and 02:05) -> Sun 2026-10-18 .. Sat 2026-10-24; planner invoice date Mon 2026-10-26.
+    Production deploy 6adc2529d7e9fcbd62f4b02a lists function_schedules invoices-trigger "0 2 * * 1"; cfg.invoicesHook == Make hook 2957765 (enabled).
+    The scheduler has never run it (no invocation logs): the Netlify -> Make leg is first exercised live. Make's own date fallback (hook without dates) is right on Sat/Sun/Mon (formatDate "d": Sun = 0).
+(b) NO CRASH, MISLEADING OUTPUT. Make posts `"entries": null`; the route turns it into an empty plan (200). In LIVE mode the router still runs the aggregator
+    with 0 bundles, so module 13 pushes Amber "0 invoices ready to review / Week ...: 0 of 0 built in QuickBooks, 0 need a look. Nothing was sent."; the card
+    shows "0 invoices ... nothing to check", pill "Planned"; Jay gets nothing. (Kind "other": a push only, no bell entry, unlike the runbook.)
+    **Blocker evidence: all 10 sync batches since Aug 10 landed ALL their entries in QBO on Monday between 05:00 and 06:59 Phoenix** (Oct 12 06:04, Oct 19 05:51).
+    No entry ever existed before Monday 5 am (lag work date to QBO creation 2-8 days), so Sunday 7 pm will almost surely find 0 entries even if Amber approves by 6 pm.
+(c) PASS (see W-1). (d) PASS: the rendered module-11 body is valid JSON with all 4 ids (NotBillable included); route recorded 4; re-run skipped 4.
+(e) Also: no "Build now" control exists (re-run = Jay POSTs the Make hook with mode/weekStart/weekEnd); `invoicing.mjs` is also deployed as a public function with no
+    handler (harmless); notify secret sits in clear in 9 Make modules (and was printed once in this inspector's own tool output): rotate; deployed api bundle
+    cannot be diffed against source without calling the plan route (unverified, builder's deploy + smoke only).

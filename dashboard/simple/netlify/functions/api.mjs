@@ -916,6 +916,16 @@ export default async (req, context) => {
       if (!entries) { await lastCall({ error: 'entries not a list', entriesType: typeof b.entries }); return json({ ok: false, error: 'entries must be a list' }, 400); }
       await lastCall({ mode: b.mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: entries.length, customers: customers.length, recent: Array.isArray(b.recentDocNumbers) ? b.recentDocNumbers.length : 'none' });
       const mode = b.mode === 'live' ? 'live' : 'dry'; const cb = cfg.clientBilling || {};
+      if (mode === 'live' && !entries.length) { // no approved hours in QuickBooks yet: keep the card as it is, tell Amber once per week
+        const title = 'Invoices not built yet (week ending ' + String(b.weekEnd || '') + ')';
+        const list = await readList('alerts');
+        if (!list.some((a) => a.title === title)) {
+          list.unshift({ id: 'a' + Date.now(), when: new Date().toISOString(), title: title.slice(0, 80), body: 'QuickBooks had no approved hours for ' + String(b.weekStart || '') + ' to ' + String(b.weekEnd || '') + ' when the bot ran, so no invoices were made. Approve the hours in QuickBooks Time, then ask Jay to run it again.', url: '/' });
+          await writeList('alerts', list.slice(0, 30)); await pushAll({ title: 'Invoices not built yet', body: 'No approved hours were in QuickBooks yet. Approve them, then ask Jay to run it again.', url: '/' }).catch(() => null);
+        }
+        await dropSnapshot();
+        return json({ ok: true, mode, empty: true, summary: { invoices: 0, flagged: 0, skipped: 0, total: 0, entries: 0 }, invoices: [], skipped: [] });
+      }
       const nk = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
       const rates = {}; Object.keys(cb.rates || {}).forEach((n) => { rates[nk(n)] = Number(cb.rates[n]); });
       const card = new Set((cb.cardFee || []).map(nk)), events = new Set((cb.events || []).map(nk));

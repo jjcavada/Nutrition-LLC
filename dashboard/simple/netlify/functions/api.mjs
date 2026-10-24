@@ -917,10 +917,11 @@ export default async (req, context) => {
       await lastCall({ mode: b.mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: entries.length, customers: customers.length, recent: Array.isArray(b.recentDocNumbers) ? b.recentDocNumbers.length : 'none' });
       const mode = b.mode === 'live' ? 'live' : 'dry'; const cb = cfg.clientBilling || {};
       if (mode === 'live' && !entries.length) { // no approved hours in QuickBooks yet: keep the card as it is, tell Amber once per week
-        const title = 'Invoices not built yet (week ending ' + String(b.weekEnd || '') + ')';
+        const wk = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '?');
+        const title = ('Invoices not built yet (week ending ' + wk(b.weekEnd) + ')').slice(0, 80);
         const list = await readList('alerts');
         if (!list.some((a) => a.title === title)) {
-          list.unshift({ id: 'a' + Date.now(), when: new Date().toISOString(), title: title.slice(0, 80), body: 'QuickBooks had no approved hours for ' + String(b.weekStart || '') + ' to ' + String(b.weekEnd || '') + ' when the bot ran, so no invoices were made. Approve the hours in QuickBooks Time, then ask Jay to run it again.', url: '/' });
+          list.unshift({ id: 'a' + Date.now(), when: new Date().toISOString(), title, body: ('QuickBooks had no approved hours for ' + wk(b.weekStart) + ' to ' + wk(b.weekEnd) + ' when the bot ran, so no invoices were made. Approve the hours in QuickBooks Time, then ask Jay to run it again.').slice(0, 300), url: '/' });
           await writeList('alerts', list.slice(0, 30)); await pushAll({ title: 'Invoices not built yet', body: 'No approved hours were in QuickBooks yet. Approve them, then ask Jay to run it again.', url: '/' }).catch(() => null);
         }
         await dropSnapshot();

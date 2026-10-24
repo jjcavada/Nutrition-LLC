@@ -73,8 +73,14 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 - Watch Amber's reply after she sends; any correction she makes by hand is a rule to add.
 
 ## If a batch is wrong
-- The invoices are unsent, so nothing reached a client. Void them in QuickBooks (or tell me and I void them by API), I reset the
-  week's "invoiced" memory in the app, we fix the rule, and re-run.
+- The invoices are unsent, so nothing reached a client. Void them in QuickBooks (or Jay voids them by API).
+- Free their hours for a re-run: `POST https://ni-today.netlify.app/api/invoices/unmark` with `{"secret": <notify secret>,
+  "timeActivityIds": [...]}` (the ids are in each bot invoice's private note "from time entries ..."). Without this the planner skips them.
+- Re-run with a NEW attempt number: post the Make hook 2957765 `{"mode": "live", "weekStart": "...", "weekEnd": "...", "attempt": 2}`
+  (3, 4, ... for later re-runs). The QuickBooks request id includes the attempt, so a voided invoice is never handed back again
+  (inspector round 2: with the same id QuickBooks returned the voided invoice and created nothing).
+- A re-run that finds nothing new leaves the Invoices card as it was. Hours approved late (no invoices at 8 am): the app shows one
+  "Invoices not built yet" alert; re-run with `{"mode": "live"}` once she has approved (no attempt number needed, nothing was created).
 
 ## Later (only after a few clean weeks, with Amber's say-so)
 - Auto-send: when every invoice lines up and nothing is flagged, send them for her Monday morning; flagged ones still wait for her.

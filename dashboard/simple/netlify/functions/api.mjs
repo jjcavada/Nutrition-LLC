@@ -943,6 +943,7 @@ export default async (req, context) => {
       const plan = planInvoices(entries, clients, { weekStart: b.weekStart, weekEnd: b.weekEnd, invoiceDate: b.invoiceDate, nextDocNumber: mode === 'live' ? nextDoc : null,
         rounding: cb.rounding || 'half', rate: cb.defaultRate || 90, shoppingFee: cb.shoppingFee || 25, cardFeeRate: cb.cardFeeRate || 0.03, excludeCustomers: cb.events || ['Event Event'],
         alreadyBilled: Object.keys(billed), builtOn: b.builtOn || longDate(new Date()) });
+      if (mode === 'live' && !plan.invoices.length) return json({ ok: true, mode, nothingNew: true, summary: plan.summary, invoices: [], skipped: plan.skipped }); // a re-run with nothing new keeps the card
       const runId = (mode + '-' + (b.weekEnd || 'week') + '-' + Date.now().toString(36)).replace(/[^A-Za-z0-9-]/g, '');
       const slim = { runId, at: new Date().toISOString(), mode, weekStart: b.weekStart || '', weekEnd: b.weekEnd || '', summary: plan.summary,
         rows: plan.invoices.map((i) => ({ customer: i.customer, customerId: i.customerId, memo: i.memo, visits: i.visitDays.length, hoursExact: i.hoursExact, hoursBilled: i.hoursBilled, groceries: i.groceries, groceriesUnknown: i.groceriesUnknown, cardFee: i.cardFee, total: i.total, flags: i.flags, docNumber: i.docNumber, invoiceId: '' })),
@@ -971,6 +972,24 @@ export default async (req, context) => {
         if (latest && (!b.runId || latest.runId === b.runId)) { for (const it of items) { const row = (latest.rows || []).find((r) => (it.docNumber && r.docNumber === String(it.docNumber)) || (it.customerId && r.customerId === String(it.customerId))); if (row) { row.invoiceId = String(it.invoiceId || ''); row.docNumber = String(it.docNumber || row.docNumber || ''); } }
           latest.created = (latest.created || 0) + items.length; latest.createdAt = at; await s.setJSON('invoices:latest', latest); } } catch (e) { console.error('invoices latest', e && e.message); }
       return json({ ok: true, recorded: items.reduce((n, it) => n + (it.timeActivityIds || []).length, 0) });
+    }
+    if (route === 'invoices/unmark' && req.method === 'POST') { // after Jay voids a bot invoice in QuickBooks: let a re-run bill these hours again
+      const b = await req.json().catch(() => null);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ ok: false, error: 'bad request' }, 400);
+      if (!safeEq(b.secret, cfg.notifySecret)) return json({ ok: false }, 401);
+      const ids = Array.isArray(b.timeActivityIds) ? b.timeActivityIds.map(String).filter((x) => /^\d{1,20}$/.test(x)) : [];
+      if (!ids.length || ids.length > 500) return json({ ok: false, error: 'timeActivityIds must be a list of time entry ids' }, 400);
+      const st = strongStore('ni-cache'); if (!st) return json({ ok: false, error: 'no store' }, 503);
+      let ok = false, removed = 0;
+      for (let i = 0; i < 12 && !ok; i++) { // compare-and-set on the billed map (GR-075)
+        let cur = {}, etag = null;
+        try { const r = await st.getWithMetadata('invoiced-time', { type: 'json' }); if (r) { cur = r.data || {}; etag = r.etag || null; } } catch (e) { cur = {}; etag = null; }
+        removed = ids.filter((id) => id in cur).length; if (!removed) { ok = true; break; }
+        ids.forEach((id) => { delete cur[id]; });
+        try { const w = await st.set('invoiced-time', JSON.stringify(cur), etag ? { onlyIfMatch: etag } : { onlyIfNew: true }); ok = !!(w && w.modified !== false); } catch (e) { ok = false; }
+        if (!ok) await new Promise((r) => setTimeout(r, 60 + Math.floor(Math.random() * 120)));
+      }
+      return ok ? json({ ok: true, removed }) : json({ ok: false, error: 'could not update, try again' }, 503);
     }
     if (!authed) { // a wrong key is a guess at the passcode: count it like the unlock route does (inspector B: 1e6 keys, no limit)
       if (key) { const KW = 15 * 60000, now = Date.now(), ip = String(req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'na').split(',')[0].trim();

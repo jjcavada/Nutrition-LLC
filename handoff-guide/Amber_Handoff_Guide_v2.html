@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Nutrition Intuition System: Handoff Guide v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&display=swap" rel="stylesheet">
+<style>
+/* Tokens: the website's own (website/dist/assets/css/site.css :root). Nothing new invented. */
+:root{
+  --cream:#FBF8F1; --paper:#F5EFE3; --sand:#EDE4CF; --line:#E1D7BF; --line-soft:#EDE6D6;
+  --olive-900:#1F251C; --olive-800:#2E352A; --olive-700:#3E4736; --olive-500:#5F6B4C;
+  --sage:#7FA557; --sage-600:#688F44; --sage-100:#E4EFD8;
+  --clay:#C4623A; --clay-700:#A24E2B; --clay-100:#F6E4DA;
+  --ink:#2E352A; --muted:#5F6658; --white:#FFFFFF;
+  --display:"Fraunces", Georgia, serif;
+  --text:"Figtree", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --r-sm:8px; --r-md:14px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  --fs-small:9.5pt; --fs-body:11pt; --fs-h3:12.5pt; --fs-h2:19pt; --fs-h1:27pt;
+}
+@page{ size:4.5in 8in; margin:0.42in 0.4in 0.55in; }
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact; print-color-adjust:exact; background:var(--white)}
+body{margin:0; background:var(--white); color:var(--ink); font:400 var(--fs-body)/1.5 var(--text); font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display); font-weight:400; color:var(--olive-800); margin:0; letter-spacing:-.01em}
+h1{font-size:var(--fs-h1); line-height:1.06; font-variation-settings:"opsz" 120,"SOFT" 40}
+h2{font-size:var(--fs-h2); line-height:1.1; font-variation-settings:"opsz" 96,"SOFT" 30; margin:0 0 var(--s3)}
+h3{font-size:var(--fs-h3); line-height:1.25; font-weight:500; margin:var(--s5) 0 var(--s2)}
+h2 em,h1 em{font-style:italic; font-weight:300; color:var(--sage-600)}
+p{margin:0 0 var(--s3)}
+ul,ol{margin:0 0 var(--s3); padding-left:1.15em}
+li{margin:0 0 var(--s2)}
+li::marker{color:var(--sage-600)}
+strong{font-weight:600; color:var(--olive-900)}
+a{color:var(--olive-800); text-decoration:underline; text-decoration-color:var(--sage); text-underline-offset:2px}
+.section{margin-top:var(--s7)}
+.section.page{break-before:page; margin-top:0}
+.kicker,h2,h3{break-after:avoid}
+.row,.note,li{break-inside:avoid}
+.kicker{font:600 var(--fs-small)/1 var(--text); letter-spacing:.12em; text-transform:uppercase; color:var(--sage-600); margin:0 0 var(--s2)}
+.lede{color:var(--muted); font-size:11.5pt; line-height:1.5}
+.muted{color:var(--muted)}
+.small{font-size:var(--fs-small)}
+.rule{height:1px; background:var(--line); border:0; margin:var(--s5) 0}
+
+/* cover */
+.cover{height:6.9in; display:flex; flex-direction:column; justify-content:space-between}
+.cover img{width:1.55in; height:auto}
+.cover h1{margin:var(--s5) 0 var(--s3)}
+.cover .meta{font-size:var(--fs-small); color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:var(--s3)}
+.cover .meta strong{color:var(--ink)}
+
+/* contents */
+.toc{list-style:none; padding:0; margin:0}
+.toc li{display:flex; gap:var(--s3); align-items:baseline; padding:var(--s2) 0; border-bottom:1px solid var(--line-soft); margin:0}
+.toc .n{font:500 10pt/1 var(--display); color:var(--sage-600); width:1.6em; flex:none}
+
+/* the four jobs */
+.jobs{list-style:none; padding:0; margin:var(--s4) 0}
+.jobs li{display:grid; grid-template-columns:1.9em 1fr; gap:var(--s2); margin:0 0 var(--s3)}
+.jobs .num{width:1.6em; height:1.6em; border-radius:50%; background:var(--olive-800); color:var(--cream); font:600 9.5pt/1.6em var(--text); text-align:center}
+
+/* callout */
+.note{background:var(--paper); border-left:3px solid var(--sage); border-radius:0 var(--r-sm) var(--r-sm) 0; padding:var(--s3) var(--s4); margin:var(--s4) 0; break-inside:avoid}
+.note.warn{border-left-color:var(--clay); background:var(--clay-100)}
+.note p:last-child{margin:0}
+
+/* journey steps */
+.steps{list-style:none; padding:0; margin:var(--s4) 0 0}
+.step{position:relative; padding:0 0 var(--s4) 2.1em; margin:0}
+.step::before{content:""; position:absolute; left:.72em; top:1.6em; bottom:0; width:1px; background:var(--line)}
+.step:last-child::before{display:none}
+.step .dot{position:absolute; left:0; top:0; width:1.5em; height:1.5em; border-radius:50%; border:1.5px solid var(--sage); background:var(--cream); color:var(--olive-800); font:600 9pt/1.4em var(--text); text-align:center}
+.step h3{margin:0 0 var(--s1); font-size:12pt}
+.tag{display:inline-block; font:600 7.5pt/1 var(--text); letter-spacing:.1em; text-transform:uppercase; padding:3px 6px; border-radius:var(--r-sm); vertical-align:2px; margin-left:4px}
+.tag.auto{background:var(--sage-100); color:var(--sage-600)}
+.tag.you{background:var(--clay-100); color:var(--clay-700)}
+.step ul{margin:var(--s1) 0 0}
+.step li{margin:0 0 var(--s1)}
+
+/* definition rows */
+.rows{margin:var(--s3) 0}
+.row{display:grid; grid-template-columns:1.15in 1fr; gap:var(--s3); padding:var(--s2) 0; border-bottom:1px solid var(--line-soft); break-inside:avoid}
+.row:last-child{border-bottom:0}
+.row .k{font-weight:600; color:var(--olive-800)}
+.row .v p:last-child{margin:0}
+
+/* timeline */
+.tl .row{grid-template-columns:.62in 1fr}
+.tl .k{font:500 10pt/1.5 var(--display); color:var(--sage-600)}
+
+/* checklist */
+.check{list-style:none; padding:0}
+.check li{padding-left:1.5em; position:relative}
+.check li::before{content:""; position:absolute; left:0; top:.28em; width:.85em; height:.85em; border:1.5px solid var(--olive-500); border-radius:3px}
+.group{font:600 var(--fs-small)/1 var(--text); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:var(--s4) 0 var(--s2)}
+.end{margin-top:var(--s5); padding-top:var(--s3); border-top:1px solid var(--line); color:var(--muted); font-size:var(--fs-small); break-inside:avoid}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="cover">
+  <div>
+    <img src="data:image/webp;base64,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" alt="Nutrition Intuition" width="1095" height="498">
+    <h1>Your system,<br><em>start to finish</em></h1>
+    <p class="lede">Everything we built together, how your week runs now, what is yours, and what is still open.</p>
+  </div>
+  <div class="meta">
+    <strong>Handoff guide, version 2</strong><br>
+    Prepared for Amber Barcellos, Nutrition Intuition, LLC<br>
+    By JJ Cavada &nbsp;|&nbsp; October 25, 2026<br>
+    Replaces the April 2026 guide (version 1).
+  </div>
+</section>
+
+<!-- CONTENTS -->
+<section class="section page">
+  <p class="kicker">Contents</p>
+  <h2>What is inside</h2>
+  <ol class="toc">
+    <li><span class="n">1</span><span>The short version</span></li>
+    <li><span class="n">2</span><span>Your week at a glance</span></li>
+    <li><span class="n">3</span><span>A client, start to finish</span></li>
+    <li><span class="n">4</span><span>NI Today, your app</span></li>
+    <li><span class="n">5</span><span>Weekly invoicing</span></li>
+    <li><span class="n">6</span><span>Chefs</span></li>
+    <li><span class="n">7</span><span>Private events</span></li>
+    <li><span class="n">8</span><span>Where your records live</span></li>
+    <li><span class="n">9</span><span>Your website</span></li>
+    <li><span class="n">10</span><span>What changed in October</span></li>
+    <li><span class="n">11</span><span>What it cannot do yet</span></li>
+    <li><span class="n">12</span><span>If something looks wrong</span></li>
+    <li><span class="n">13</span><span>What is yours, and what is still with JJ</span></li>
+    <li><span class="n">14</span><span>Open items</span></li>
+  </ol>
+</section>
+
+<!-- 1 -->
+<section class="section page">
+  <p class="kicker">1. The short version</p>
+  <h2>It runs on its own. <em>You steer.</em></h2>
+  <p>When a new client fills in the intake on your website, they get your welcome email, their agreement to sign, a folder in your Google Drive and a card in NI Today, without you lifting a finger. When they sign, QuickBooks, the chef briefing, the 15-item menu and the consultation invite all happen on their own too.</p>
+  <p>Your part comes down to four jobs:</p>
+  <ul class="jobs">
+    <li><span class="num">1</span><span><strong>Pick the chef</strong> in NI Today after the consultation. The chef gets the intake and the menu by email.</span></li>
+    <li><span class="num">2</span><span><strong>Approve the chefs' hours</strong> in QuickBooks Time by Sunday 6&nbsp;pm.</span></li>
+    <li><span class="num">3</span><span><strong>Monday after 8&nbsp;am, send the invoices.</strong> The bot builds them, you check anything flagged and send them from QuickBooks. About 10 minutes.</span></li>
+    <li><span class="num">4</span><span><strong>Glance at NI Today.</strong> Anything under Needs attention is something to look at.</span></li>
+  </ul>
+  <div class="note"><p><strong>One place for everything:</strong> NI Today, the app on your phone's home screen (ni-today.netlify.app). If something looks off, message JJ. Every error also emails JJ automatically, so most of the time he already knows.</p></div>
+</section>
+
+<!-- 2 -->
+<section class="section">
+  <p class="kicker">2. Your week at a glance</p>
+  <h2>What happens when</h2>
+  <div class="rows">
+    <div class="row"><div class="k">Every day</div><div class="v"><p>Open NI Today. The bell shows new intakes, signings and booked consultations. Needs attention shows anything that went wrong.</p></div></div>
+    <div class="row"><div class="k">Consultation booked</div><div class="v"><p>Your phone gets a notification. The call is in your calendar and under Calls this week.</p></div></div>
+    <div class="row"><div class="k">After the call</div><div class="v"><p>Pick their chef in the app (Waiting for a chef). The chef gets everything by email.</p></div></div>
+    <div class="row"><div class="k">Sunday by 6&nbsp;pm</div><div class="v"><p>Approve the chefs' hours in QuickBooks Time. The hours only reach QuickBooks once you approve them.</p></div></div>
+    <div class="row"><div class="k">Monday 8&nbsp;am</div><div class="v"><p>Last week's invoices are built in QuickBooks, saved but not sent. Check the Invoices card, fix anything flagged, send.</p></div></div>
+    <div class="row"><div class="k">New chef</div><div class="v"><p>Fill in the Bring on a New Chef form on your website. Tick the checklist steps in the app as things come back.</p></div></div>
+    <div class="row"><div class="k">Event inquiry</div><div class="v"><p>You get an email with the details and an agreement draft ready in SignWell. It also shows under Event requests.</p></div></div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="section">
+  <p class="kicker">3. A client, start to finish</p>
+  <h2>The client journey</h2>
+  <p class="muted small"><span class="tag auto">Automatic</span> happens on its own. <span class="tag you">You</span> needs you.</p>
+  <ol class="steps">
+    <li class="step"><span class="dot">1</span>
+      <h3>They fill in the intake <span class="tag auto">Automatic</span></h3>
+      <p>On your website (Weekly Service Intake). Then, on its own:</p>
+      <ul>
+        <li>A contact and a card in GoHighLevel, with the whole intake saved as a note.</li>
+        <li>Your welcome email with your video.</li>
+        <li>The service agreement sent through SignWell, plus an email with the signing link.</li>
+        <li>A folder in your Google Drive with the intake as a PDF, and a row on your client list.</li>
+        <li>A short AI summary for your call, and a notification on your phone.</li>
+      </ul>
+    </li>
+    <li class="step"><span class="dot">2</span>
+      <h3>They sign <span class="tag auto">Automatic</span></h3>
+      <p>The card moves to Agreement signed, the QuickBooks customer is created, and the signed contract PDF goes into their Drive folder.</p>
+    </li>
+    <li class="step"><span class="dot">3</span>
+      <h3>The menu is written <span class="tag auto">Automatic</span></h3>
+      <p>The AI writes the chef briefing and a personalized 15-item menu. It sits on the client's profile in the app (it no longer clutters your email). The briefing lists their allergies and a bold red <strong>Dislikes (never use)</strong> line, and the menu never uses those foods.</p>
+    </li>
+    <li class="step"><span class="dot">4</span>
+      <h3>They book the consultation <span class="tag auto">Automatic</span></h3>
+      <p>They get the consultation invite with your booking link. When they book, your phone gets a notification.</p>
+    </li>
+    <li class="step"><span class="dot">5</span>
+      <h3>You pick the chef <span class="tag you">You</span></h3>
+      <p>In NI Today, under Waiting for a chef. The chef gets one email with the intake and the menu, and the choice is saved in GoHighLevel. Picked the wrong chef? Use Change chef on their profile.</p>
+    </li>
+    <li class="step"><span class="dot">6</span>
+      <h3>Weekly service and invoices <span class="tag you">You</span></h3>
+      <p>Chefs clock in on the Workforce app with the receipt photo and the grocery total in the note. You approve the hours; the invoices build themselves Monday morning.</p>
+    </li>
+  </ol>
+  <div class="note"><p><strong>Not continuing?</strong> Use Archive client on their profile. Nothing is sent to them, and Put back in the client journey undoes it.</p></div>
+</section>
+
+<!-- 4 -->
+<section class="section">
+  <p class="kicker">4. NI Today, your app</p>
+  <h2>Everything on <em>one screen</em></h2>
+  <p>It lives on your home screen like any app and opens with your 6-digit passcode. Lock wipes the client details from the phone until you unlock again. JJ can change the passcode any time.</p>
+  <h3>The home screen</h3>
+  <ul>
+    <li><strong>Needs attention:</strong> anything that went wrong or needs a decision, with what to do.</li>
+    <li><strong>Client journey:</strong> how many people are at each step. Tap a step to see who.</li>
+    <li><strong>Calls this week:</strong> weekly service and event calls, by day.</li>
+    <li><strong>Event requests:</strong> every event inquiry with its date, guests and status.</li>
+    <li><strong>Invoices:</strong> this week's invoices, the total and the ones that need a look.</li>
+    <li><strong>See the last 12 months:</strong> new leads and new clients by month.</li>
+  </ul>
+  <h3>The bell</h3>
+  <p>New intakes, signed agreements, booked consultations and sent invites, with a phone notification for each. Keep the Phone notifications switch inside the bell <strong>On</strong>, or your phone will not ring for them.</p>
+  <h3>A client's profile</h3>
+  <ul>
+    <li>What to expect on the call, and a line in their own words.</li>
+    <li>Household, <strong>Allergies</strong>, and right under it <strong>Dislikes</strong>: one bold line of everything that must never be used.</li>
+    <li><strong>Didn't pick:</strong> the veggies on the form they did not tick, so you and the chef can double check. Not ticking one does not always mean they dislike it.</li>
+    <li>Diet, what they want, area, status, consultation and chef.</li>
+    <li>What the intake form says (the exact allergy and dislike lines), and the notes you type in GoHighLevel.</li>
+    <li>Their intake PDF, signed contract and Drive folder, the full intake, and the chef briefing and menu.</li>
+    <li>Change chef and Archive client.</li>
+  </ul>
+  <h3>Waiting for a chef</h3>
+  <p>Three tabs: <strong>Waiting</strong> (clients who need a chef, longest wait first), <strong>Chefs</strong> (who has how many clients) and <strong>Checklist</strong> (each new chef's onboarding, see section 6).</p>
+</section>
+
+<!-- 5 -->
+<section class="section">
+  <p class="kicker">5. Weekly invoicing</p>
+  <h2>Monday invoices, <em>built for you</em></h2>
+  <p>Live from Monday, October 26. Every Monday at 8&nbsp;am the bot reads last week's approved hours in QuickBooks and builds every client's invoice the way you do it by hand. It never sends anything. You stay in control of what reaches a client.</p>
+  <h3>The rules it follows (your own)</h3>
+  <ul>
+    <li>One invoice per client per week, all visits combined, dated Monday, the visit dates in the memo.</li>
+    <li>Hours rounded to the nearest half hour per visit: whole hours as Chef Hours, the half as a Half Hour line.</li>
+    <li>Groceries taken from the amount in the chef's note.</li>
+    <li>One Shopping/Menu Fee line, one per visit day.</li>
+    <li>The 3% card fee for the clients on your card list.</li>
+    <li>Your special rates (for example Tracy Thomas and Rachel Troyan), Due on receipt, the next invoice number.</li>
+  </ul>
+  <h3>Flags it raises for you</h3>
+  <p>A note with no grocery amount or several amounts, a very long or very short visit, a busy week, or a client missing from the rate list. Each one shows on the Invoices card with the reason and the day.</p>
+  <h3>Monday, step by step</h3>
+  <ol>
+    <li>Open NI Today. The Invoices card shows how many were made, the total and what needs a look.</li>
+    <li>Tap Open invoices in QuickBooks and fix the flagged ones (usually a grocery amount).</li>
+    <li>In QuickBooks: Sales, Invoices, select all, Batch actions, Send invoices.</li>
+  </ol>
+  <div class="note warn"><p><strong>If the hours were not approved by Monday 8&nbsp;am,</strong> nothing is built and the app shows "Invoices not built yet". Approve the hours and tell JJ, he runs it again.</p></div>
+  <p class="small muted">Tested on your real October week before going live: 37 of 43 invoices matched yours to the cent, and the rest were either flagged for you or small differences in the originals. Explainer video: NI invoicing explainer (sent earlier).</p>
+</section>
+
+<!-- 6 -->
+<section class="section">
+  <p class="kicker">6. Chefs</p>
+  <h2>Bringing on a chef</h2>
+  <p>On your website, open <strong>Bring on a New Chef</strong> (nutritionintuitionaz.com/new-chef) and enter their name, email and phone. Then, on its own:</p>
+  <ul>
+    <li>They are added to GoHighLevel and to QuickBooks as a vendor, and to every chef list (the app, GoHighLevel, the assignment sheet).</li>
+    <li>They get the contractor agreement to sign in SignWell.</li>
+    <li>They get the welcome email with the contractor packet, the W-9 and the website profile form for your Meet the Team page.</li>
+    <li>The background check starts in Checkr.</li>
+    <li>When they sign the agreement, your finance team gets their details to add them in Gusto.</li>
+  </ul>
+  <h3>The chef checklist</h3>
+  <p>In the app, Waiting for a chef, Checklist tab: 16 steps per chef in five groups. Most tick themselves; tick the rest when you see them done.</p>
+  <p class="group">Signed up</p><p class="small">Form received, name added to every chef list.</p>
+  <p class="group">Sent to the chef</p><p class="small">Welcome email, contractor agreement, background check, W-9, website profile form, QuickBooks Workforce invite.</p>
+  <p class="group">Back from the chef</p><p class="small">Agreement signed, background check cleared, W-9 received, website profile received.</p>
+  <p class="group">Pay and records</p><p class="small">Added in QuickBooks as a 1099 vendor, details sent to finance for Gusto.</p>
+  <p class="group">Live</p><p class="small">Profile live on the website, first client assigned.</p>
+  <h3>Assigning and changing</h3>
+  <p>Pick a chef under Waiting for a chef; the chef gets one email. Change chef on a client's profile switches it and can send the new chef the intake and menu, or just record it. The old chef is not told automatically, so send them a quick text. You are on the chef list yourself.</p>
+</section>
+
+<!-- 7 -->
+<section class="section">
+  <p class="kicker">7. Private events</p>
+  <h2>Event requests</h2>
+  <ul>
+    <li>When someone uses <strong>Plan an Event</strong> on your website, you get an email with every detail and a planning call time, and an event agreement draft is ready in SignWell. They get a confirmation email.</li>
+    <li>The <strong>Event requests</strong> card in the app shows each event with its date, guests, budget, dietary notes, planning call and agreement status.</li>
+    <li>If an event is a week away with no signed agreement and no call, it shows under Needs attention.</li>
+    <li><strong>Chef guide:</strong> paste the link to your Google Doc prep guide on the event, and Open chef guide opens it from the app.</li>
+    <li>When the event agreement is signed, they get your booking link for the event consultation.</li>
+  </ul>
+  <p class="muted">Event invoices stay manual.</p>
+</section>
+
+<!-- 8 -->
+<section class="section">
+  <p class="kicker">8. Where your records live</p>
+  <h2>Your data, <em>your accounts</em></h2>
+  <div class="rows">
+    <div class="row"><div class="k">GoHighLevel</div><div class="v"><p>Contacts, notes, the client and chef pipelines, your two calendars. The app reads from here; your own notes show on the client's profile.</p></div></div>
+    <div class="row"><div class="k">Google Drive</div><div class="v"><p>A folder per client with the intake PDF and the signed contract, plus your client list sheet. Older clients were added on October 9.</p></div></div>
+    <div class="row"><div class="k">SignWell</div><div class="v"><p>Client Service Agreement, Contractor Agreement, Private Event Agreement.</p></div></div>
+    <div class="row"><div class="k">QuickBooks</div><div class="v"><p>Customers, chefs as vendors, hours from QuickBooks Time, invoices.</p></div></div>
+    <div class="row"><div class="k">Make.com</div><div class="v"><p>Every automation, in your account. The AI that writes menus and summaries now runs inside your Make plan too, so there is no separate AI bill. A new client uses roughly 30 of your 10,000 monthly Make credits for it.</p></div></div>
+  </div>
+  <div class="note"><p><strong>Changing contract wording:</strong> edit the text in SignWell, but keep every field and signer name exactly as they are, because the automations fill them. If you want a brand new template, tell JJ first so he can point the automations at it.</p></div>
+</section>
+
+<!-- 9 -->
+<section class="section">
+  <p class="kicker">9. Your website</p>
+  <h2>nutritionintuitionaz.com</h2>
+  <ul>
+    <li><strong>Pages:</strong> Home, Services, How It Works, Sample Menus, Meet the Team (your chefs' profiles), Testimonials, FAQ, Blog, and pages for Scottsdale, Paradise Valley and Phoenix.</li>
+    <li><strong>Forms:</strong> Weekly Service Intake, Private Events, General Inquiry, Book a Consultation Call, and your own Bring on a New Chef form.</li>
+    <li><strong>New on October 24:</strong> the intake asks "Foods your family does not eat", right under allergies. The answer lands in bold as Dislikes (never use) on the intake, the PDF, the chef's email, the briefing and the app.</li>
+    <li>General inquiries and event requests email you and reply to the person automatically.</li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<section class="section">
+  <p class="kicker">10. What changed in October</p>
+  <h2>A month of upgrades</h2>
+  <div class="rows tl">
+    <div class="row"><div class="k">Oct 9</div><div class="v"><p>NI Today launched. Every client's intake PDF and signed contract now go into your Google Drive, older clients included.</p></div></div>
+    <div class="row"><div class="k">Oct 11 to 13</div><div class="v"><p>The bell and phone notifications, Needs attention, the client journey, Calls this week, Archive client, the 12 month view, day and night mode.</p></div></div>
+    <div class="row"><div class="k">Oct 12</div><div class="v"><p>New chefs are added to every chef list automatically.</p></div></div>
+    <div class="row"><div class="k">Oct 15</div><div class="v"><p>A full check of the whole system with fixes. The chef checklist, the hand-off to your finance team for Gusto, and the Event requests card.</p></div></div>
+    <div class="row"><div class="k">Oct 16</div><div class="v"><p>Chef guide links on events.</p></div></div>
+    <div class="row"><div class="k">Oct 20</div><div class="v"><p>Weekly invoicing built and tested on your real week, plus the explainer video.</p></div></div>
+    <div class="row"><div class="k">Oct 22</div><div class="v"><p>Change chef from the app. You were added to the chef list.</p></div></div>
+    <div class="row"><div class="k">Oct 23</div><div class="v"><p>The chef briefing and menu moved onto the client's profile, and the briefing email to you was turned off.</p></div></div>
+    <div class="row"><div class="k">Oct 24</div><div class="v"><p>The Foods your family does not eat question, the Dislikes and Didn't pick lines in the app, the menus and summaries moved to Make's own AI, and weekly invoicing switched on.</p></div></div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="section">
+  <p class="kicker">11. What it cannot do yet</p>
+  <h2>And what to do instead</h2>
+  <div class="rows">
+    <div class="row"><div class="k">No clock in</div><div class="v"><p>If a chef did not clock in for a client, there are no hours, so no invoice. Type that one by hand, or have the chef clock in.</p></div></div>
+    <div class="row"><div class="k">Receipts</div><div class="v"><p>Receipt photos are not read. The grocery total has to be written in the chef's note.</p></div></div>
+    <div class="row"><div class="k">Event invoices</div><div class="v"><p>Still by hand.</p></div></div>
+    <div class="row"><div class="k">Older clients</div><div class="v"><p>Clients from before October 24 never saw the new question. Their Dislikes line comes from what they wrote elsewhere on the form.</p></div></div>
+    <div class="row"><div class="k">Late approvals</div><div class="v"><p>Hours approved after Monday 8&nbsp;am are not picked up on their own. Tell JJ and he runs it again.</p></div></div>
+    <div class="row"><div class="k">Sending</div><div class="v"><p>Invoices are never sent by the bot today. Auto send for clean weeks is the next step, only with your OK.</p></div></div>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="section">
+  <p class="kicker">12. If something looks wrong</p>
+  <h2>What to do</h2>
+  <ul>
+    <li><strong>Check Needs attention</strong> in the app first. It says what happened and who it is about.</li>
+    <li><strong>Message JJ.</strong> Every automation that fails also emails JJ the step and the client, so he usually knows already.</li>
+    <li><strong>A wrong invoice batch</strong> never reaches a client, because nothing is sent until you send it. JJ can delete and rebuild the week.</li>
+    <li><strong>Please do not delete cards in GoHighLevel.</strong> Use Archive client in the app instead, so the history stays and you can put them back.</li>
+    <li><strong>Please do not rename SignWell fields</strong> or the custom fields in GoHighLevel. The automations depend on the exact names.</li>
+    <li><strong>Testing</strong> is always done on test records named ZZTEST or JJ Invoice Test. You can ignore anything with those names.</li>
+  </ul>
+</section>
+
+<!-- 13 -->
+<section class="section">
+  <p class="kicker">13. What is yours</p>
+  <h2>Yours, and still <em>with JJ</em></h2>
+  <h3>Already yours</h3>
+  <p>Make.com (every automation), SignWell, QuickBooks, Google Drive and Sheets, your domain and business email, Checkr, and all the data in GoHighLevel. These keep running as long as your plans are paid and the connections stay logged in.</p>
+  <h3>Still under JJ's accounts, for now</h3>
+  <ul>
+    <li>The hosting for NI Today and your website.</li>
+    <li>The code backup.</li>
+    <li>The GoHighLevel agency layer your account sits under.</li>
+    <li>The error alert emails (they go to JJ).</li>
+    <li>The app's settings file (its keys and passwords).</li>
+    <li>The chef profile form and its sheet.</li>
+  </ul>
+  <p>The plan is to move these into your name, so that if you ever work with a different developer, everything is already yours. The checklist is in the next section.</p>
+</section>
+
+<!-- 14 -->
+<section class="section">
+  <p class="kicker">14. Open items</p>
+  <h2>What is left</h2>
+  <p class="group">Waiting on you</p>
+  <ul class="check">
+    <li>Card fee: should Annie Toon and Tara Mackenzie get the 3% fee? Or send your own card fee list.</li>
+    <li>Auto send: OK to turn it on after a couple of clean weeks?</li>
+    <li>The new contract wording from your attorney.</li>
+    <li>Optional: connect your business email in Make, so client emails come from amber@nutritionintuitionaz.com instead of your Gmail.</li>
+    <li>For the handoff: a free Netlify account and a GitHub account, an alerts address on your domain, and a password manager.</li>
+  </ul>
+  <p class="group">JJ is doing</p>
+  <ul class="check">
+    <li>Watching the first live invoice batch on Monday, October 26.</li>
+    <li>Moving the hosting, the code and the chef form into your accounts once they exist.</li>
+    <li>Pointing the error alerts at your alerts address.</li>
+  </ul>
+  <p class="end">Questions any time: JJ Cavada, jjcavada1@gmail.com</p>
+</section>
+
+</body>
+</html>

@@ -131,20 +131,26 @@ function intakeNote(notes, noteId) {
 }
 // Deterministic safety layer next to the AI allergy list: every intake line whose label is Allergies/Sensitivities/Intolerances (even "None")
 // plus every line whose answer says no / not / avoid / dislike / can't / without / free (e.g. "Seafood: I eat seafood but my husband does not").
-function restrictionsOf(text) {
-  // Every "Label: answer" line (with its continuation lines, which have no label of their own) is one entry; keep it when the label is about
-  // allergies / sensitivities / intolerances / restrictions / protocol / diet / dislikes / avoid, or when the answer says no / not / never / avoid /
-  // dislike / limit / except / only / can't / doesn't / without / free / allergic / intolerant / vegetarian / vegan / pescatarian / kosher / halal / raw.
-  const entries = []; let cur = null;
+// Every "Label: answer" line of the intake note (with its continuation lines, which have no label of their own) as one entry, plus the section
+// header it sits under (VEGETABLES, PROTEINS, ...).
+function fieldsOf(text) {
+  const entries = []; let cur = null; let section = '';
   String(text || '').split('\n').forEach((raw) => {
     const bullet = /^\s*[-*\u2022]\s+/.test(raw); // the intake note writes every form field as "- Label: answer"; a line without the bullet is text inside the previous answer
     const l = raw.replace(/^\s*[-*\u2022]\s*/, '').trim(); if (!l) return; // a blank line inside a multi-line answer (textarea) keeps the entry open; only a header or the next field closes it
-    if (/^[A-Z][A-Z /&]{2,40}:$/.test(l)) { cur = null; return; } // section header such as DIETARY REQUIREMENTS:
+    if (/^[A-Z][A-Z /&]{2,40}:$/.test(l)) { cur = null; section = l.slice(0, -1); return; } // section header such as DIETARY REQUIREMENTS:
     const m = bullet ? l.match(/^([A-Za-z][A-Za-z0-9 /&()'\u2019-]{1,45}):\s*(.*)$/) : null; // only a bulleted "Label: answer" line starts a field
-    if (m) { cur = { label: m[1].trim(), value: m[2].trim() }; entries.push(cur); }
+    if (m) { cur = { label: m[1].trim(), value: m[2].trim(), section }; entries.push(cur); }
     else if (cur) { cur.value = (cur.value + ' ' + l).trim(); } // continuation of the previous answer
   });
-  const labelRe = /allerg|sensitiv|intoleran|restrict|protocol|diet|dislike|avoid|aversion/i;
+  return entries;
+}
+function restrictionsOf(text) {
+  // Keep an entry when the label is about allergies / sensitivities / intolerances / restrictions / protocol / diet / dislikes / avoid / won't eat,
+  // or when the answer says no / not / never / avoid / dislike / limit / except / only / can't / doesn't / without / free / allergic / intolerant /
+  // vegetarian / vegan / pescatarian / kosher / halal / raw.
+  const entries = fieldsOf(text);
+  const labelRe = /allerg|sensitiv|intoleran|restrict|protocol|diet|dislike|avoid|aversion|won.?t eat|does not eat/i;
   const valueRe = /\b(no|not|never|avoid\w*|dislike\w*|hate\w*|limit\w*|except|only|allerg\w*|sensitiv\w*|intoleran\w*|can.?t|cannot|won.?t|doesn.?t|don.?t|without|free|vegetarian|vegan|pescatarian|kosher|halal|raw|rare)\b/i;
   const out = [];
   entries.forEach((e) => {
@@ -154,6 +160,19 @@ function restrictionsOf(text) {
     out.push({ label: e.label, value: v });
   });
   return out;
+}
+// The "Foods your family does not eat" answer (website intake question since 2026-10-24). Phase 1 writes it as "- Dislikes (never use):"
+// (the first test notes of that day said "- Won't eat:"); older notes have no such line.
+function wontEatOf(text) { const e = fieldsOf(text).find((x) => /^(won.?t eat|dislikes \(never use\))$/i.test(x.label)); return e ? e.value.slice(0, 600) : ''; }
+// "Didn't pick" (Amber, 2026-10-24): the veggies on the intake form the client did NOT tick in any colour group, so Amber and the chef can double
+// check. Only when they ticked at least one real veggie (else there is nothing to compare). Names match on a normalised key, so "Squash (Butternut,
+// Acorn, Pumpkin, etc)", plurals and "Brussel Sprouts" count as picked; "Other" is ignored. Not ticking one is not a dislike; the app says so.
+const VEG_OPTIONS = ['Asparagus', 'Peas', 'Peppers', 'Kale', 'Broccoli', 'Brussels Sprouts', 'Zucchini', 'Green Beans', 'Spinach', 'Green Onions', 'Cucumber', 'Corn', 'Sweet Potato', 'Squash', 'Carrot', 'Beets', 'Tomato', 'Red Onion', 'Cabbage', 'Eggplant', 'Radish', 'Purple Potato', 'Potato', 'Cauliflower', 'Onion', 'Mushroom', 'Parsnip', 'Celery Root']; // website src/pages/intake.html vegGreen / vegYellow / vegRed / vegWhite, each name once
+function vegKey(s) { return String(s || '').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(Boolean).map((w) => w.replace(/(sh|ch|x|ss)es$/, '$1').replace(/oes$/, 'o').replace(/s$/, '')).join(' '); }
+function notPickedOf(text) {
+  const veg = fieldsOf(text).filter((e) => /^VEGETABLES$/i.test(e.section) && /^(green|yellow\/orange|red\/purple|white)$/i.test(e.label));
+  const picked = new Set(); veg.forEach((e) => e.value.replace(/\([^)]*\)?/g, ' ').split(',').forEach((x) => { const k = vegKey(x); if (k && k !== 'other') picked.add(k); }));
+  return picked.size ? VEG_OPTIONS.filter((o) => !picked.has(vegKey(o))) : [];
 }
 // Amber's own GHL notes on the contact (anything the automations did not write), newest first, so what she types in GHL shows on the card
 const AUTOMATION_NOTE = /^\s*(<|=== INTAKE FORM DATA|AUTOMATION|DRIVE RECORDS|MENU \+ INTAKE SENT|CHEF ASSIGNED BUT|CHEF RECORDED|CHEF CHANGED|CHEF CHECKLIST|GUSTO HAND-OFF|WEBSITE (EVENT|GENERAL) INQUIRY|AI MENU|CHEF BRIEFING|CONSULTATION INVITE|WAITLIST|QB |QUICKBOOKS|CORRECTION|OPPORTUNITY RESTORED|ARCHIVED \(NI Today\)|ARCHIVE UNDONE)/i; // automation notes and HTML-pasted emails are not Amber's notes
@@ -974,7 +993,7 @@ export default async (req, context) => {
         label: fmt({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(ev.startTime)) + ' at ' + timeOf(new Date(ev.startTime)) } : null;
       const sum = parseSummary(cf(f, cfg.fields.summary));
       return json({ id, name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(' '), phone: c.phone || '', email: c.email || '', address: c.address1 || '', city: c.city || '', tags: c.tags || [], dateAdded: c.dateAdded,
-        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')), briefing: briefingOf(notes),
+        intake: n ? intakeText(n.body) : '', restrictions: restrictionsOf(n ? intakeText(n.body) : ''), wontEat: wontEatOf(n ? intakeText(n.body) : ''), notPicked: notPickedOf(n ? intakeText(n.body) : ''), notes: humanNotes(notes), intakeNoteId: n ? n.id : '', intakeDate: n ? longDate(new Date(n.dateAdded)) : '', summary: sum, hasMenu: notes.some((x) => /CHEF BRIEFING GENERATED/.test(x.body || '')), briefing: briefingOf(notes),
         intakePdf: cf(f, cfg.fields.intakePdf), contractPdf: cf(f, cfg.fields.contractPdf), driveFolder: cf(f, cfg.fields.driveFolder), signedDoc: cf(f, cfg.fields.signedDoc), archived: cf(f, cfg.fields.archived) || '', signedOn: cf(f, cfg.fields.signedOn) || '', consult });
     }
     if (route === 'assign' && req.method === 'POST') {

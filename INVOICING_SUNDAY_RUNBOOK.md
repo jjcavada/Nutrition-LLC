@@ -6,11 +6,11 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 ## State (updated Sat Oct 24)
 - **LIVE since Sat 2026-10-24 (invoiceMode "live", deploy 6adc308a).** First real batch: **Monday 2026-10-26 8:00 am Phoenix**, bills
   Oct 18 to 24, invoices dated Mon Oct 26 starting at number 4488, all unsent. Before that it ran in dry mode (list in the app, nothing in
-  QuickBooks). Verified live: Netlify scheduled function `invoices-trigger` (cron `0 15 * * 1` = Monday 8:00 am Phoenix since 2026-10-24; was Sunday 7 pm), Make
+  QuickBooks). Verified live: Netlify scheduled function `invoices-trigger` (cron `0 14 * * 1` = Monday 7:00 am Phoenix since 2026-10-26 at Amber's request; was 8 am, before that Sunday 7 pm), Make
   scenario 6700872 "NI Invoices - Weekly build" active on its webhook.
 - **Why Monday 8 am (2026-10-24):** approved QuickBooks Time hours reach QBO only on Monday between 05:00 and 06:59 Phoenix (all 10 batches since Aug 10). A Sunday build found nothing.
 - To make **Monday Oct 26** (8 am Phoenix, bills Oct 18 to 24; Amber sends the same morning) the first REAL batch, three things must happen first, in this order:
-  1. **Jay's go for the QuickBooks test records** (fixtures only, GR-070): I create a test customer "ZZTEST Invoice Bot", one test time
+  1. **Jay's go for the QuickBooks test records** (fixtures only, GR-077): I create a test customer "ZZTEST Invoice Bot", one test time
      entry and one test invoice linked to it, prove the hours flip to "billed", then void and delete all three. Nothing of Amber's is
      touched. Needs Jay's word because it writes to her QuickBooks.
   2. **Fresh inspector round** on the live path (the same contract, live mode on the fixture).

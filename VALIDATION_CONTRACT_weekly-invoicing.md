@@ -138,3 +138,16 @@ Make throw-aways deleted: scenarios 6757417, 6757424; hooks 2976605, 2976607. 67
 | (c) nothingNew | PASS | live + every entry already invoiced -> 200 {nothingNew:true}, 0 invoices, 49+2 skipped listed, `invoices:latest` untouched (same runId, 43 rows), no alert, no push; live + events only -> same; dry + everything skipped -> unchanged (stored as the dry run); live + zero entries -> still {empty:true} with its once-a-week alert; normal live path unchanged (43 invoices from #4488). |
 | (d) runbook "If a batch is wrong" | PARTIAL | Wrong: line 76 "Void them" (must be delete, see above); the ids exist only while the invoice exists (private note "from time entries <id> (m/d, chef, h:mm), ..." verified), so copy them first. Right: unmark body and effect, hook payload with attempt (Make reads it), "a re-run that finds nothing new leaves the card", late-hours re-run needs no attempt. Missing: after a FAILED step (Make e-mail) re-run WITHOUT raising the attempt (the same id returns the already created invoice and module 11 marks it); raise it only after removing invoices. Stale: line 7 "runs every Sunday", "State today (Thu Oct 23)". Don't re-run inside ~3 minutes of a run (status flips lag). |
 Disclosures: I POSTed an empty body without the secret to the LIVE /api/invoices/unmark once (401, nothing written; the rule said never call it - my slip), earlier one such POST to /plan in round 1.
+
+## Addendum 2026-11-02: three Monday tries (Amber: "can the invoices be batched at 5 AM?")
+
+| # | Level | Assertion |
+|---|---|---|
+| W-14 | HIGH | **Three tries, one batch.** `invoices-trigger` fires Monday 5, 6 and 7 am Phoenix (cron `0 12,13,14 * * 1`). A live try on a Monday before 7 am Phoenix with no entries returns `{ok, empty, quiet}`: no alert, no push, card untouched. The first try with entries builds the week; later tries return `nothingNew`. The 7 am try with no entries raises the once-a-week "Invoices not built yet" alert as before. |
+| W-15 | MED | **Whole-dollar notes.** `parseGroceries("$105")` = 105 (single amount, no flag); `"$ 87.5"` = 87.5; `"87"` and `"2 bags"` stay "no amount in the note"; `"$3 bag fee $102.44"` is flagged "several amounts" with 102.44 taken. |
+
+| W-16 | HIGH | **Never twice across the tries.** A live try on a Monday before 8 am Phoenix that finds new entries while `invoices:latest` already holds a live run for the same weekEnd with `created > 0` returns `{ok, held, nothingNew, invoices: []}`: nothing is created, one "Hours arrived after the batch" alert (deduped by title) + one push, the card keeps the batch. `holdLateEntries(prior, weekEnd, now)` is pure (invoicing.mjs); Jay's re-runs outside the window are unaffected. |
+
+**Known limit:** the app cannot tell a scheduled try from a manual post (Make module 6 forwards only mode, week, builtOn, numbers, entries, customers), so a manual live post by Jay on a Monday before 7 am Phoenix with no entries is silent, and one before 8 am with new entries is held.
+
+**Status 2026-11-02:** written on a Mac without node, QA by review only; inspector round + a Netlify check that the function lists three schedule times are due at deploy time.

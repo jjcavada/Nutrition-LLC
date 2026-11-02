@@ -11,7 +11,23 @@ export const DEFAULTS = { rate: 90, shoppingFee: 25, cardFeeRate: 0.03, rounding
 
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
-const money = /(\d{1,4}(?:[.,]\d{2}))(?!\d)/g;
+// money: "$105", "$ 87.5", "$122.42" (a dollar sign, then a whole number or one or two decimals) or "105.25" (two decimals, no sign). A bare
+// whole number ("87", "2 bags") is not money. 2026-11-02: a note of just "$105" used to be flagged "no amount" (gap seen on the first live batch).
+const money = /(?:\$\s*(\d{1,4}(?:[.,]\d{1,2})?)|(\d{1,4}[.,]\d{2}))(?!\d|[.,]\d)/g;
+
+// The Monday tries (invoices-trigger.mjs fires 5, 6 and 7 am Phoenix since 2026-11-02). Pure functions that take the time, so they can be
+// proven on a known time (GR-070). Phoenix has no DST.
+const phoenix = (now) => { const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/Phoenix', weekday: 'short', hour: 'numeric', hour12: false }).formatToParts(now).forEach((x) => { p[x.type] = x.value; }); return { day: p.weekday, hour: parseInt(p.hour, 10) % 24 }; };
+// Monday before 7:00 am = the 5 and 6 am tries: a live try then that finds no approved hours returns quietly; the 7 am try raises the alert.
+export function quietTry(now = new Date()) { const t = phoenix(now); return t.day === 'Mon' && t.hour < 7; }
+// Monday before 8:00 am = the tries and their run time (a 7 am try can still be planning at 7:09).
+export function lateTryWindow(now = new Date()) { const t = phoenix(now); return t.day === 'Mon' && t.hour < 8; }
+// A live try inside that window that finds NEW entries after a batch was already built for the same week (hours that landed in a second piece,
+// or a late approval) must not invoice them: the client could get two invoices dated Monday (W-3, never twice). prior = the stored
+// invoices:latest run (created = invoices made in QuickBooks so far), weekEnd = this call's week. Jay's re-runs happen outside the window.
+export function holdLateEntries(prior, weekEnd, now = new Date()) {
+  return !!(prior && prior.mode === 'live' && weekEnd && prior.weekEnd === weekEnd && (prior.created || 0) > 0 && lateTryWindow(now));
+}
 
 // The chef's note -> grocery amount. Returns { amount: number|null, why, flag: string|null }.
 export function parseGroceries(note) {
@@ -27,10 +43,10 @@ export function parseGroceries(note) {
   if (tot) return { amount: r2(toNum(tot[1])), why: 'marked total', flag: null };
   // amounts inside parentheses are details ("$122.42 ($2.49 Safeway ...)")
   const main = d.replace(/\([^)]*\)/g, ' ');
-  const all = [...main.matchAll(money)].map((m) => toNum(m[1]));
+  const all = [...main.matchAll(money)].map((m) => toNum(m[1] || m[2]));
   if (all.length === 1) return { amount: r2(all[0]), why: 'single amount', flag: null };
   if (all.length === 0) {
-    const any = [...d.matchAll(money)].map((m) => toNum(m[1]));
+    const any = [...d.matchAll(money)].map((m) => toNum(m[1] || m[2]));
     if (any.length === 1) return { amount: r2(any[0]), why: 'single amount (in parentheses)', flag: 'amount was in parentheses, check' };
     return { amount: null, why: 'no amount', flag: 'no amount in the note' };
   }

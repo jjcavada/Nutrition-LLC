@@ -40,7 +40,7 @@ for the invoicing piece ("it's a go on my end"). Transcripts: `_transcripts/2026
 
 ## 3. Design (Make.com, Amber's existing QuickBooks connection 7302963; no new logins for Phase 1)
 
-**Scenario "NI Invoices - Weekly build"** (folder 203676), runs Sunday 7 pm Phoenix, plus a "Build now" webhook (for a re-run after
+**Scenario "NI Invoices - Weekly build"** (folder 203676), runs Monday 5, 6 and 7 am Phoenix (since 2026-11-02; was Sunday 7 pm, then Monday 8 am, then 7 am), plus a "Build now" webhook (for a re-run after
 she approves late hours; later a button in NI Today).
 
 1. **Read the week.** QBO query `TimeActivity` with TxnDate Sunday to Saturday. Skip customer "Event Event", entries already
@@ -103,7 +103,7 @@ invoices; QBO "Automatically send imported invoices" must be OFF (checked before
 - `LinkedTxn` to a TimeActivity: Intuit documents it but shows no sample; probed on a test invoice first; fallback = the data store
   keeps the bot from double billing even if QBO does not mark the entry.
 - Note parsing: every low-confidence amount is flagged, never guessed silently; her Oct 19 batch is the regression test.
-- Approval is invisible to the API: the run time (Sunday 7 pm) plus "Build now" covers it; an entry edited after invoicing shows up in
+- Approval is invisible to the API: the run times (Monday 5, 6 and 7 am) plus "Build now" cover it; an entry edited after invoicing shows up in
   the next sheet as "changed after billing".
 - Custom invoice numbers: computed as max + 1, sequential processing, `requestid` idempotency.
 - Sales tax: lines use NON like hers; AST ignores it anyway; events stay manual.

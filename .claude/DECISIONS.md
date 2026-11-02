@@ -4,6 +4,30 @@ Track all major decisions, changes, and rationale.
 
 ---
 
+## 2026-11-02 - Amber's Monday requests: 5 am batch, Outlook email button, card-fee list, whole-dollar grocery notes
+
+### Decision: the invoice batch tries Monday 5, 6 and 7 am Phoenix instead of once at 7 am
+- **What**: `invoices-trigger.mjs` cron `0 12,13,14 * * 1`; `/api/invoices/plan` (api.mjs) returns quietly when a live run on a Monday before 7 am Phoenix has no entries; the 7 am try keeps the once-a-week "Invoices not built yet" alert.
+- **Why**: Amber asked "can the invoices be batched at 5 AM?" (WhatsApp 2026-11-02, 7:18 am Phoenix). Approved hours reach QuickBooks between 5:00 and 6:59 am (every batch since Aug 10), so a single 5 am run would usually build nothing. Three tries give her the batch as soon as the hours are there.
+- **Guard (W-16)**: hours landing in two pieces inside the window (or a late approval) would give a client two invoices that morning, so `holdLateEntries()` (invoicing.mjs, pure, time-windowed to Monday before 8 am Phoenix) makes the plan route hold new entries once a live batch with created invoices exists for the same week: one "Hours arrived after the batch" alert + push, `invoices: []` to Make, nothing created. Jay adds them by hand or re-runs after 8 am.
+- **Make unchanged**: module 6 forwards only mode, week, builtOn, numbers, entries and customers, so the app cannot see `attempt` or `source`; a manual live post on a Monday before 7 am Phoenix with no entries is silent too (documented in the runbook).
+- **Result**: code on branch `amber/nov-2-requests`, NOT deployed yet (a deploy needs `config.secret.json` and the Netlify token, both only on the laptop). Verify on Netlify that the function shows three schedule times after the deploy.
+
+### Decision: the Email button opens Outlook
+- **What**: `index.html` `mailBtn()`: phone = `ms-outlook://compose?to=` with Outlook on the web as the fallback after 1.5 s; Mac/PC = `https://outlook.office.com/mail/deeplink/compose?to=` in a new tab. Service worker `nitoday-v60`.
+- **Why**: Amber (2026-11-02): the Email button on a client who filled the form but has not booked or signed opened her iCloud mail; she wants Outlook (her business mail is Microsoft 365).
+
+### Decision: card-fee list per Amber's sheet (27 names)
+- **What**: `clientBilling.cardFee` = the 21 names already there + Rebekah House, Hillary Walsh, Anthony Sarandrea, Kevin Rowe, Dara Cohen, Mike Johnson; minus Samantha Robson. Full list and the paste-ready array in `INVOICING_SUNDAY_RUNBOOK.md`.
+- **Why**: Amber confirmed on 2026-11-02: Mike yes; Scott no (ACH); Sam was an event, different family; the 8 ACH names correct; anyone not listed gets no fee.
+- **Result**: config change pending on the laptop (the file is not in git).
+
+### Decision: a chef note of just "$105" is an amount, not a flag
+- **What**: `invoicing.mjs` `money` regex accepts a dollar sign followed by a whole number or one or two decimals. A bare number without a dollar sign ("87", "2 bags") is still not money.
+- **Why**: known planner gap since the first live batch (2026-10-25). Likely behind this morning's two flagged invoices (Aaron Carpenter, Emily Wentworth) once their notes are checked.
+
+---
+
 ## 2026-04-18 - AI Assistant v2: Fix IML Regex Error + Add Rule 12 for Email Confirmations
 
 ### Decision: Replaced invalid regex with individual replace() calls for HTML tag stripping

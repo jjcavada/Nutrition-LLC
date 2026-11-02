@@ -1,6 +1,9 @@
-// NI weekly invoicing: Monday 7:00 am Phoenix (14:00 UTC; Phoenix has no DST; Amber asked for 7 am on 2026-10-26, was 8 am) asks Make to build last week's invoices. Moved from Sunday
-// 7 pm on 2026-10-24: approved QuickBooks Time hours reach QBO on Monday 05:00 to 06:59 Phoenix, so a Sunday build found nothing.
-// (Sunday to Saturday). Make reads QuickBooks, calls /api/invoices/plan, and in live mode creates the invoices unsent.
+// NI weekly invoicing: Monday 5:00, 6:00 and 7:00 am Phoenix (12:00, 13:00, 14:00 UTC; Phoenix has no DST) asks Make to build last week's
+// invoices (Sunday to Saturday). Amber asked for 5 am on 2026-11-02 (was 7 am from 2026-10-26, 8 am from 2026-10-24, Sunday 7 pm before).
+// Approved QuickBooks Time hours reach QBO on Monday 05:00 to 06:59 Phoenix, so one try at 5 am would usually find nothing: the function
+// fires three times, the first try that finds approved hours builds the week, the later tries find nothing new and stay quiet, and only
+// the 7 am try raises the "Invoices not built yet" alert (api.mjs /api/invoices/plan: live + no entries + Monday before 7 am = quiet).
+// Make reads QuickBooks, calls /api/invoices/plan, and in live mode creates the invoices unsent.
 // Mode comes from config (invoiceMode: "dry" until Amber's go). PLAN_weekly-invoicing-automation.md.
 import cfg from './config.secret.json' with { type: 'json' };
 const TZ = 'America/Phoenix';
@@ -19,4 +22,4 @@ export default async () => {
   console.log('invoices trigger', body, r.status, text.slice(0, 120));
   return new Response(JSON.stringify({ ok: r.ok, status: r.status, week: wk, mode: body.mode }), { headers: { 'Content-Type': 'application/json' } });
 };
-export const config = { schedule: '0 14 * * 1' };
+export const config = { schedule: '0 12,13,14 * * 1' }; // Monday 5, 6 and 7 am Phoenix

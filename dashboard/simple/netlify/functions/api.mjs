@@ -19,7 +19,7 @@ import webpush from 'web-push';
 import { getStore } from '@netlify/blobs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import cfg from './config.secret.json' with { type: 'json' }; // git-ignored, bundled server-side only
-import { planInvoices } from './invoicing.mjs';
+import { planInvoices, quietTry, holdLateEntries } from './invoicing.mjs';
 
 const GHL = 'https://services.leadconnectorhq.com';
 const H = { Authorization: 'Bearer ' + cfg.ghlPit, Version: '2021-07-28', Accept: 'application/json' };
@@ -916,7 +916,11 @@ export default async (req, context) => {
       if (!entries) { await lastCall({ error: 'entries not a list', entriesType: typeof b.entries }); return json({ ok: false, error: 'entries must be a list' }, 400); }
       await lastCall({ mode: b.mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: entries.length, customers: customers.length, recent: Array.isArray(b.recentDocNumbers) ? b.recentDocNumbers.length : 'none' });
       const mode = b.mode === 'live' ? 'live' : 'dry'; const cb = cfg.clientBilling || {};
+      // Amber asked for the batch at 5 am (2026-11-02). invoices-trigger fires Monday 5, 6 and 7 am Phoenix; approved hours reach QuickBooks
+      // between 5:00 and 6:59, so a live try before 7 am (quietTry in invoicing.mjs; Jay's manual re-run at that hour included) that finds no
+      // hours returns quietly, with only the lastcall trace, and the 7 am try raises the once-a-week alert.
       if (mode === 'live' && !entries.length) { // no approved hours in QuickBooks yet: keep the card as it is, tell Amber once per week
+        if (quietTry()) { await lastCall({ mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: 0, quiet: true }); return json({ ok: true, mode, empty: true, quiet: true, summary: { invoices: 0, flagged: 0, skipped: 0, total: 0, entries: 0 }, invoices: [], skipped: [] }); } // 5 and 6 am tries: no alert, no push
         const wk = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '?');
         const title = ('Invoices not built yet (week ending ' + wk(b.weekEnd) + ')').slice(0, 80);
         const list = await readList('alerts');
@@ -944,6 +948,21 @@ export default async (req, context) => {
         rounding: cb.rounding || 'half', rate: cb.defaultRate || 90, shoppingFee: cb.shoppingFee || 25, cardFeeRate: cb.cardFeeRate || 0.03, excludeCustomers: cb.events || ['Event Event'],
         alreadyBilled: Object.keys(billed), builtOn: b.builtOn || longDate(new Date()) });
       if (mode === 'live' && !plan.invoices.length) return json({ ok: true, mode, nothingNew: true, summary: plan.summary, invoices: [], skipped: plan.skipped }); // a re-run with nothing new keeps the card
+      // W-16 (2026-11-02): during the Monday tries, new entries that arrive AFTER this week's batch was already built are held, not invoiced
+      // (a client would get two invoices dated Monday). One alert + push, nothing created, the card keeps the batch. Jay adds them by hand or
+      // re-runs after 8 am Phoenix (runbook "If a batch is wrong"). Make gets invoices: [] and stays quiet (module 13 filter).
+      const latestRun = async () => { try { const s = strongStore('ni-cache') || store('ni-cache'); return s ? await s.get('invoices:latest', { type: 'json' }) : null; } catch (e) { return null; } };
+      if (mode === 'live' && holdLateEntries(await latestRun(), b.weekEnd)) {
+        const names = [...new Set(plan.invoices.map((i) => i.customer))].sort();
+        const title = ('Hours arrived after the batch (week ending ' + String(b.weekEnd) + ')').slice(0, 80);
+        const list = await readList('alerts');
+        if (!list.some((a) => a.title === title)) {
+          list.unshift({ id: 'a' + Date.now(), when: new Date().toISOString(), title, body: ('More approved hours reached QuickBooks after this week\'s invoices were built: ' + names.join(', ') + '. They were not invoiced, so nobody gets two invoices. Ask Jay to add them.').slice(0, 300), url: '/' });
+          await writeList('alerts', list.slice(0, 30)); await pushAll({ title: 'Hours arrived after the batch', body: names.length + ' client(s) have new hours that were not invoiced. Ask Jay to add them.', url: '/' }).catch(() => null);
+        }
+        await lastCall({ mode, weekStart: b.weekStart, weekEnd: b.weekEnd, entries: entries.length, held: plan.invoices.length, heldFor: names.slice(0, 20) });
+        return json({ ok: true, mode, held: true, nothingNew: true, summary: Object.assign({}, plan.summary, { invoices: 0, held: plan.invoices.length }), invoices: [], skipped: plan.skipped });
+      }
       const runId = (mode + '-' + (b.weekEnd || 'week') + '-' + Date.now().toString(36)).replace(/[^A-Za-z0-9-]/g, '');
       const slim = { runId, at: new Date().toISOString(), mode, weekStart: b.weekStart || '', weekEnd: b.weekEnd || '', summary: plan.summary,
         rows: plan.invoices.map((i) => ({ customer: i.customer, customerId: i.customerId, memo: i.memo, visits: i.visitDays.length, hoursExact: i.hoursExact, hoursBilled: i.hoursBilled, groceries: i.groceries, groceriesUnknown: i.groceriesUnknown, cardFee: i.cardFee, total: i.total, flags: i.flags, docNumber: i.docNumber, invoiceId: '' })),

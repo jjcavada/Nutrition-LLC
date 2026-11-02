@@ -1149,7 +1149,7 @@ All automation steps running (QB customer, menu, consultation invite).
 ## NI Invoices - Weekly build — scenario **6700872**, hook 2957765 — LIVE in DRY mode 2026-10-20
 Turns the week's QuickBooks Time entries (synced into QBO as TimeActivity) into Amber's invoices. Built from `build_make.py` (session
 scratch; blueprint copy `invoices_blueprint.live.json`). Flow: 1 webhook {mode, weekStart, weekEnd} (the app's `invoices-trigger.mjs`
-posts Sunday 7 pm Phoenix; Jay can post by hand) -> 2 week/mode vars -> 3 QBO TimeActivity query -> 4 QBO active customers -> 5 latest
+posts Monday 5, 6 and 7 am Phoenix since 2026-11-02, was 7 am, 8 am, Sunday 7 pm before; Jay can post by hand) -> 2 week/mode vars -> 3 QBO TimeActivity query -> 4 QBO active customers -> 5 latest
 30 invoice numbers -> 14/15/16 json:TransformToJSON (Make's toString is NOT JSON for arrays) -> 6 POST ni-today /api/invoices/plan
 (secret = notify secret) -> router: dry -> 8 no-op; live -> 9 iterate invoices -> 17/18 JSON -> 10 QBO POST /invoice (requestid
 ni-<weekEnd>-<customerId>-<docNumber>, unsent, online payments off) -> 11 POST /api/invoices/mark -> 12 array aggregator -> 13 app push

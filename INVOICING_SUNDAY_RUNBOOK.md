@@ -1,4 +1,4 @@
-# Weekly invoicing: what happens every week (runbook, 2026-10-23, build moved to Monday 8 am on 2026-10-24)
+# Weekly invoicing: what happens every week (runbook, 2026-10-23; build moved to Monday 8 am on 2026-10-24, 7 am on 2026-10-26, three tries at 5, 6 and 7 am on 2026-11-02)
 
 Plain-language sequence for Jay (and for explaining to Amber). Technical detail: `PLAN_weekly-invoicing-automation.md`,
 `VALIDATION_CONTRACT_weekly-invoicing.md`, `.claude/make/SCENARIOS.md` (6700872).
@@ -6,9 +6,20 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 ## State (updated Sat Oct 24)
 - **LIVE since Sat 2026-10-24 (invoiceMode "live", deploy 6adc308a).** First real batch: **Monday 2026-10-26 8:00 am Phoenix**, bills
   Oct 18 to 24, invoices dated Mon Oct 26 starting at number 4488, all unsent. Before that it ran in dry mode (list in the app, nothing in
-  QuickBooks). Verified live: Netlify scheduled function `invoices-trigger` (cron `0 14 * * 1` = Monday 7:00 am Phoenix since 2026-10-26 at Amber's request; was 8 am, before that Sunday 7 pm), Make
+  QuickBooks). Verified live: Netlify scheduled function `invoices-trigger` (cron `0 12,13,14 * * 1` = Monday 5:00, 6:00 and 7:00 am Phoenix since 2026-11-02 at Amber's request, see "Why three tries" below; was 7 am from 2026-10-26, 8 am from 2026-10-24, Sunday 7 pm before that), Make
   scenario 6700872 "NI Invoices - Weekly build" active on its webhook.
 - **Why Monday 8 am (2026-10-24):** approved QuickBooks Time hours reach QBO only on Monday between 05:00 and 06:59 Phoenix (all 10 batches since Aug 10). A Sunday build found nothing.
+- **Why three tries (2026-11-02):** Amber asked "can the invoices be batched at 5 AM?". The hours land between 5:00 and 6:59, so a single
+  5 am run would usually find nothing. The trigger now fires at 5, 6 and 7 am: the first try that finds approved hours builds the week; the
+  later tries find nothing new and stay quiet; a try before 7 am that finds no hours is silent (no alert, no push), and only the 7 am try
+  raises the once-a-week "Invoices not built yet" alert. **Guard (W-16):** if approved hours ever land in two pieces inside that window
+  (never seen in the 11 batches so far), or Amber approves a late timesheet that morning, a try that finds new entries after the week's
+  batch was already built does NOT invoice them (a client would get two invoices dated Monday). It drops one "Hours arrived after the
+  batch" alert with the client names and pushes Amber; Jay adds those hours to the existing invoice by hand, or deletes that invoice and
+  re-runs after 8 am Phoenix (the guard only runs Monday before 8 am, so Jay's own re-runs are never held). Note: the app cannot tell a
+  scheduled try from a manual post (Make forwards only mode, week, builtOn, numbers, entries, customers), so a manual live post by Jay on a
+  Monday before 7 am Phoenix with no entries is also silent. Cost (GR-060): 3 Netlify runs and up to 3 Make executions a week instead of
+  1; the extra tries read QuickBooks only (about 10 ops each), the build itself costs the same.
 - To make **Monday Oct 26** (8 am Phoenix, bills Oct 18 to 24; Amber sends the same morning) the first REAL batch, three things must happen first, in this order:
   1. **Jay's go for the QuickBooks test records** (fixtures only, GR-077): I create a test customer "ZZTEST Invoice Bot", one test time
      entry and one test invoice linked to it, prove the hours flip to "billed", then void and delete all three. Nothing of Amber's is
@@ -22,9 +33,9 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 
 ## Through the week (nothing new)
 - Chefs clock in on the Workforce app per client, receipt photo and grocery total in the note. Amber approves the hours in QuickBooks
-  Time. Deadline agreed with Amber: **Sunday 6:00 pm Phoenix** ("Yes Sunday at 6 is great"); the bot reads QuickBooks Monday 8 am, so approving any time before then works.
+  Time. Deadline agreed with Amber: **Sunday 6:00 pm Phoenix** ("Yes Sunday at 6 is great"); the bot first reads QuickBooks Monday 5 am (then 6 and 7 am), so approving any time before then works.
 
-## Monday 8:00 am Phoenix: the build
+## Monday morning, 5, 6 or 7 am Phoenix: the build
 1. Netlify fires `invoices-trigger`. It works out the most recent completed Sunday-to-Saturday week and posts
    `{mode, weekStart, weekEnd}` to the Make webhook.
 2. Make 6700872 reads from QuickBooks, read-only: the week's time entries (the QuickBooks Time hours, with client, chef, minutes and
@@ -48,12 +59,12 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
    retry can never make the same invoice twice.
 7. Make tells the app which time entries are now invoiced (`POST /api/invoices/mark`). A re-run of the same week skips them.
 8. The app notifies Amber: a push to her phone ("N invoices ready"), only when at least one invoice was created.
-   **No approved hours at 8 am** (she approves later): nothing is created, the card is left alone, and the app shows ONE "Invoices not
+   **No approved hours by the 7 am try** (she approves later): nothing is created, the card is left alone, and the app shows ONE "Invoices not
    built yet" alert. Jay re-runs it by posting the Make hook with `{mode, weekStart, weekEnd}` once she has approved.
 9. If a step fails, Make emails Jay and drops a "Needs attention" alert in the app. Invoices already created stay, unsent. After the
    fix, a re-run only creates what is missing.
 
-## Monday morning after 8 am: Amber (about 10 minutes)
+## Monday morning after the batch: Amber (about 10 minutes)
 1. Open NI Today. The Invoices card on the home screen shows the week: how many, the total, and the ones that need a look, each with
    the reason and the day it refers to.
 2. Tap "Open invoices in QuickBooks". Fix the flagged ones (usually a grocery line: type the amount from the receipt).
@@ -68,7 +79,7 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
 - Receipt photos are not read (phase 2, needs a QuickBooks Time API token).
 
 ## Jay's Monday check, first three live weeks
-- Make 6700872: last run green, one execution around 8:00 am Phoenix Monday.
+- Make 6700872: last run green; one execution with invoices at 5, 6 or 7 am Phoenix Monday, the other tries end with nothing new.
 - App card count and total = QuickBooks "Not sent" invoices dated Monday.
 - Spot-check two invoices against the time entries (hours, groceries, fee, card fee).
 - Watch Amber's reply after she sends; any correction she makes by hand is a rule to add.
@@ -85,8 +96,32 @@ Plain-language sequence for Jay (and for explaining to Amber). Technical detail:
   (inspector round 2: with the same id QuickBooks returned the removed invoice and created nothing).
 - **A step failed half way** (Make emailed Jay, nothing deleted): re-run WITHOUT raising the attempt. The same id returns the invoices
   already created and module 11 records them; only the missing ones get made.
-- A re-run that finds nothing new leaves the Invoices card as it was. Hours approved late (no invoices at 8 am): the app shows one
+- A re-run that finds nothing new leaves the Invoices card as it was. Hours approved late (no invoices by the 7 am try): the app shows one
   "Invoices not built yet" alert; re-run with `{"mode": "live"}` once she has approved (no attempt number needed, nothing was created).
+
+## The 3% card-fee list (Amber confirmed on WhatsApp, 2026-11-02)
+The list lives in the app config (`config.secret.json`, `clientBilling.cardFee`, matched by name with spaces and punctuation ignored).
+After Amber's sheet (36 autopay clients: 27 card, 8 ACH) and her answers of 2026-11-02 it is these 27 names. Everyone not listed pays
+their own invoice and gets no fee line ("correct if not listed they get no fee").
+- Already on the list, unchanged (21): Alexandria Starkman, Annie Toon, Brittany Messmer, Brooke Phebus, Danielle Swancy, Harley Hibbert,
+  Jenna Mummaw, Jenny Wright, John Matthews, Jules Koechling, Kelly Klose, Kimberly Neihaus, Lucy Caldwell, Monroe Peters, Nancy Pohl,
+  Natalie Taute, Pele Fischer, Rachel Troyan, Shari Shipley, Tara Mackenzie, Tracy Thomas.
+- Added (card on her sheet, missing from the list; Rebekah, Hillary and Anthony got no fee line in the Oct 26 batch): Rebekah House,
+  Hillary Walsh, Anthony Sarandrea, Kevin Rowe, Dara Cohen.
+- Added: Mike Johnson ("Mike is yes a fee"; her card form for him is still pending).
+- Removed: Samantha Robson ("Sam was an event, different family"; Scott Robson pays ACH, no fee).
+- ACH, never a fee (8, "those are correct for ACH"): Lisa Bienstock, Yolanda Downhanuik, Darin Granger, Mary Butterfield, Erika Martori,
+  Danielle Masserman, Chris Erblich, Jennifer Thinnes.
+- Open: whether to add the fee by hand to the Oct 26 invoices of Rebekah House, Hillary Walsh and Anthony Sarandrea (asked, no answer).
+  The bookkeeper is sending Amber a full client list with payment method (Zelle payers included) this week: reconcile the list again then.
+
+Paste-ready for `config.secret.json` (replaces the whole `cardFee` array; the file is not in git, edit it on the laptop and redeploy):
+```json
+"cardFee": ["Alexandria Starkman", "Annie Toon", "Brittany Messmer", "Brooke Phebus", "Danielle Swancy", "Harley Hibbert", "Jenna Mummaw",
+  "Jenny Wright", "John Matthews", "Jules Koechling", "Kelly Klose", "Kimberly Neihaus", "Lucy Caldwell", "Monroe Peters", "Nancy Pohl",
+  "Natalie Taute", "Pele Fischer", "Rachel Troyan", "Shari Shipley", "Tara Mackenzie", "Tracy Thomas",
+  "Rebekah House", "Hillary Walsh", "Anthony Sarandrea", "Kevin Rowe", "Dara Cohen", "Mike Johnson"]
+```
 
 ## Later (only after a few clean weeks, with Amber's say-so)
 - Auto-send: when every invoice lines up and nothing is flagged, send them for her Monday morning; flagged ones still wait for her.

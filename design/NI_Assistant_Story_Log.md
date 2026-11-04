@@ -1,0 +1,77 @@
+# NI Assistant: story log (problem -> what we built -> proof)
+
+Running log for the video about Amber's AI assistant and the NI Today app: what it can do, and why she would want it.
+One entry per real problem, newest at the bottom. Keep every claim true and measured; mark anything not live yet as
+"in progress". Started 2026-11-04 (Jay: "take note of the problems one by one, we'll make a video of the entire thing").
+
+How to use this for the video: each entry is one beat. "The moment" is the hook (a real thing that went wrong or cost her
+time), "What it does now" is the demo, "Why she'd want it" is the line for the voiceover.
+
+---
+
+## 1. A dragged calendar event cancelled two client calls (2026-11-03)
+- **The moment:** Amber dragged two consultation calls to new times in Google Calendar. Behind the scenes GoHighLevel treated
+  that as a cancellation: both clients (Allison, Debbie) got a "cancelled" email and nothing was booked at the new time.
+- **What it does now:** a **Move call** button in the app. Tap the call, pick the new time; the same booking moves, the client
+  gets a "rescheduled" email and an updated Google invite, nothing is cancelled. LIVE 2026-11-04.
+- **Proof:** built, then checked by a separate inspector on the real system; a cancelled call is refused, an ended call is refused.
+- **Why she'd want it:** one tap instead of a mess she only finds out about when a client asks "did you cancel on me?"
+
+## 2. Chefs cooked things clients don't eat (goat cheese)
+- **The moment:** the chef copy only listed what the client ticked, so "won't eat" never reached the chef.
+- **What it does now:** since Oct 24 the intake asks "Foods your family does not eat" and it shows in bold on the chef copy, the
+  menu and the app. Checked 11-04: all 3 intakes since carry it. In progress: an "Other" box per food section and the chef copy
+  also listing what they did NOT tick.
+- **Why she'd want it:** fewer awkward "my kid won't touch that" texts, fewer wasted groceries.
+
+## 3. Long-time clients were missing from the system
+- **The moment:** her oldest clients (from before GoHighLevel) were not in the app, so the client count was wrong and adding them
+  by hand would have sent them welcome emails and contracts they already signed years ago.
+- **What it does now:** one import tool pulls their original answers from her old Google Form (all 7 she named were found) and
+  brings them in as "long-time client, chef already assigned". No welcome email, no contract, no "new lead" alarms.
+  Built and inspected 11-04; waiting on Amber to name each client's chef.
+- **Why she'd want it:** her whole client list in one place without bothering her best clients.
+
+## 4. Clients want to update their preferences (in design)
+- **The moment:** a client's diet changes; today that means redoing the whole intake.
+- **Plan:** "Already a client?" link: the client gets their own answers prefilled, changes what's new; the chef gets the changes
+  right away and a new menu is made and sent automatically. No new agreement (Amber's answer).
+
+## 5. The assistant's screen kept piling up results
+- **The moment:** every answer added a card under the last one; she had to scroll down every time.
+- **What it does now:** a new answer replaces the old cards (an email draft she's still editing stays). LIVE 2026-11-04.
+
+## 6. The assistant gave wrong business numbers (call of 2026-11-04)
+- **The moment:** asked "how many clients did I sign this month?" it said 26 (it counted paid invoices); asked about chef pay and
+  profit it read money RECEIVED as money paid out and said she was "about $10K in the red".
+- **The truth (checked against QuickBooks, GoHighLevel and the app):** 1 client signed in November so far, 11 in October;
+  October invoiced $133,352.32 (229 invoices, this one it got right); the $143,350 was client payments received; October chef pay
+  was $68,546 in QuickBooks bills plus $5,027 for event chefs. Not in the red.
+- **What it does now (in progress):** a "numbers for a month" lookup that uses the app's own definitions; it knows what each
+  QuickBooks record means (invoice = billed, payment = received, bill = owed to chefs/vendors); it never guesses profit; when she
+  asks "are you sure?" it re-checks and admits if it used the wrong measure; it can read her own website; it hears "chefs"
+  correctly; every call logs its exact cost.
+- **Cost of a call:** a short question (an address) about 2 cents; a long 7.7-minute call about 30 to 45 cents.
+- **Why she'd want it:** an assistant that is honest about what it knows beats one that sounds sure and is wrong. This is the
+  "we test it like an employee" beat.
+
+## 7. Make almost ran out of credits (2026-11-04)
+- **The moment:** Make warned 75% of the monthly credits were used with a week to go; if they run out every automation stops,
+  including Monday's invoices.
+- **What we found:** her old Telegram bot checked for messages every 15 minutes, all day, and used about a third of the plan
+  even when nobody wrote to it.
+- **What we did:** paused it (Jay's go); about 96 credits a day saved, enough room to the reset.
+- **Why she'd want it:** someone watching the meters so the business never silently stops.
+
+## 8. Change the website by talking (in progress, 2026-11-04)
+- **The idea:** "Add Chef Maria to the team page" or "change the line on the services page", said out loud.
+- **How it will work:** the assistant makes the edit on a private copy, shows before/after and a preview link on her screen; it
+  only goes live when she taps **Approve**, and every change can be undone. Only page text can change, never the code.
+- **Why she'd want it:** no waiting on a developer for a one-line fix, and no risk of a misheard word going live.
+
+---
+
+## What the assistant can do today (for the capabilities montage)
+Talk or type on her phone; today's overview; find any client (stage, chef, address with a Directions button); who's waiting for
+a chef; upcoming events; chef roster; last invoice run; QuickBooks lookups; draft emails on screen (send needs her tap); web
+search with sources; schedules and reminders; remembers her preferences between calls; drafts automation requests.

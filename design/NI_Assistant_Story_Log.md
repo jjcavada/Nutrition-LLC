@@ -70,6 +70,21 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   only goes live when she taps **Approve**, and every change can be undone. Only page text can change, never the code.
 - **Why she'd want it:** no waiting on a developer for a one-line fix, and no risk of a misheard word going live.
 
+## 9. "Email JJ" became "j j kovada, no email on file" (2026-11-04)
+- **The moment:** Jay said "send an email to jjcavada1@gmail.com"; speech-to-text heard "j j kovada", so the draft had no address.
+- **Plan (in progress):** the assistant looks the person up in her own system first (clients, chefs, her team, people she has
+  emailed) and picks the closest match, showing "Did you mean JJ Cavada?" on screen before anything is sent. The draft itself
+  will look exactly like Gmail on her phone.
+- **Why she'd want it:** she says a name the way she says it out loud, and the right person gets the email.
+
+## 10. "Can this be an automation?" should not mean "wait for Jay" (2026-11-04, design)
+- **The moment:** asked to automate something, the assistant could only file a request for Jay to build.
+- **Plan:** an automation brain that knows every automation she has (what it does, is it working, what it costs in credits),
+  plus the assistant building new ones from safe templates: built switched off, tested on a test client, explained in plain
+  words with its monthly cost, and only switched on when she taps Approve. Scheduled actions too: "email JJ tomorrow at 4 PM"
+  sends the draft she approved at that time and tells her it went.
+- **Why she'd want it:** she can grow her own systems without a developer, and nothing runs that she didn't approve.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

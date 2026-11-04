@@ -68,13 +68,16 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
 - **The idea:** "Add Chef Maria to the team page" or "change the line on the services page", said out loud.
 - **How it will work:** the assistant makes the edit on a private copy, shows before/after and a preview link on her screen; it
   only goes live when she taps **Approve**, and every change can be undone. Only page text can change, never the code.
+- **Status 2026-11-04:** full preview, Approve, Live and Undo proven through the app on a test website by an independent
+  checker; Undo asks before it publishes. Her real site unlocks once the saved copy on GitHub matches the live site.
 - **Why she'd want it:** no waiting on a developer for a one-line fix, and no risk of a misheard word going live.
 
 ## 9. "Email JJ" became "j j kovada, no email on file" (2026-11-04)
 - **The moment:** Jay said "send an email to jjcavada1@gmail.com"; speech-to-text heard "j j kovada", so the draft had no address.
 - **Plan (in progress):** the assistant looks the person up in her own system first (clients, chefs, her team, people she has
   emailed) and picks the closest match, showing "Did you mean JJ Cavada?" on screen before anything is sent. The draft itself
-  will look exactly like Gmail on her phone.
+  will look exactly like Gmail on her phone (the Gmail-style draft card went LIVE 2026-11-04: compose rows, recipient chip, blue
+  Send, "Message sent" bar; the recipient lookup is still in progress).
 - **Why she'd want it:** she says a name the way she says it out loud, and the right person gets the email.
 
 ## 10. "Can this be an automation?" should not mean "wait for Jay" (2026-11-04, design)

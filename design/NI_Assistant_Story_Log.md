@@ -29,7 +29,8 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   by hand would have sent them welcome emails and contracts they already signed years ago.
 - **What it does now:** one import tool pulls their original answers from her old Google Form (all 7 she named were found) and
   brings them in as "long-time client, chef already assigned". No welcome email, no contract, no "new lead" alarms.
-  Built and inspected 11-04; waiting on Amber to name each client's chef.
+  LIVE 2026-11-04: Amber named the chefs on WhatsApp at 9:41 AM; all 7 were in the app with their chefs within the hour
+  (client count 67 -> 74), nothing sent to any client, no automation fired, every other client unchanged.
 - **Why she'd want it:** her whole client list in one place without bothering her best clients.
 
 ## 4. Clients want to update their preferences (in design)

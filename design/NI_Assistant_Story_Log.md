@@ -88,6 +88,18 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   sends the draft she approved at that time and tells her it went.
 - **Why she'd want it:** she can grow her own systems without a developer, and nothing runs that she didn't approve.
 
+## 11. Event requests that never followed up cluttered the Events list (2026-11-06)
+- **The moment:** Amber: "Did you ever find an option to archive a client under the event section in case they put in a request
+  but never follow up?" The archive existed only inside the assistant, which she does not have yet.
+- **What it does now:** an **Archive request** button at the bottom of every event request. She picks why (went quiet, not going
+  ahead, booked someone else, price, date passed), it leaves the Events list, and a note lands on the contact in GoHighLevel.
+  Nothing is sent to the client, nothing is deleted; **Archived requests** under the list has Bring back, and Undo shows for
+  8 seconds. LIVE 2026-11-06 (sw v75).
+- **Proof:** a separate inspector passed all 7 checks: real archive and restore on the test contact (tag + note in GoHighLevel,
+  nothing else changed), every tap on a real request intercepted so no client was touched, phone and desktop, light and dark.
+  Its 3 small findings were fixed and re-tested (34 of 34) before it went live.
+- **Why she'd want it:** ask once, get a button the same day. Her list shows only the events still in play.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

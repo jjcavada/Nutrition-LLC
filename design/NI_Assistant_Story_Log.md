@@ -100,6 +100,17 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   Its 3 small findings were fixed and re-tested (34 of 34) before it went live.
 - **Why she'd want it:** ask once, get a button the same day. Her list shows only the events still in play.
 
+## 12. Card fees were not covering what the card processor charges (2026-11-06)
+- **The moment:** Aug to Oct she paid $5,084 in card processing fees and billed $3,991 in card fees, about $365 a month short.
+  Amber: "can the bot be charging 3.3% on the credit card fee moving forward in QB!"
+- **What it does now:** the weekly invoice bot adds 3.3% instead of 3% for clients on her card list, from the Monday 2026-11-09
+  invoices. Same "Credit Card Fee" line in QuickBooks, rounded to the cent exactly the way QuickBooks rounds. LIVE 2026-11-06.
+- **Proof:** a separate inspector checked thousands of sample weeks and the deployed app: on a $963.60 week the fee is $31.80 (3%
+  would be $28.91); clients not on the card list get no fee; hours, groceries and invoice numbers unchanged. The test stored
+  nothing, so her Invoices card still shows the real Monday run.
+- **Why she'd want it:** one WhatsApp message changed every invoice from Monday on, with nothing for her to retype. The rest of the
+  gap closes when her card list is complete.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

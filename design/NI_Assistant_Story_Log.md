@@ -111,6 +111,18 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
 - **Why she'd want it:** one WhatsApp message changed every invoice from Monday on, with nothing for her to retype. The rest of the
   gap closes when her card list is complete.
 
+## 13. Chefs had no way to see their own clients (2026-11-09, preview)
+- **The moment:** every chef learns about a client from one assignment email, then texts Amber for the address, the allergies or
+  the menu. Jay: a login for the chefs that shows only their clients, with the address one tap from directions.
+- **What it does now (preview, test chef only):** a chef app on the NI Today site. A chef signs in with their email and a 6-digit
+  PIN and sees only the clients assigned to them in GoHighLevel: tap the address for Apple or Google Maps, tap to call or text,
+  allergies and the bold Dislikes line, the chef briefing and menu, and a Guide tab with 59 tips taken from Amber's own documents
+  (grocery note format the invoice bot reads, clock in per visit, allergy rules, who to call).
+- **Proof:** two separate inspectors tried to break it: 48 bad sign-in attempts (forged, expired, Amber's own key, other clients'
+  ids) all got nothing; no prices, links or other chefs ever reach a chef; Amber's app returned the same 75 clients before and after.
+  One near miss caught: the draft carried a staged 3% card fee while live charges 3.3%; fixed before anything was published.
+- **Why she'd want it:** fewer "what's the address again" texts, and allergies in front of the chef at the moment it matters.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

@@ -135,6 +135,7 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   and fixed: a chef kept seeing a client for a few hours after Amber moved that client to another chef. Now both lists check GoHighLevel live.
   Money output stayed identical to live (card fee 3.3%) the whole way.
 - **Why she'd want it:** one place where everyone's cooking days live, without texting chefs to ask.
+- **LIVE on 2026-11-09** for a pilot: Amber first (her 3 clients), then 2 chefs she picks. Link: ni-today.netlify.app/chef/
 
 ---
 

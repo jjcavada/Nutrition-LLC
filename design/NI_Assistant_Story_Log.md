@@ -137,6 +137,16 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
 - **Why she'd want it:** one place where everyone's cooking days live, without texting chefs to ask.
 - **LIVE on 2026-11-09** for a pilot: Amber first (her 3 clients), then 2 chefs she picks. Link: ni-today.netlify.app/chef/
 
+## 15. Every chef can get in, and times and notes fit how the kitchen really works (2026-11-10)
+- **The moment:** Jay tested the chef app as a chef and found the X on a client card did not close it, and that chefs rarely know the exact time
+  when they first set a client's day. Amber asked for a document so she would not have to walk every chef through the app.
+- **What it does now:** the X closes again (a stray comment had swallowed the code; caught on Jay's phone, now every button gets a real tap test).
+  A chef picks a day and then "Not set yet", Morning, Midday, Afternoon or an exact time; Amber can set days from her own app; chef and Amber leave
+  each other a note per client (gate code, parking). All 18 chefs on Amber's roster have a login and set their own PIN with an email code.
+  A 6-page quick-start guide, a team email and a short how-to video are ready for Amber to send.
+- **Proof:** a fresh inspector re-ran everything (14 checks, none failed) including its own tap-through of every button in both apps; invoices
+  identical to live throughout.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

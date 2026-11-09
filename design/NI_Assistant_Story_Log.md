@@ -123,6 +123,19 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
   One near miss caught: the draft carried a staged 3% card fee while live charges 3.3%; fixed before anything was published.
 - **Why she'd want it:** fewer "what's the address again" texts, and allergies in front of the chef at the moment it matters.
 
+## 14. Chefs set their own cooking days, and Amber sees them (2026-11-09, preview)
+- **The moment:** Jay wanted the chef app to be the real thing: each chef picks the day they cook for each client, and when they change it,
+  Amber's own app and GoHighLevel update, so a voice assistant can later answer "who cooks where on Tuesday" or "which chefs are free".
+- **What it does now (preview, test chef only):** a My schedule tab with the next 14 days. The chef sets each client's regular day and time,
+  can skip or move one week (with Undo), and marks their open days for new clients. Every change adds a note on the client in GoHighLevel,
+  shows on Amber's month calendar in its own color (never blocking her booking calls) and pushes Amber. Chefs set their own PIN with a code
+  emailed from Amber's Gmail, so Amber never hands out PINs.
+- **Proof:** three fresh inspectors across three rounds. 22 schedule checks passed with none failing, including Phoenix time across month
+  and year boundaries, no visit moved into the past, and Amber's free call times identical before and after. One go-live blocker was caught
+  and fixed: a chef kept seeing a client for a few hours after Amber moved that client to another chef. Now both lists check GoHighLevel live.
+  Money output stayed identical to live (card fee 3.3%) the whole way.
+- **Why she'd want it:** one place where everyone's cooking days live, without texting chefs to ask.
+
 ---
 
 ## What the assistant can do today (for the capabilities montage)

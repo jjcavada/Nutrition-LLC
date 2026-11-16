@@ -149,6 +149,19 @@ time), "What it does now" is the demo, "Why she'd want it" is the line for the v
 
 ---
 
+## 16. Summaries and menus quietly stopped, and the assistant said the menu was missing (2026-11-16)
+- **Problem:** Amber tapped "Build the summary now" for Katie Haenel four times and it kept failing. Katie also never got her menu or her
+  consultation invite after signing on Nov 14. On a call the assistant told us her menu was not built.
+- **Cause:** Make changed its AI module around Nov 13. Every AI step built before then failed a hidden check at run time, but the runs
+  still showed "success" because the steps were set to fail softly. Separately, the assistant had no way to see menus at all, so it guessed.
+- **Fix:** added Make's two new settings to the AI steps in the summary and menu scenarios (a sweep of all 19 scenarios found no other
+  live one). Rebuilt Katie's summary and menu; her consultation invite went out. Gave the assistant a menu lookup that reads the same
+  menu Amber sees on the client card, and a rule never to say a menu is missing unless the lookup says so.
+- **Proof:** Katie's summary landed in 10 s and her 9,500-character menu in 20 s, with Phase 4 sending her invite (tag consultation_invited).
+  The menu lookup found Katie (even as "katy haynel") and Brittney, and correctly reported no menu for an unsigned client.
+
+---
+
 ## What the assistant can do today (for the capabilities montage)
 Talk or type on her phone; today's overview; find any client (stage, chef, address with a Directions button); who's waiting for
 a chef; upcoming events; chef roster; last invoice run; QuickBooks lookups; draft emails on screen (send needs her tap); web
